@@ -1,0 +1,269 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ──────────────────────────────────────────
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function signedInUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated()
+        && (request.auth.token.role == 'admin'
+          || request.auth.token.role == 'super_admin'
+          || signedInUserRole() == 'admin'
+          || signedInUserRole() == 'super_admin');
+    }
+
+    function isCommunityAdmin() {
+      return isAuthenticated()
+        && (request.auth.token.role == 'community_admin'
+          || signedInUserRole() == 'community_admin');
+    }
+
+    function isJudge() {
+      return isAuthenticated()
+        && (request.auth.token.role == 'judge'
+          || signedInUserRole() == 'judge');
+    }
+
+    function isPlayer() {
+      return isAuthenticated()
+        && (request.auth.token.role == 'player'
+          || request.auth.token.role == 'community_admin'
+          || request.auth.token.role == 'judge'
+          || request.auth.token.role == 'admin'
+          || request.auth.token.role == 'super_admin'
+          || signedInUserRole() in [
+            'player',
+            'community_admin',
+            'judge',
+            'admin',
+            'super_admin'
+          ]);
+    }
+
+    function isSelf(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    function canCommunityManageJudgeRole(uid) {
+      return isCommunityAdmin()
+        && request.auth.uid != uid
+        && resource.data.role in ['player', 'judge']
+        && request.resource.data.role in ['player', 'judge']
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            'role',
+            'judgeAssignedBy',
+            'judgeAssignedAt',
+            'judgeRevokedBy',
+            'judgeRevokedAt',
+            'updatedAt'
+          ]);
+    }
+
+    function canJudgeAdvanceTournament() {
+      return isJudge()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            'status',
+            'currentRoundId',
+            'winnerId',
+            'winnerName',
+            'finalScore',
+            'completedAt',
+            'updatedAt'
+          ]);
+    }
+
+    // ── /users/{uid} ──────────────────────────────────────────────
+    match /users/{uid} {
+      allow read: if isSelf(uid)
+        || isAdmin()
+        || isJudge()
+        || (isCommunityAdmin() && resource.data.role in ['player', 'judge']);
+      allow create: if isSelf(uid)
+        && request.resource.data.role == 'player';
+      allow update: if isAdmin()
+        || canCommunityManageJudgeRole(uid)
+        || (isSelf(uid)
+          && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['role', 'communityIds', 'isQrActivated']));
+      // role, communityIds, and isQrActivated should be changed by Cloud Functions/admin only.
+
+      // Personal deck builder data owned by the user.
+      match /decks/{deckId} {
+        allow read: if isSelf(uid) || isAdmin() || isJudge();
+        allow create: if isSelf(uid)
+          && request.resource.data.ownerId == uid;
+        allow update: if isSelf(uid)
+          && resource.data.ownerId == uid
+          && request.resource.data.ownerId == uid;
+        allow delete: if isSelf(uid) || isAdmin();
+      }
+    }
+
+    // â”€â”€ /communityApplications/{id} â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    match /communityApplications/{applicationId} {
+      allow read: if isAdmin()
+        || (isAuthenticated() && resource.data.requesterId == request.auth.uid)
+        || (isAuthenticated() && resource.data.leaderUserId == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.requesterId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow update, delete: if isAdmin();
+    }
+
+    // â”€â”€ /communities/{id} â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    match /communities/{communityId} {
+      allow read: if isAuthenticated();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (isCommunityAdmin()
+          && request.auth.uid in resource.data.adminIds);
+    }
+
+    // ── /tournaments/{id} ────────────────────────────────────────
+    match /tournaments/{tournamentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() || isCommunityAdmin();
+      allow update: if isAdmin() || isCommunityAdmin() || canJudgeAdvanceTournament();
+      allow delete: if isAdmin();
+
+      // Registrations — player creates own, admin can read/update all
+      match /registrations/{regId} {
+        allow read: if isAuthenticated();
+        allow create: if isPlayer() && request.resource.data.playerId == request.auth.uid;
+        allow update: if isAdmin()
+          || (isJudge()
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'checkInStatus',
+                'deckVerificationStatus',
+                'judgeChecks',
+                'lastJudgeActionAt',
+                'updatedAt'
+              ]));
+        allow delete: if isAdmin();
+      }
+
+      // Payments — only Cloud Functions write via Admin SDK; player/admin can read
+      match /payments/{payId} {
+        allow read: if isAdmin() || (isPlayer() && resource.data.playerId == request.auth.uid);
+        allow write: if false; // Cloud Functions only
+      }
+
+      // Rounds — admin creates, all authenticated can read
+      match /rounds/{roundId} {
+        allow read: if isAuthenticated();
+        allow create, update: if isAdmin() || isCommunityAdmin() || isJudge();
+
+        // Matches — admin creates, judge updates (their assigned match), all read
+        match /matches/{matchId} {
+          allow read: if isAuthenticated();
+          allow create: if isAdmin()
+            || isCommunityAdmin()
+            || (isJudge() && request.resource.data.judgeId == request.auth.uid);
+          allow update: if isAdmin()
+            || isCommunityAdmin()
+            || (isJudge() && resource.data.judgeId == request.auth.uid);
+
+          // Battles — only the assigned judge can create; all can read
+          match /battles/{battleId} {
+            allow read: if isAuthenticated();
+            allow create: if isJudge() && get(/databases/$(database)/documents/tournaments/$(tournamentId)/rounds/$(roundId)/matches/$(matchId)).data.judgeId == request.auth.uid;
+            allow update, delete: if false;
+          }
+        }
+      }
+
+      // Brackets — admin writes, all read
+      match /brackets/{bracketId} {
+        allow read: if isAuthenticated();
+        allow write: if isAdmin();
+      }
+    }
+
+    // ── /stadiums/{id} ───────────────────────────────────────────
+    match /stadiums/{stadiumId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ── /decks/{id} ──────────────────────────────────────────────
+    match /decks/{deckId} {
+      allow read: if isAuthenticated() &&
+        (resource.data.playerId == request.auth.uid || isAdmin() || isJudge());
+      allow create: if isPlayer() && request.resource.data.playerId == request.auth.uid;
+      allow update: if (isPlayer() && resource.data.playerId == request.auth.uid)
+        || isAdmin()
+        || isJudge(); // Judge can mark verified/illegal
+      allow delete: if isAdmin();
+    }
+
+    // ── /components/{id} ─────────────────────────────────────────
+    match /components/{componentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /componentStats/{componentId} {
+      allow read: if true;
+      allow create, update: if isAdmin() || isCommunityAdmin() || isJudge();
+      allow delete: if isAdmin();
+    }
+
+    // ── /elo_history/{id} ────────────────────────────────────────
+    match /elo_history/{histId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Cloud Functions only
+    }
+
+    // ── /notifications/{id} ─────────────────────────────────────
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated() && resource.data.recipientId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.recipientId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+      allow create: if false; // Cloud Functions only
+      allow delete: if false;
+    }
+
+    // ── /analytics/{id} ─────────────────────────────────────────
+    match /analytics/{analyticsId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Cloud Functions only
+    }
+
+    // ── /personal_decks/{userId}/decks/{deckId} ──────────────────
+    // Personal deck builder — each user owns their own sub-collection
+    match /personal_decks/{userId} {
+      allow read, write: if isSelf(userId);
+
+      match /decks/{deckId} {
+        allow read:   if isSelf(userId) || isAdmin() || isJudge();
+        allow create: if isSelf(userId);
+        allow update: if isSelf(userId);
+        allow delete: if isSelf(userId) || isAdmin();
+      }
+    }
+
+    // ── Collection group rules (needed for collectionGroup() queries) ─────────
+    // These mirror the nested rules above but apply when querying across all paths.
+    match /{path=**}/matches/{matchId} {
+      allow read: if isAuthenticated();
+    }
+    match /{path=**}/payments/{payId} {
+      allow read: if isAdmin() || (isPlayer() && resource.data.playerId == request.auth.uid);
+    }
+    match /{path=**}/registrations/{regId} {
+      allow read: if isAuthenticated();
+    }
+  }
+}
