@@ -11,6 +11,7 @@ class FirestorePaths {
   static const communityApplications = 'communityApplications';
   static const components = 'components';
   static const componentStats = 'componentStats';
+  static const weeklyComponentReleases = 'weeklyComponentReleases';
   static const withdrawals = 'withdrawals';
 
   static String userDoc(String uid) => '$users/$uid';
@@ -52,4 +53,6 @@ class FirestorePaths {
   static String componentStatDoc(String componentId) =>
       '$componentStats/$componentId';
   static String componentDoc(String componentId) => '$components/$componentId';
+  static String weeklyComponentReleaseDoc(String releaseId) =>
+      '$weeklyComponentReleases/$releaseId';
 }

@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,26 +11,80 @@ import '../../data/repositories/auth_repository.dart';
 
 final superAdminMetricsProvider = StreamProvider<SuperAdminMetrics>((ref) {
   final firestore = ref.watch(firestoreProvider);
-  return firestore.collection(FirestorePaths.users).limit(1000).snapshots().asyncMap(
+  return firestore
+      .collection(FirestorePaths.users)
+      .limit(1000)
+      .snapshots()
+      .asyncMap(
     (users) async {
-      final tournaments =
-          await firestore.collection(FirestorePaths.tournaments).limit(500).get();
-      final communities =
-          await firestore.collection(FirestorePaths.communities).limit(500).get();
-      final components =
-          await firestore.collection(FirestorePaths.componentStats).limit(500).get();
+      final tournaments = await firestore
+          .collection(FirestorePaths.tournaments)
+          .limit(500)
+          .get();
+      final communities = await firestore
+          .collection(FirestorePaths.communities)
+          .limit(500)
+          .get();
+      final components = await firestore
+          .collection(FirestorePaths.componentStats)
+          .limit(500)
+          .get();
+      final pendingApplications = await firestore
+          .collection(FirestorePaths.communityApplications)
+          .where('status', isEqualTo: 'pending')
+          .limit(100)
+          .get();
+      final payments = await firestore
+          .collectionGroup(FirestorePaths.payments)
+          .limit(500)
+          .get();
+      final withdrawals = await firestore
+          .collectionGroup(FirestorePaths.withdrawals)
+          .limit(500)
+          .get();
+      final grossRevenue = payments.docs
+          .where((doc) => (doc.data()['status'] ?? '').toString() == 'paid')
+          .fold<int>(
+            0,
+            (total, doc) => total + _intFrom(doc.data()['amount']),
+          );
+      final platformRevenue = payments.docs
+          .where((doc) => (doc.data()['status'] ?? '').toString() == 'paid')
+          .fold<int>(
+            0,
+            (total, doc) => total + _intFrom(doc.data()['platformFee']),
+          );
+      final pendingWithdrawals = withdrawals.docs
+          .where((doc) => ['requested', 'pending']
+              .contains((doc.data()['status'] ?? '').toString().toLowerCase()))
+          .fold<int>(
+            0,
+            (total, doc) => total + _intFrom(doc.data()['amount']),
+          );
       return SuperAdminMetrics(
-        activeUsers: users.docs.where((doc) => doc.data()['isActive'] != false).length,
-        judges: users.docs.where((doc) => _rolesFromData(doc.data()).contains('judge')).length,
+        activeUsers:
+            users.docs.where((doc) => doc.data()['isActive'] != false).length,
+        bannedUsers:
+            users.docs.where((doc) => doc.data()['isActive'] == false).length,
+        judges: users.docs
+            .where((doc) => _rolesFromData(doc.data()).contains('judge'))
+            .length,
         communityAdmins: users.docs
-            .where((doc) => _rolesFromData(doc.data()).contains('community_admin'))
+            .where(
+                (doc) => _rolesFromData(doc.data()).contains('community_admin'))
             .length,
         communities: communities.docs.length,
+        pendingApprovals: pendingApplications.docs.length,
         tournaments: tournaments.docs.length,
         runningTournaments: tournaments.docs
-            .where((doc) => (doc.data()['status'] ?? '').toString() == 'running')
+            .where(
+                (doc) => (doc.data()['status'] ?? '').toString() == 'running')
             .length,
         componentStats: components.docs.length,
+        grossRevenue: grossRevenue,
+        platformRevenue: platformRevenue,
+        paymentCount: payments.docs.length,
+        pendingWithdrawals: pendingWithdrawals,
       );
     },
   );
@@ -54,8 +110,18 @@ final componentStatsReviewProvider =
       .orderBy('appearances', descending: true)
       .limit(25)
       .snapshots()
-      .map((snap) =>
-          snap.docs.map((doc) => ComponentStatSummary.fromFirestore(doc)).toList());
+      .map((snap) => snap.docs
+          .map((doc) => ComponentStatSummary.fromFirestore(doc))
+          .toList());
+});
+
+final weeklyComponentReleaseProvider =
+    StreamProvider<WeeklyComponentRelease>((ref) {
+  final firestore = ref.watch(firestoreProvider);
+  return firestore
+      .doc(FirestorePaths.weeklyComponentReleaseDoc('current'))
+      .snapshots()
+      .map(WeeklyComponentRelease.fromFirestore);
 });
 
 final superAdminComponentsProvider =
@@ -69,7 +135,8 @@ final superAdminComponentsProvider =
       .asyncMap((snap) async {
     final rows = <AdminComponentSummary>[];
     for (final doc in snap.docs) {
-      final stat = await firestore.doc(FirestorePaths.componentStatDoc(doc.id)).get();
+      final stat =
+          await firestore.doc(FirestorePaths.componentStatDoc(doc.id)).get();
       rows.add(AdminComponentSummary.fromFirestore(
         component: doc,
         stat: stat,
@@ -79,11 +146,39 @@ final superAdminComponentsProvider =
   });
 });
 
+final superAdminUsersProvider = StreamProvider<List<AdminUserSummary>>((ref) {
+  final firestore = ref.watch(firestoreProvider);
+  return firestore.collection(FirestorePaths.users).limit(1000).snapshots().map(
+    (snap) {
+      final rows = snap.docs.map(AdminUserSummary.fromFirestore).toList();
+      rows.sort((a, b) {
+        final role = a.roleLabel.compareTo(b.roleLabel);
+        if (role != 0) return role;
+        return a.displayName.compareTo(b.displayName);
+      });
+      return rows;
+    },
+  );
+});
+
+final pendingApplicationsPreviewProvider =
+    StreamProvider<List<PendingApplicationSummary>>((ref) {
+  final firestore = ref.watch(firestoreProvider);
+  return firestore
+      .collection(FirestorePaths.communityApplications)
+      .where('status', isEqualTo: 'pending')
+      .orderBy('createdAt', descending: false)
+      .limit(5)
+      .snapshots()
+      .map((snap) =>
+          snap.docs.map(PendingApplicationSummary.fromFirestore).toList());
+});
+
 enum SuperAdminSection {
   reports,
   components,
   componentStats,
-  newParts,
+  users,
 }
 
 class SuperAdminConsoleScreen extends ConsumerWidget {
@@ -149,7 +244,7 @@ class _SuperAdminContent extends StatelessWidget {
                     children: [
                       Text(overview.eyebrow,
                           style: HDTText.overline(
-                              size: 10, color: HDTColors.warning)),
+                              size: 10, color: HDTColors.accentHover)),
                       const SizedBox(height: HDTSpace.sm),
                       Text(overview.title, style: HDTText.display(size: 34)),
                       const SizedBox(height: HDTSpace.sm),
@@ -191,8 +286,8 @@ class _SectionBody extends StatelessWidget {
         return const _ComponentManagement();
       case SuperAdminSection.componentStats:
         return const _StatsReview();
-      case SuperAdminSection.newParts:
-        return const _NewPartQueue();
+      case SuperAdminSection.users:
+        return const _UsersManagement();
     }
   }
 }
@@ -206,15 +301,48 @@ class _ReportGrid extends ConsumerWidget {
     final withdraws = ref.watch(superAdminWithdrawQueueProvider);
     final data = metrics.valueOrNull ?? SuperAdminMetrics.demo;
     final cards = [
-      _MetricCard('User aktif', '${data.activeUsers}',
-          '${data.judges} juri . ${data.communityAdmins} ketua komunitas',
-          Icons.people_alt_outlined),
-      _MetricCard('Komunitas aktif', '${data.communities}', 'Approved community',
-          Icons.groups_2),
-      _MetricCard('Turnamen', '${data.tournaments}',
-          '${data.runningTournaments} sedang berjalan', Icons.emoji_events),
-      _MetricCard('Komponen tercatat', '${data.componentStats}',
-          'Stat part dari deck match', Icons.category),
+      _MetricCard(
+        label: 'User aktif',
+        value: '${data.activeUsers}',
+        note:
+            '${data.judges} juri . ${data.communityAdmins} ketua . ${data.bannedUsers} banned',
+        icon: Icons.people_alt_outlined,
+        color: HDTColors.info,
+        route: '/super-admin/users',
+      ),
+      _MetricCard(
+        label: 'Pending approval',
+        value: '${data.pendingApprovals}',
+        note: 'Proposal komunitas menunggu review',
+        icon: Icons.fact_check_outlined,
+        color:
+            data.pendingApprovals > 0 ? HDTColors.warning : HDTColors.success,
+        route: '/super-admin/community-approvals',
+      ),
+      _MetricCard(
+        label: 'Turnamen',
+        value: '${data.tournaments}',
+        note: '${data.runningTournaments} sedang berjalan',
+        icon: Icons.emoji_events_outlined,
+        color: HDTColors.accentHover,
+        route: '/public/tournaments',
+      ),
+      _MetricCard(
+        label: 'Komponen tercatat',
+        value: '${data.componentStats}',
+        note: 'Stat part dari ranked match',
+        icon: Icons.category_outlined,
+        color: HDTColors.success,
+        route: '/super-admin/component-stats',
+      ),
+      _MetricCard(
+        label: 'Platform revenue',
+        value: _formatRp(data.platformRevenue),
+        note: '${data.paymentCount} transaksi paid',
+        icon: Icons.account_balance_wallet_outlined,
+        color: HDTColors.accent,
+        route: '/super-admin/reports',
+      ),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -227,19 +355,53 @@ class _ReportGrid extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: HDTSpace.xl),
+        _PendingApplicationsPanel(
+            applications: ref.watch(pendingApplicationsPreviewProvider)),
+        const SizedBox(height: HDTSpace.xl),
+        _FinanceStatsPanel(data: data, withdraws: withdraws),
+        const SizedBox(height: HDTSpace.xl),
         _WithdrawQueuePanel(withdraws: withdraws),
       ],
     );
   }
 }
 
-class _ComponentManagement extends ConsumerWidget {
+class _ComponentManagement extends ConsumerStatefulWidget {
   const _ComponentManagement();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ComponentManagement> createState() =>
+      _ComponentManagementState();
+}
+
+class _ComponentManagementState extends ConsumerState<_ComponentManagement> {
+  final _search = TextEditingController();
+  String _category = 'all';
+  String _sort = 'name_asc';
+  int _page = 0;
+  static const _pageSize = 8;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final components = ref.watch(superAdminComponentsProvider);
     final rows = components.valueOrNull ?? const <AdminComponentSummary>[];
+    final filteredRows = _filteredRows(rows);
+    final totalPages =
+        filteredRows.isEmpty ? 1 : (filteredRows.length / _pageSize).ceil();
+    final currentPage = _page.clamp(0, totalPages - 1).toInt();
+    final start = currentPage * _pageSize;
+    final end = start + _pageSize > filteredRows.length
+        ? filteredRows.length
+        : start + _pageSize;
+    final visibleRows = filteredRows.isEmpty
+        ? const <AdminComponentSummary>[]
+        : filteredRows.sublist(start, end);
     return _DataPanel(
       title: 'MASTER DATA KOMPONEN',
       icon: Icons.category_outlined,
@@ -258,6 +420,58 @@ class _ComponentManagement extends ConsumerWidget {
               icon: const Icon(Icons.add, size: 16),
               label: const Text('ADD PART'),
             ),
+          ],
+        ),
+        const SizedBox(height: HDTSpace.md),
+        Wrap(
+          spacing: HDTSpace.md,
+          runSpacing: HDTSpace.md,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: 300,
+              child: TextField(
+                controller: _search,
+                onChanged: (_) => setState(() => _page = 0),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search, size: 18),
+                  hintText: 'Search part...',
+                ),
+              ),
+            ),
+            _SmallSelect(
+              value: _category,
+              width: 180,
+              items: const {
+                'all': 'All categories',
+                'blades': 'Blade',
+                'assist_blades': 'Assist Blade',
+                'over_blades': 'Over Blade',
+                'lock_chips': 'Lock Chip',
+                'ratchets': 'Ratchet',
+                'bits': 'Bit',
+              },
+              onChanged: (value) => setState(() {
+                _category = value;
+                _page = 0;
+              }),
+            ),
+            _SmallSelect(
+              value: _sort,
+              width: 220,
+              items: const {
+                'name_asc': 'Name A-Z',
+                'category_asc': 'Category',
+                'win_rate_desc': 'Highest win rate',
+                'played_desc': 'Most played',
+              },
+              onChanged: (value) => setState(() {
+                _sort = value;
+                _page = 0;
+              }),
+            ),
+            Text('${filteredRows.length} parts',
+                style: HDTText.mono(size: 11, color: HDTColors.text3)),
           ],
         ),
         const SizedBox(height: HDTSpace.md),
@@ -283,12 +497,46 @@ class _ComponentManagement extends ConsumerWidget {
                 )
               : Column(
                   children: [
-                    for (final row in rows) _ComponentAdminRow(item: row),
+                    _PaginationBar(
+                      start: filteredRows.isEmpty ? 0 : start + 1,
+                      end: end,
+                      total: filteredRows.length,
+                      page: currentPage,
+                      totalPages: totalPages,
+                      onPage: (next) => setState(() => _page = next),
+                    ),
+                    const SizedBox(height: HDTSpace.md),
+                    for (final row in visibleRows)
+                      _ComponentAdminRow(item: row),
+                    const SizedBox(height: HDTSpace.sm),
+                    _PaginationBar(
+                      start: filteredRows.isEmpty ? 0 : start + 1,
+                      end: end,
+                      total: filteredRows.length,
+                      page: currentPage,
+                      totalPages: totalPages,
+                      onPage: (next) => setState(() => _page = next),
+                      compact: true,
+                    ),
                   ],
                 ),
         ),
       ],
     );
+  }
+
+  List<AdminComponentSummary> _filteredRows(List<AdminComponentSummary> rows) {
+    final query = _search.text.trim().toLowerCase();
+    final filtered = rows.where((row) {
+      final matchesQuery = query.isEmpty ||
+          row.name.toLowerCase().contains(query) ||
+          row.shortCode.toLowerCase().contains(query) ||
+          row.line.toLowerCase().contains(query);
+      final matchesCategory = _category == 'all' || row.category == _category;
+      return matchesQuery && matchesCategory;
+    }).toList();
+    filtered.sort((a, b) => _compareAdminComponents(a, b, _sort));
+    return filtered;
   }
 
   Future<void> _openComponentDialog(
@@ -325,22 +573,14 @@ class _ComponentAdminRowState extends ConsumerState<_ComponentAdminRow> {
         color: HDTColors.s1,
         borderRadius: HDTR.md,
         border: Border.all(
-          color: item.active ? HDTColors.s2 : HDTColors.danger.withValues(alpha: .45),
+          color: item.active
+              ? HDTColors.s2
+              : HDTColors.danger.withValues(alpha: .45),
         ),
       ),
       child: Row(
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: HDTColors.bg,
-              borderRadius: HDTR.md,
-              border: Border.all(color: HDTColors.s2),
-            ),
-            child: Text(item.shortCode, style: HDTText.overline(size: 11)),
-          ),
+          _ComponentThumb(item: item, size: 52),
           const SizedBox(width: HDTSpace.md),
           Expanded(
             child: Column(
@@ -421,7 +661,8 @@ class _ComponentAdminRowState extends ConsumerState<_ComponentAdminRow> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Komponen belum bisa dihapus. Coba ulangi.')),
+        const SnackBar(
+            content: Text('Komponen belum bisa dihapus. Coba ulangi.')),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -439,7 +680,8 @@ class _ComponentEditorDialog extends ConsumerStatefulWidget {
       _ComponentEditorDialogState();
 }
 
-class _ComponentEditorDialogState extends ConsumerState<_ComponentEditorDialog> {
+class _ComponentEditorDialogState
+    extends ConsumerState<_ComponentEditorDialog> {
   final _name = TextEditingController();
   final _alias = TextEditingController();
   final _line = TextEditingController();
@@ -464,6 +706,9 @@ class _ComponentEditorDialogState extends ConsumerState<_ComponentEditorDialog> 
   @override
   void initState() {
     super.initState();
+    _name.addListener(_refreshPreview);
+    _alias.addListener(_refreshPreview);
+    _image.addListener(_refreshPreview);
     final item = widget.item;
     if (item == null) return;
     _name.text = item.name;
@@ -487,6 +732,9 @@ class _ComponentEditorDialogState extends ConsumerState<_ComponentEditorDialog> 
 
   @override
   void dispose() {
+    _name.removeListener(_refreshPreview);
+    _alias.removeListener(_refreshPreview);
+    _image.removeListener(_refreshPreview);
     _name.dispose();
     _alias.dispose();
     _line.dispose();
@@ -502,6 +750,10 @@ class _ComponentEditorDialogState extends ConsumerState<_ComponentEditorDialog> 
     _manualWins.dispose();
     _manualLosses.dispose();
     super.dispose();
+  }
+
+  void _refreshPreview() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -527,11 +779,12 @@ class _ComponentEditorDialogState extends ConsumerState<_ComponentEditorDialog> 
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _category,
+                      initialValue: _category,
                       decoration: const InputDecoration(labelText: 'Category'),
                       items: [
                         for (final item in _categoryOptions.entries)
-                          DropdownMenuItem(value: item.key, child: Text(item.value)),
+                          DropdownMenuItem(
+                              value: item.key, child: Text(item.value)),
                       ],
                       onChanged: (value) =>
                           setState(() => _category = value ?? 'blades'),
@@ -540,13 +793,17 @@ class _ComponentEditorDialogState extends ConsumerState<_ComponentEditorDialog> 
                   const SizedBox(width: HDTSpace.md),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _type,
+                      initialValue: _type,
                       decoration: const InputDecoration(labelText: 'Type'),
                       items: const [
-                        DropdownMenuItem(value: 'attack', child: Text('Attack')),
-                        DropdownMenuItem(value: 'defense', child: Text('Defense')),
-                        DropdownMenuItem(value: 'stamina', child: Text('Stamina')),
-                        DropdownMenuItem(value: 'balance', child: Text('Balance')),
+                        DropdownMenuItem(
+                            value: 'attack', child: Text('Attack')),
+                        DropdownMenuItem(
+                            value: 'defense', child: Text('Defense')),
+                        DropdownMenuItem(
+                            value: 'stamina', child: Text('Stamina')),
+                        DropdownMenuItem(
+                            value: 'balance', child: Text('Balance')),
                       ],
                       onChanged: (value) =>
                           setState(() => _type = value ?? 'balance'),
@@ -557,9 +814,43 @@ class _ComponentEditorDialogState extends ConsumerState<_ComponentEditorDialog> 
               const SizedBox(height: HDTSpace.md),
               Row(
                 children: [
-                  Expanded(child: _textField(_line, 'Line, contoh: BX / UX / CX')),
+                  Expanded(
+                      child: _textField(_line, 'Line, contoh: BX / UX / CX')),
                   const SizedBox(width: HDTSpace.md),
-                  Expanded(child: _textField(_image, 'Image filename')),
+                  Expanded(child: _textField(_image, 'Image filename / URL')),
+                ],
+              ),
+              const SizedBox(height: HDTSpace.md),
+              Row(
+                children: [
+                  _ComponentImagePreview(
+                    image: _image.text,
+                    shortCode: _alias.text.trim().isEmpty
+                        ? _slug(_name.text)
+                            .split('_')
+                            .take(2)
+                            .join()
+                            .toUpperCase()
+                        : _alias.text.trim(),
+                    category: _category,
+                  ),
+                  const SizedBox(width: HDTSpace.md),
+                  Expanded(
+                    child: Text(
+                      'Upload akan menyimpan file ke Firebase Storage lalu mengisi URL gambar di part ini.',
+                      style: HDTText.body(
+                        size: 12,
+                        color: HDTColors.text2,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: HDTSpace.md),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _uploadImage,
+                    icon: const Icon(Icons.upload_file_outlined, size: 16),
+                    label: const Text('UPLOAD IMAGE'),
+                  ),
                 ],
               ),
               const SizedBox(height: HDTSpace.md),
@@ -597,7 +888,8 @@ class _ComponentEditorDialogState extends ConsumerState<_ComponentEditorDialog> 
               const SizedBox(height: HDTSpace.sm),
               Row(
                 children: [
-                  Expanded(child: _numberField(_manualAppearances, 'Played +/-')),
+                  Expanded(
+                      child: _numberField(_manualAppearances, 'Played +/-')),
                   const SizedBox(width: HDTSpace.sm),
                   Expanded(child: _numberField(_manualWins, 'Wins +/-')),
                   const SizedBox(width: HDTSpace.sm),
@@ -613,7 +905,8 @@ class _ComponentEditorDialogState extends ConsumerState<_ComponentEditorDialog> 
               ),
               if (_error != null) ...[
                 const SizedBox(height: HDTSpace.sm),
-                Text(_error!, style: HDTText.body(size: 12, color: HDTColors.danger)),
+                Text(_error!,
+                    style: HDTText.body(size: 12, color: HDTColors.danger)),
               ],
             ],
           ),
@@ -651,6 +944,51 @@ class _ComponentEditorDialogState extends ConsumerState<_ComponentEditorDialog> 
       keyboardType: TextInputType.number,
       decoration: InputDecoration(labelText: label),
     );
+  }
+
+  Future<void> _uploadImage() async {
+    final name = _name.text.trim();
+    if (name.isEmpty) {
+      setState(() => _error = 'Isi nama komponen sebelum upload gambar.');
+      return;
+    }
+    final result = await FilePicker.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+    if (result == null) return;
+    final file = result.files.single;
+    final bytes = file.bytes;
+    if (bytes == null) {
+      setState(() => _error = 'File gambar belum bisa dibaca.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final id = widget.item?.id ?? '${_category}_${_slug(name)}';
+      final safeName = file.name
+          .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_')
+          .replaceAll(RegExp(r'^_+|_+$'), '');
+      final ref = FirebaseStorage.instance.ref(
+        'components/$id/${DateTime.now().millisecondsSinceEpoch}_$safeName',
+      );
+      await ref.putData(
+        bytes,
+        SettableMetadata(contentType: _contentTypeFor(file)),
+      );
+      final url = await ref.getDownloadURL();
+      if (!mounted) return;
+      _image.text = url;
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error =
+          'Upload gambar belum berhasil. Pastikan akun super admin dan Storage aktif.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _save() async {
@@ -716,28 +1054,49 @@ class _StatsReview extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final live = ref.watch(componentStatsReviewProvider);
+    final release = ref.watch(weeklyComponentReleaseProvider);
     final liveRows = live.valueOrNull ?? const <ComponentStatSummary>[];
-    if (liveRows.isNotEmpty) {
-      return _DataPanel(
-        title: 'REVIEW STATISTIK PART',
-        icon: Icons.analytics_outlined,
-        children: [
-          for (final row in liveRows) _ComponentStatReviewRow(stat: row),
-        ],
-      );
-    }
-    const rows = [
-      _DataRowItem('Wizard Rod 5-70B', '72% win rate',
-          'Perlu review karena sample besar dan meta dominan'),
-      _DataRowItem('Dran Buster 1-60A', '58% win rate',
-          'Performa attack stabil di stage final'),
-      _DataRowItem('Phoenix Wing 9-60R', '64% win rate',
-          'Banyak dipakai di round robin group A'),
-    ];
+    final releaseData = release.valueOrNull ?? WeeklyComponentRelease.empty;
     return _DataPanel(
       title: 'REVIEW STATISTIK PART',
       icon: Icons.analytics_outlined,
-      children: [for (final row in rows) _ManagementRow(item: row)],
+      children: [
+        _WeeklyReleasePanel(
+          release: releaseData,
+          topRows: liveRows,
+        ),
+        const SizedBox(height: HDTSpace.md),
+        live.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.all(HDTSpace.lg),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (_, __) => const _ManagementRow(
+            item: _DataRowItem(
+              'Statistik belum terbaca',
+              'RETRY',
+              'Data componentStats belum bisa dibaca. Coba muat ulang halaman.',
+            ),
+          ),
+          data: (_) => liveRows.isEmpty
+              ? const _ManagementRow(
+                  item: _DataRowItem(
+                    'Belum ada statistik',
+                    'EMPTY',
+                    'Stat komponen akan terisi dari match atau seed data demo.',
+                  ),
+                )
+              : Column(
+                  children: [
+                    for (final row in liveRows)
+                      _ComponentStatReviewRow(
+                        stat: row,
+                        selected: releaseData.selectedIds.contains(row.id),
+                      ),
+                  ],
+                ),
+        ),
+      ],
     );
   }
 }
@@ -774,7 +1133,8 @@ class _WithdrawRequestRow extends ConsumerStatefulWidget {
   final WithdrawRequestSummary item;
 
   @override
-  ConsumerState<_WithdrawRequestRow> createState() => _WithdrawRequestRowState();
+  ConsumerState<_WithdrawRequestRow> createState() =>
+      _WithdrawRequestRowState();
 }
 
 class _WithdrawRequestRowState extends ConsumerState<_WithdrawRequestRow> {
@@ -798,8 +1158,8 @@ class _WithdrawRequestRowState extends ConsumerState<_WithdrawRequestRow> {
           Row(
             children: [
               Expanded(
-                child: Text(item.requesterName,
-                    style: HDTText.display(size: 15)),
+                child:
+                    Text(item.requesterName, style: HDTText.display(size: 15)),
               ),
               Text(item.status.toUpperCase(),
                   style: HDTText.overline(size: 9, color: HDTColors.warning)),
@@ -812,7 +1172,8 @@ class _WithdrawRequestRowState extends ConsumerState<_WithdrawRequestRow> {
           ),
           if (_message != null) ...[
             const SizedBox(height: HDTSpace.sm),
-            Text(_message!, style: HDTText.body(size: 11, color: HDTColors.text3)),
+            Text(_message!,
+                style: HDTText.body(size: 11, color: HDTColors.text3)),
           ],
           const SizedBox(height: HDTSpace.sm),
           Row(
@@ -855,80 +1216,362 @@ class _WithdrawRequestRowState extends ConsumerState<_WithdrawRequestRow> {
       setState(() => _message = 'Withdraw ditandai $status.');
     } catch (_) {
       if (!mounted) return;
-      setState(() =>
-          _message = 'Review withdraw belum tersimpan. Coba ulangi.');
+      setState(
+          () => _message = 'Review withdraw belum tersimpan. Coba ulangi.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 }
 
-class _ComponentStatReviewRow extends StatelessWidget {
-  const _ComponentStatReviewRow({required this.stat});
+class _ComponentStatReviewRow extends ConsumerStatefulWidget {
+  const _ComponentStatReviewRow({
+    required this.stat,
+    required this.selected,
+  });
 
   final ComponentStatSummary stat;
+  final bool selected;
+
+  @override
+  ConsumerState<_ComponentStatReviewRow> createState() =>
+      _ComponentStatReviewRowState();
+}
+
+class _ComponentStatReviewRowState
+    extends ConsumerState<_ComponentStatReviewRow> {
+  bool _busy = false;
 
   @override
   Widget build(BuildContext context) {
-    return _ManagementRow(
-      item: _DataRowItem(
-        stat.name,
-        '${stat.winRate.toStringAsFixed(0)}% win rate',
-        '${stat.appearances} appearance . ${stat.wins}W/${stat.losses}L . ${stat.category} ${stat.line}',
+    final stat = widget.stat;
+    return Container(
+      margin: const EdgeInsets.only(bottom: HDTSpace.sm),
+      padding: const EdgeInsets.all(HDTSpace.md),
+      decoration: BoxDecoration(
+        color: HDTColors.s1,
+        borderRadius: HDTR.md,
+        border: Border.all(
+          color: widget.selected
+              ? HDTColors.accentHover.withValues(alpha: .55)
+              : HDTColors.s2,
+        ),
       ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: widget.selected
+                  ? HDTColors.accent.withValues(alpha: .18)
+                  : HDTColors.bg,
+              borderRadius: HDTR.md,
+              border: Border.all(
+                color: widget.selected ? HDTColors.accentHover : HDTColors.s2,
+              ),
+            ),
+            child: Text(
+              '${stat.winRate.toStringAsFixed(0)}%',
+              style: HDTText.display(
+                size: 13,
+                color: widget.selected ? HDTColors.accentHover : HDTColors.text,
+              ),
+            ),
+          ),
+          const SizedBox(width: HDTSpace.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(stat.name, style: HDTText.display(size: 15)),
+                const SizedBox(height: 4),
+                Text(
+                  '${stat.appearances} appearance . ${stat.wins}W/${stat.losses}L . ${stat.category} ${stat.line}',
+                  style: HDTText.body(size: 12, color: HDTColors.text2),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: HDTSpace.md),
+          Text(
+            widget.selected ? 'FEATURED' : 'AUTO POOL',
+            style: HDTText.overline(
+              size: 9,
+              color: widget.selected ? HDTColors.accentHover : HDTColors.text3,
+            ),
+          ),
+          const SizedBox(width: HDTSpace.sm),
+          IconButton(
+            tooltip: widget.selected ? 'Remove featured' : 'Feature this week',
+            onPressed: _busy ? null : _toggleFeatured,
+            icon: Icon(
+              widget.selected ? Icons.star : Icons.star_border,
+              size: 18,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Edit statistic',
+            onPressed: _busy ? null : _editStat,
+            icon: const Icon(Icons.edit_outlined, size: 18),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _toggleFeatured() async {
+    setState(() => _busy = true);
+    try {
+      final doc = ref
+          .read(firestoreProvider)
+          .doc(FirestorePaths.weeklyComponentReleaseDoc('current'));
+      final snap = await doc.get();
+      final release = WeeklyComponentRelease.fromFirestore(snap);
+      final selected = [...release.selectedIds];
+      if (selected.contains(widget.stat.id)) {
+        selected.remove(widget.stat.id);
+      } else {
+        selected.add(widget.stat.id);
+      }
+      await doc.set({
+        'id': 'current',
+        'weekLabel': _currentWeekLabel(),
+        'source': selected.isEmpty ? 'auto' : 'manual',
+        'selectedIds': selected.take(4).toList(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _editStat() async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _ComponentStatEditorDialog(stat: widget.stat),
     );
   }
 }
 
-class _NewPartQueue extends StatelessWidget {
-  const _NewPartQueue();
+class _UsersManagement extends ConsumerStatefulWidget {
+  const _UsersManagement();
+
+  @override
+  ConsumerState<_UsersManagement> createState() => _UsersManagementState();
+}
+
+class _UsersManagementState extends ConsumerState<_UsersManagement> {
+  final _search = TextEditingController();
+  String _status = 'all';
+  String _role = 'all';
+  int _page = 0;
+  static const _pageSize = 10;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    const rows = [
-      _DataRowItem('Samurai Saber', 'Menunggu validasi',
-          'Butuh foto, kategori part, dan legalitas format'),
-      _DataRowItem('CX Assist Blade sample', 'Draft',
-          'Lengkapi hubungan assist blade dan lock chip'),
-      _DataRowItem('Integrated line import', 'Siap review',
-          'Pastikan part tidak bisa dipisah di deck builder'),
-    ];
+    final users = ref.watch(superAdminUsersProvider);
+    final rows = users.valueOrNull ?? const <AdminUserSummary>[];
+    final filtered = _filteredRows(rows);
+    final totalPages =
+        filtered.isEmpty ? 1 : (filtered.length / _pageSize).ceil();
+    final currentPage = _page.clamp(0, totalPages - 1).toInt();
+    final start = currentPage * _pageSize;
+    final end = start + _pageSize > filtered.length
+        ? filtered.length
+        : start + _pageSize;
+    final visible = filtered.isEmpty
+        ? const <AdminUserSummary>[]
+        : filtered.sublist(start, end);
     return _DataPanel(
-      title: 'ANTRIAN PART BARU',
-      icon: Icons.new_releases_outlined,
-      children: [for (final row in rows) _ManagementRow(item: row)],
+      title: 'SEMUA USER & ROLE',
+      icon: Icons.manage_accounts_outlined,
+      children: [
+        Wrap(
+          spacing: HDTSpace.md,
+          runSpacing: HDTSpace.md,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: 320,
+              child: TextField(
+                controller: _search,
+                onChanged: (_) => setState(() => _page = 0),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search, size: 18),
+                  hintText: 'Cari nama, email, UID...',
+                ),
+              ),
+            ),
+            _SmallSelect(
+              value: _status,
+              width: 150,
+              items: const {
+                'all': 'All status',
+                'active': 'Active',
+                'banned': 'Banned',
+              },
+              onChanged: (value) => setState(() {
+                _status = value;
+                _page = 0;
+              }),
+            ),
+            _SmallSelect(
+              value: _role,
+              width: 190,
+              items: const {
+                'all': 'All roles',
+                'player': 'Player',
+                'judge': 'Juri',
+                'community_admin': 'Ketua komunitas',
+                'mixed': 'Ketua + Juri',
+              },
+              onChanged: (value) => setState(() {
+                _role = value;
+                _page = 0;
+              }),
+            ),
+            Text('${filtered.length} users',
+                style: HDTText.mono(size: 11, color: HDTColors.text3)),
+          ],
+        ),
+        const SizedBox(height: HDTSpace.md),
+        users.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.all(HDTSpace.lg),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (_, __) => const _ManagementRow(
+            item: _DataRowItem(
+              'User belum terbaca',
+              'RETRY',
+              'Data users dari Firebase belum bisa dibaca.',
+            ),
+          ),
+          data: (_) => Column(
+            children: [
+              _PaginationBar(
+                start: filtered.isEmpty ? 0 : start + 1,
+                end: end,
+                total: filtered.length,
+                page: currentPage,
+                totalPages: totalPages,
+                onPage: (next) => setState(() => _page = next),
+              ),
+              const SizedBox(height: HDTSpace.md),
+              if (visible.isEmpty)
+                const _ManagementRow(
+                  item: _DataRowItem(
+                    'Tidak ada user',
+                    'EMPTY',
+                    'Tidak ada user yang cocok dengan filter saat ini.',
+                  ),
+                )
+              else
+                for (final row in visible) _AdminUserRow(user: row),
+              const SizedBox(height: HDTSpace.sm),
+              _PaginationBar(
+                start: filtered.isEmpty ? 0 : start + 1,
+                end: end,
+                total: filtered.length,
+                page: currentPage,
+                totalPages: totalPages,
+                onPage: (next) => setState(() => _page = next),
+                compact: true,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
+  }
+
+  List<AdminUserSummary> _filteredRows(List<AdminUserSummary> rows) {
+    final query = _search.text.trim().toLowerCase();
+    return rows.where((user) {
+      final matchesQuery = query.isEmpty ||
+          user.displayName.toLowerCase().contains(query) ||
+          user.email.toLowerCase().contains(query) ||
+          user.uid.toLowerCase().contains(query);
+      final matchesStatus = _status == 'all' ||
+          (_status == 'active' && user.active) ||
+          (_status == 'banned' && !user.active);
+      final matchesRole = switch (_role) {
+        'judge' => user.roles.contains('judge') &&
+            !user.roles.contains('community_admin'),
+        'community_admin' => user.roles.contains('community_admin') &&
+            !user.roles.contains('judge'),
+        'mixed' => user.roles.contains('community_admin') &&
+            user.roles.contains('judge'),
+        'player' => !user.roles.contains('judge') &&
+            !user.roles.contains('community_admin') &&
+            !user.roles.contains('super_admin'),
+        _ => true,
+      };
+      return matchesQuery && matchesStatus && matchesRole;
+    }).toList();
   }
 }
 
 class _MetricCard extends StatelessWidget {
-  const _MetricCard(this.label, this.value, this.note, this.icon);
+  const _MetricCard({
+    required this.label,
+    required this.value,
+    required this.note,
+    required this.icon,
+    required this.color,
+    required this.route,
+  });
 
   final String label;
   final String value;
   final String note;
   final IconData icon;
+  final Color color;
+  final String route;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(HDTSpace.lg),
-      decoration: hdtAccentCard(
-        accentColor: HDTColors.warning,
-        highlighted: true,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: HDTColors.warning, size: 22),
-          const SizedBox(height: HDTSpace.md),
-          Text(label.toUpperCase(),
-              style: HDTText.overline(size: 9, color: HDTColors.text3)),
-          const SizedBox(height: HDTSpace.xs),
-          Text(value, style: HDTText.display(size: 30)),
-          const SizedBox(height: HDTSpace.xs),
-          Text(note, style: HDTText.body(size: 12, color: HDTColors.text2)),
-        ],
+    return InkWell(
+      borderRadius: HDTR.lg,
+      onTap: () {
+        final current = ModalRoute.of(context)?.settings.name;
+        if (current != route) Navigator.pushReplacementNamed(context, route);
+      },
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 154),
+        padding: const EdgeInsets.all(HDTSpace.lg),
+        decoration: BoxDecoration(
+          color: HDTColors.s1,
+          borderRadius: HDTR.lg,
+          border: Border.all(color: color.withValues(alpha: .32)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 21),
+                const Spacer(),
+                Icon(Icons.chevron_right, color: color, size: 18),
+              ],
+            ),
+            const Spacer(),
+            Text(label.toUpperCase(),
+                style: HDTText.overline(size: 9, color: HDTColors.text3)),
+            const SizedBox(height: HDTSpace.xs),
+            Text(value, style: HDTText.display(size: 28)),
+            const SizedBox(height: HDTSpace.xs),
+            Text(note, style: HDTText.body(size: 12, color: HDTColors.text2)),
+          ],
+        ),
       ),
     );
   }
@@ -955,7 +1598,7 @@ class _DataPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, color: HDTColors.warning, size: 18),
+              Icon(icon, color: HDTColors.accentHover, size: 18),
               const SizedBox(width: HDTSpace.sm),
               Text(title, style: HDTText.overline(size: 10)),
             ],
@@ -964,6 +1607,765 @@ class _DataPanel extends StatelessWidget {
           ...children,
         ],
       ),
+    );
+  }
+}
+
+class _SmallSelect extends StatelessWidget {
+  const _SmallSelect({
+    required this.value,
+    required this.items,
+    required this.onChanged,
+    this.width = 180,
+  });
+
+  final String value;
+  final Map<String, String> items;
+  final ValueChanged<String> onChanged;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: DropdownButtonFormField<String>(
+        initialValue: value,
+        decoration: const InputDecoration(),
+        items: [
+          for (final item in items.entries)
+            DropdownMenuItem(value: item.key, child: Text(item.value)),
+        ],
+        onChanged: (next) => onChanged(next ?? value),
+      ),
+    );
+  }
+}
+
+class _PaginationBar extends StatelessWidget {
+  const _PaginationBar({
+    required this.start,
+    required this.end,
+    required this.total,
+    required this.page,
+    required this.totalPages,
+    required this.onPage,
+    this.compact = false,
+  });
+
+  final int start;
+  final int end;
+  final int total;
+  final int page;
+  final int totalPages;
+  final ValueChanged<int> onPage;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: HDTSpace.md,
+      runSpacing: HDTSpace.sm,
+      children: [
+        SizedBox(
+          width: compact ? 260 : 340,
+          child: Text(
+            total == 0
+                ? 'Tidak ada data yang cocok.'
+                : 'Showing $start-$end of $total',
+            style: HDTText.mono(size: 11, color: HDTColors.text3),
+          ),
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: 'First page',
+              onPressed: page <= 0 ? null : () => onPage(0),
+              icon: const Icon(Icons.keyboard_double_arrow_left, size: 18),
+            ),
+            IconButton(
+              tooltip: 'Previous page',
+              onPressed: page <= 0 ? null : () => onPage(page - 1),
+              icon: const Icon(Icons.chevron_left, size: 18),
+            ),
+            Container(
+              width: 88,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: HDTColors.bg,
+                borderRadius: HDTR.sm,
+                border: Border.all(color: HDTColors.s2),
+              ),
+              child: Text(
+                '${page + 1} / $totalPages',
+                style: HDTText.mono(size: 11, color: HDTColors.text2),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Next page',
+              onPressed: page >= totalPages - 1 ? null : () => onPage(page + 1),
+              icon: const Icon(Icons.chevron_right, size: 18),
+            ),
+            IconButton(
+              tooltip: 'Last page',
+              onPressed:
+                  page >= totalPages - 1 ? null : () => onPage(totalPages - 1),
+              icon: const Icon(Icons.keyboard_double_arrow_right, size: 18),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ComponentThumb extends StatelessWidget {
+  const _ComponentThumb({required this.item, this.size = 46});
+
+  final AdminComponentSummary item;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ImageBox(
+      image: item.image,
+      shortCode: item.shortCode,
+      category: item.category,
+      size: size,
+    );
+  }
+}
+
+class _ComponentImagePreview extends StatelessWidget {
+  const _ComponentImagePreview({
+    required this.image,
+    required this.shortCode,
+    required this.category,
+  });
+
+  final String image;
+  final String shortCode;
+  final String category;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ImageBox(
+      image: image,
+      shortCode: shortCode.isEmpty ? '?' : shortCode,
+      category: category,
+      size: 72,
+    );
+  }
+}
+
+class _ImageBox extends StatelessWidget {
+  const _ImageBox({
+    required this.image,
+    required this.shortCode,
+    required this.category,
+    required this.size,
+  });
+
+  final String? image;
+  final String shortCode;
+  final String category;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = image?.trim();
+    final Widget child;
+    if (value == null || value.isEmpty) {
+      child = _ImageFallback(shortCode: shortCode, category: category);
+    } else if (_isNetworkImage(value)) {
+      child = Image.network(
+        value,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) =>
+            _ImageFallback(shortCode: shortCode, category: category),
+      );
+    } else {
+      child = Image.asset(
+        'assets/beybrew/parts/$value',
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) =>
+            _ImageFallback(shortCode: shortCode, category: category),
+      );
+    }
+    return Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(4),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: HDTColors.bg,
+        borderRadius: HDTR.md,
+        border: Border.all(color: HDTColors.s2),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _ImageFallback extends StatelessWidget {
+  const _ImageFallback({required this.shortCode, required this.category});
+
+  final String shortCode;
+  final String category;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(_categoryIcon(category), color: HDTColors.text3, size: 18),
+        const SizedBox(height: 3),
+        Text(shortCode, style: HDTText.overline(size: 9)),
+      ],
+    );
+  }
+}
+
+class _WeeklyReleasePanel extends ConsumerStatefulWidget {
+  const _WeeklyReleasePanel({
+    required this.release,
+    required this.topRows,
+  });
+
+  final WeeklyComponentRelease release;
+  final List<ComponentStatSummary> topRows;
+
+  @override
+  ConsumerState<_WeeklyReleasePanel> createState() =>
+      _WeeklyReleasePanelState();
+}
+
+class _WeeklyReleasePanelState extends ConsumerState<_WeeklyReleasePanel> {
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final manual = widget.release.selectedIds.isNotEmpty;
+    return Container(
+      padding: const EdgeInsets.all(HDTSpace.md),
+      decoration: hdtCard(bg: HDTColors.bg),
+      child: Wrap(
+        spacing: HDTSpace.lg,
+        runSpacing: HDTSpace.md,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          SizedBox(
+            width: 420,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('WEEKLY FRONT PAGE RELEASE',
+                    style: HDTText.overline(size: 10)),
+                const SizedBox(height: HDTSpace.xs),
+                Text(
+                  manual
+                      ? '${widget.release.selectedIds.length} komponen dipilih manual untuk ${widget.release.weekLabel}.'
+                      : 'Homepage otomatis memakai top win rate tertinggi saat belum ada pilihan manual.',
+                  style: HDTText.body(size: 12, color: HDTColors.text2),
+                ),
+              ],
+            ),
+          ),
+          _StatusPill(
+            label: manual ? 'MANUAL' : 'AUTO TOP WR',
+            color: manual ? HDTColors.accentHover : HDTColors.success,
+          ),
+          OutlinedButton.icon(
+            onPressed: _busy ? null : _setAuto,
+            icon: const Icon(Icons.auto_awesome_outlined, size: 16),
+            label: const Text('AUTO TOP WIN RATE'),
+          ),
+          ElevatedButton.icon(
+            onPressed: _busy ? null : _publishTopFour,
+            icon: _busy
+                ? const SizedBox.square(
+                    dimension: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.publish_outlined, size: 16),
+            label: const Text('PUBLISH TOP 4'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _setAuto() {
+    return _writeRelease(const <String>[], 'auto');
+  }
+
+  Future<void> _publishTopFour() {
+    final rows = [...widget.topRows]..sort((a, b) {
+        final rate = b.winRate.compareTo(a.winRate);
+        if (rate != 0) return rate;
+        return b.appearances.compareTo(a.appearances);
+      });
+    return _writeRelease(rows.take(4).map((row) => row.id).toList(), 'manual');
+  }
+
+  Future<void> _writeRelease(List<String> selectedIds, String source) async {
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(firestoreProvider)
+          .doc(FirestorePaths.weeklyComponentReleaseDoc('current'))
+          .set({
+        'id': 'current',
+        'weekLabel': _currentWeekLabel(),
+        'source': source,
+        'selectedIds': selectedIds,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: HDTSpace.sm,
+        vertical: HDTSpace.xs,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .12),
+        borderRadius: HDTR.sm,
+        border: Border.all(color: color.withValues(alpha: .35)),
+      ),
+      child: Text(label, style: HDTText.overline(size: 8, color: color)),
+    );
+  }
+}
+
+class _ComponentStatEditorDialog extends ConsumerStatefulWidget {
+  const _ComponentStatEditorDialog({required this.stat});
+
+  final ComponentStatSummary stat;
+
+  @override
+  ConsumerState<_ComponentStatEditorDialog> createState() =>
+      _ComponentStatEditorDialogState();
+}
+
+class _ComponentStatEditorDialogState
+    extends ConsumerState<_ComponentStatEditorDialog> {
+  late final TextEditingController _appearances;
+  late final TextEditingController _wins;
+  late final TextEditingController _losses;
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _appearances =
+        TextEditingController(text: widget.stat.appearances.toString());
+    _wins = TextEditingController(text: widget.stat.wins.toString());
+    _losses = TextEditingController(text: widget.stat.losses.toString());
+  }
+
+  @override
+  void dispose() {
+    _appearances.dispose();
+    _wins.dispose();
+    _losses.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Edit Statistik ${widget.stat.name}'),
+      content: SizedBox(
+        width: 440,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(child: _numberField(_appearances, 'Appearances')),
+                const SizedBox(width: HDTSpace.sm),
+                Expanded(child: _numberField(_wins, 'Wins')),
+                const SizedBox(width: HDTSpace.sm),
+                Expanded(child: _numberField(_losses, 'Losses')),
+              ],
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: HDTSpace.md),
+              Text(_error!, style: HDTText.body(color: HDTColors.danger)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.pop(context),
+          child: const Text('CANCEL'),
+        ),
+        ElevatedButton.icon(
+          onPressed: _busy ? null : _save,
+          icon: const Icon(Icons.save_outlined, size: 16),
+          label: Text(_busy ? 'SAVING...' : 'SAVE'),
+        ),
+      ],
+    );
+  }
+
+  Widget _numberField(TextEditingController controller, String label) {
+    return TextField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(labelText: label),
+    );
+  }
+
+  Future<void> _save() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref
+          .read(firestoreProvider)
+          .doc(FirestorePaths.componentStatDoc(widget.stat.id))
+          .set({
+        'partId': widget.stat.id,
+        'name': widget.stat.name,
+        'category': widget.stat.category,
+        'line': widget.stat.line,
+        'appearances': _intOf(_appearances),
+        'wins': _intOf(_wins),
+        'losses': _intOf(_losses),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Statistik belum tersimpan.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+}
+
+class _PendingApplicationsPanel extends StatelessWidget {
+  const _PendingApplicationsPanel({required this.applications});
+
+  final AsyncValue<List<PendingApplicationSummary>> applications;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows =
+        applications.valueOrNull ?? const <PendingApplicationSummary>[];
+    return _DataPanel(
+      title: 'PENDING APPROVAL PREVIEW',
+      icon: Icons.fact_check_outlined,
+      children: [
+        if (rows.isEmpty)
+          const _ManagementRow(
+            item: _DataRowItem(
+              'Belum ada approval pending',
+              'CLEAR',
+              'Seed data akan menampilkan proposal komunitas di sini.',
+            ),
+          )
+        else
+          for (final row in rows.take(3))
+            _ManagementRow(
+              item: _DataRowItem(
+                row.communityName,
+                row.city.toUpperCase(),
+                'Diajukan oleh ${row.leaderUserId}. ${row.description}',
+              ),
+            ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: () => Navigator.pushReplacementNamed(
+              context,
+              '/super-admin/community-approvals',
+            ),
+            icon: const Icon(Icons.chevron_right, size: 16),
+            label: const Text('OPEN APPROVAL QUEUE'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FinanceStatsPanel extends StatelessWidget {
+  const _FinanceStatsPanel({
+    required this.data,
+    required this.withdraws,
+  });
+
+  final SuperAdminMetrics data;
+  final AsyncValue<List<WithdrawRequestSummary>> withdraws;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = withdraws.valueOrNull ?? const <WithdrawRequestSummary>[];
+    final pendingCount = rows
+        .where((row) =>
+            ['requested', 'pending'].contains(row.status.toLowerCase()))
+        .length;
+    return _DataPanel(
+      title: 'STATISTIK KEUANGAN',
+      icon: Icons.payments_outlined,
+      children: [
+        Wrap(
+          spacing: HDTSpace.md,
+          runSpacing: HDTSpace.md,
+          children: [
+            _FinanceTile(
+              label: 'GMV',
+              value: _formatRp(data.grossRevenue),
+              color: HDTColors.success,
+            ),
+            _FinanceTile(
+              label: 'Platform revenue',
+              value: _formatRp(data.platformRevenue),
+              color: HDTColors.accentHover,
+            ),
+            _FinanceTile(
+              label: 'Pending withdraw',
+              value: _formatRp(data.pendingWithdrawals),
+              color: HDTColors.warning,
+            ),
+            _FinanceTile(
+              label: 'Transaksi paid',
+              value: '${data.paymentCount}',
+              color: HDTColors.info,
+            ),
+          ],
+        ),
+        const SizedBox(height: HDTSpace.md),
+        Text(
+          '$pendingCount request withdraw masih perlu diputuskan dari queue di bawah.',
+          style: HDTText.body(size: 12, color: HDTColors.text2),
+        ),
+      ],
+    );
+  }
+}
+
+class _FinanceTile extends StatelessWidget {
+  const _FinanceTile({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 250,
+      padding: const EdgeInsets.all(HDTSpace.md),
+      decoration: BoxDecoration(
+        color: HDTColors.bg,
+        borderRadius: HDTR.md,
+        border: Border.all(color: HDTColors.s2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label.toUpperCase(),
+              style: HDTText.overline(size: 9, color: HDTColors.text3)),
+          const SizedBox(height: HDTSpace.xs),
+          Text(value, style: HDTText.display(size: 21, color: color)),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminUserRow extends ConsumerStatefulWidget {
+  const _AdminUserRow({required this.user});
+
+  final AdminUserSummary user;
+
+  @override
+  ConsumerState<_AdminUserRow> createState() => _AdminUserRowState();
+}
+
+class _AdminUserRowState extends ConsumerState<_AdminUserRow> {
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = widget.user;
+    final locked = user.roles.contains('super_admin');
+    return Container(
+      margin: const EdgeInsets.only(bottom: HDTSpace.sm),
+      padding: const EdgeInsets.all(HDTSpace.md),
+      decoration: BoxDecoration(
+        color: HDTColors.s1,
+        borderRadius: HDTR.md,
+        border: Border.all(
+          color: user.active
+              ? HDTColors.s2
+              : HDTColors.danger.withValues(alpha: .45),
+        ),
+      ),
+      child: Row(
+        children: [
+          _UserAvatar(user: user),
+          const SizedBox(width: HDTSpace.md),
+          Expanded(
+            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(user.displayName, style: HDTText.display(size: 14)),
+                const SizedBox(height: 3),
+                Text(user.uid,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: HDTText.mono(size: 10, color: HDTColors.text3)),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(user.email,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: HDTText.body(size: 12, color: HDTColors.text2)),
+          ),
+          SizedBox(
+            width: 138,
+            child: _StatusPill(
+              label: user.roleLabel,
+              color: user.roleColor,
+            ),
+          ),
+          SizedBox(
+            width: 74,
+            child: Text('${user.eloRating}',
+                style: HDTText.mono(size: 12, color: HDTColors.text2)),
+          ),
+          SizedBox(
+            width: 76,
+            child: _StatusPill(
+              label: user.active ? 'ACTIVE' : 'BANNED',
+              color: user.active ? HDTColors.success : HDTColors.danger,
+            ),
+          ),
+          const SizedBox(width: HDTSpace.sm),
+          PopupMenuButton<String>(
+            tooltip: 'Set role',
+            enabled: !_busy && !locked,
+            onSelected: _setRole,
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'player', child: Text('Player')),
+              PopupMenuItem(value: 'judge', child: Text('Juri')),
+              PopupMenuItem(
+                  value: 'community_admin', child: Text('Ketua komunitas')),
+              PopupMenuItem(value: 'mixed', child: Text('Ketua + Juri')),
+            ],
+            child: Icon(
+              Icons.admin_panel_settings_outlined,
+              size: 19,
+              color: locked ? HDTColors.text3 : HDTColors.text2,
+            ),
+          ),
+          IconButton(
+            tooltip: user.active ? 'Ban user' : 'Unban user',
+            onPressed: _busy || locked ? null : _toggleBan,
+            icon: Icon(
+              user.active ? Icons.block : Icons.check_circle_outline,
+              size: 18,
+              color: user.active ? HDTColors.danger : HDTColors.success,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _toggleBan() async {
+    setState(() => _busy = true);
+    try {
+      final actor = ref.read(firebaseAuthProvider).currentUser?.uid;
+      await ref
+          .read(firestoreProvider)
+          .doc(FirestorePaths.userDoc(widget.user.uid))
+          .set({
+        'isActive': !widget.user.active,
+        if (widget.user.active) 'bannedAt': FieldValue.serverTimestamp(),
+        if (widget.user.active) 'bannedBy': actor,
+        if (!widget.user.active) 'unbannedAt': FieldValue.serverTimestamp(),
+        if (!widget.user.active) 'unbannedBy': actor,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _setRole(String value) async {
+    setState(() => _busy = true);
+    try {
+      final roles = <String>{'player'};
+      if (value == 'judge' || value == 'mixed') roles.add('judge');
+      if (value == 'community_admin' || value == 'mixed') {
+        roles.add('community_admin');
+      }
+      await ref
+          .read(firestoreProvider)
+          .doc(FirestorePaths.userDoc(widget.user.uid))
+          .set({
+        'role': _primaryRole(roles),
+        'roles': roles.toList()..sort(),
+        'roleUpdatedAt': FieldValue.serverTimestamp(),
+        'roleUpdatedBy': ref.read(firebaseAuthProvider).currentUser?.uid,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+}
+
+class _UserAvatar extends StatelessWidget {
+  const _UserAvatar({required this.user});
+
+  final AdminUserSummary user;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial =
+        user.displayName.isEmpty ? '?' : user.displayName[0].toUpperCase();
+    return Container(
+      width: 34,
+      height: 34,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: user.roleColor.withValues(alpha: .28),
+        borderRadius: HDTR.md,
+        border: Border.all(color: user.roleColor.withValues(alpha: .45)),
+      ),
+      child: Text(initial, style: HDTText.display(size: 14)),
     );
   }
 }
@@ -1019,12 +2421,12 @@ class _SectionStatusChip extends StatelessWidget {
         vertical: HDTSpace.sm,
       ),
       decoration: BoxDecoration(
-        color: HDTColors.warning.withValues(alpha: .14),
+        color: HDTColors.accent.withValues(alpha: .12),
         borderRadius: HDTR.sm,
-        border: Border.all(color: HDTColors.warning.withValues(alpha: .34)),
+        border: Border.all(color: HDTColors.accentHover.withValues(alpha: .32)),
       ),
       child: Text(label.toUpperCase(),
-          style: HDTText.overline(size: 9, color: HDTColors.warning)),
+          style: HDTText.overline(size: 9, color: HDTColors.accentHover)),
     );
   }
 }
@@ -1092,30 +2494,48 @@ class _DataRowItem {
 class SuperAdminMetrics {
   const SuperAdminMetrics({
     required this.activeUsers,
+    required this.bannedUsers,
     required this.judges,
     required this.communityAdmins,
     required this.communities,
+    required this.pendingApprovals,
     required this.tournaments,
     required this.runningTournaments,
     required this.componentStats,
+    required this.grossRevenue,
+    required this.platformRevenue,
+    required this.paymentCount,
+    required this.pendingWithdrawals,
   });
 
   final int activeUsers;
+  final int bannedUsers;
   final int judges;
   final int communityAdmins;
   final int communities;
+  final int pendingApprovals;
   final int tournaments;
   final int runningTournaments;
   final int componentStats;
+  final int grossRevenue;
+  final int platformRevenue;
+  final int paymentCount;
+  final int pendingWithdrawals;
 
   static const demo = SuperAdminMetrics(
     activeUsers: 524,
+    bannedUsers: 3,
     judges: 32,
     communityAdmins: 18,
     communities: 18,
+    pendingApprovals: 2,
     tournaments: 42,
     runningTournaments: 2,
     componentStats: 316,
+    grossRevenue: 428500000,
+    platformRevenue: 42850000,
+    paymentCount: 1482,
+    pendingWithdrawals: 8300000,
   );
 }
 
@@ -1147,7 +2567,8 @@ class WithdrawRequestSummary {
     final tournamentRef = doc.reference.parent.parent;
     return WithdrawRequestSummary(
       id: (data['id'] ?? doc.id).toString(),
-      tournamentId: (data['tournamentId'] ?? tournamentRef?.id ?? '').toString(),
+      tournamentId:
+          (data['tournamentId'] ?? tournamentRef?.id ?? '').toString(),
       requesterName: (data['requesterName'] ?? 'Ketua komunitas').toString(),
       amount: (data['amount'] as num?)?.round() ?? 0,
       bankName: (data['bankName'] ?? '-').toString(),
@@ -1219,8 +2640,8 @@ class AdminComponentSummary {
   }) {
     final data = component.data();
     final statData = stat.data() ?? const <String, dynamic>{};
-    final manual =
-        Map<String, dynamic>.from(data['manualPerformance'] as Map? ?? const {});
+    final manual = Map<String, dynamic>.from(
+        data['manualPerformance'] as Map? ?? const {});
     final stats = Map<String, dynamic>.from(data['stats'] as Map? ?? const {});
     return AdminComponentSummary(
       id: component.id,
@@ -1291,6 +2712,129 @@ class ComponentStatSummary {
   }
 }
 
+class WeeklyComponentRelease {
+  const WeeklyComponentRelease({
+    required this.id,
+    required this.weekLabel,
+    required this.source,
+    required this.selectedIds,
+  });
+
+  final String id;
+  final String weekLabel;
+  final String source;
+  final List<String> selectedIds;
+
+  static const empty = WeeklyComponentRelease(
+    id: 'current',
+    weekLabel: 'auto',
+    source: 'auto',
+    selectedIds: [],
+  );
+
+  factory WeeklyComponentRelease.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data() ?? const <String, dynamic>{};
+    return WeeklyComponentRelease(
+      id: doc.id,
+      weekLabel: (data['weekLabel'] ?? _currentWeekLabel()).toString(),
+      source: (data['source'] ?? 'auto').toString(),
+      selectedIds: ((data['selectedIds'] as List?) ?? const [])
+          .map((item) => item.toString())
+          .where((item) => item.isNotEmpty)
+          .toList(),
+    );
+  }
+}
+
+class AdminUserSummary {
+  const AdminUserSummary({
+    required this.uid,
+    required this.displayName,
+    required this.email,
+    required this.region,
+    required this.roles,
+    required this.active,
+    required this.eloRating,
+    required this.totalMatches,
+  });
+
+  final String uid;
+  final String displayName;
+  final String email;
+  final String region;
+  final Set<String> roles;
+  final bool active;
+  final int eloRating;
+  final int totalMatches;
+
+  String get roleLabel {
+    if (roles.contains('super_admin')) return 'SUPER ADMIN';
+    if (roles.contains('community_admin') && roles.contains('judge')) {
+      return 'KETUA / JURI';
+    }
+    if (roles.contains('community_admin')) return 'KETUA';
+    if (roles.contains('judge')) return 'JURI';
+    return 'PLAYER';
+  }
+
+  Color get roleColor {
+    if (roles.contains('super_admin')) return HDTColors.accentHover;
+    if (roles.contains('community_admin') && roles.contains('judge')) {
+      return HDTColors.info;
+    }
+    if (roles.contains('community_admin')) return HDTColors.success;
+    if (roles.contains('judge')) return HDTColors.accent;
+    return HDTColors.text3;
+  }
+
+  factory AdminUserSummary.fromFirestore(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data();
+    return AdminUserSummary(
+      uid: doc.id,
+      displayName: (data['displayName'] ?? data['name'] ?? doc.id).toString(),
+      email: (data['email'] ?? '').toString(),
+      region: (data['region'] ?? '-').toString(),
+      roles: _rolesFromData(data),
+      active: data['isActive'] != false,
+      eloRating: _intFrom(data['eloRating']),
+      totalMatches: _intFrom(data['totalMatches']),
+    );
+  }
+}
+
+class PendingApplicationSummary {
+  const PendingApplicationSummary({
+    required this.id,
+    required this.communityName,
+    required this.city,
+    required this.leaderUserId,
+    required this.description,
+  });
+
+  final String id;
+  final String communityName;
+  final String city;
+  final String leaderUserId;
+  final String description;
+
+  factory PendingApplicationSummary.fromFirestore(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data();
+    return PendingApplicationSummary(
+      id: doc.id,
+      communityName: (data['communityName'] ?? doc.id).toString(),
+      city: (data['city'] ?? '-').toString(),
+      leaderUserId: (data['leaderUserId'] ?? '-').toString(),
+      description: (data['description'] ?? '').toString(),
+    );
+  }
+}
+
 Set<String> _rolesFromData(Map<String, dynamic> data) {
   final roles = <String>{};
   final role = data['role']?.toString();
@@ -1318,6 +2862,64 @@ String _formatRp(int value) {
         RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
         (match) => '${match[1]}.',
       )}';
+}
+
+String _primaryRole(Set<String> roles) {
+  if (roles.contains('super_admin')) return 'super_admin';
+  if (roles.contains('community_admin')) return 'community_admin';
+  if (roles.contains('judge')) return 'judge';
+  return 'player';
+}
+
+int _compareAdminComponents(
+  AdminComponentSummary a,
+  AdminComponentSummary b,
+  String sort,
+) {
+  final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+  return switch (sort) {
+    'category_asc' =>
+      a.category == b.category ? byName : a.category.compareTo(b.category),
+    'win_rate_desc' => b.effectiveWinRate.compareTo(a.effectiveWinRate) == 0
+        ? byName
+        : b.effectiveWinRate.compareTo(a.effectiveWinRate),
+    'played_desc' => b.effectiveAppearances == a.effectiveAppearances
+        ? byName
+        : b.effectiveAppearances.compareTo(a.effectiveAppearances),
+    _ => byName,
+  };
+}
+
+IconData _categoryIcon(String value) {
+  return switch (value) {
+    'assist_blades' => Icons.extension_outlined,
+    'over_blades' => Icons.layers_outlined,
+    'lock_chips' => Icons.lock_outline,
+    'ratchets' => Icons.adjust,
+    'bits' => Icons.radio_button_checked,
+    _ => Icons.hexagon_outlined,
+  };
+}
+
+String _contentTypeFor(PlatformFile file) {
+  return switch (file.extension?.toLowerCase()) {
+    'jpg' || 'jpeg' => 'image/jpeg',
+    'webp' => 'image/webp',
+    'gif' => 'image/gif',
+    _ => 'image/png',
+  };
+}
+
+String _currentWeekLabel() {
+  final now = DateTime.now();
+  final dayOfYear = now.difference(DateTime(now.year)).inDays + 1;
+  final week = ((dayOfYear - now.weekday + 10) / 7).floor();
+  return '${now.year}-W${week.toString().padLeft(2, '0')}';
+}
+
+bool _isNetworkImage(String value) {
+  final lower = value.toLowerCase();
+  return lower.startsWith('http://') || lower.startsWith('https://');
 }
 
 const _categoryOptions = {
@@ -1362,8 +2964,8 @@ String _sectionTitle(SuperAdminSection section) {
       return 'Manajemen Komponen';
     case SuperAdminSection.componentStats:
       return 'Review Statistik';
-    case SuperAdminSection.newParts:
-      return 'Part Baru';
+    case SuperAdminSection.users:
+      return 'Users & Roles';
   }
 }
 
@@ -1393,13 +2995,13 @@ _SectionOverview _sectionOverview(SuperAdminSection section) {
             'Pantau win rate, sample size, deck usage, dan performa part sebelum data dipublikasikan ke pemain.',
         status: 'review',
       );
-    case SuperAdminSection.newParts:
+    case SuperAdminSection.users:
       return const _SectionOverview(
-        eyebrow: 'NEW PARTS',
-        title: 'Validasi Part Baru',
+        eyebrow: 'USER MANAGEMENT',
+        title: 'Manajemen User dan Role',
         description:
-            'Antrian part baru untuk dilengkapi metadata, gambar, legalitas format, dan relasi komponen khusus.',
-        status: 'queue',
+            'Lihat semua akun, status aktif/banned, dan atur role sebagai player, juri, ketua komunitas, atau keduanya.',
+        status: 'role control',
       );
   }
 }

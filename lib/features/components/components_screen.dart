@@ -482,6 +482,7 @@ class _PartImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final path = part.assetPath;
+    final url = part.imageUrl;
     return Container(
       width: 58,
       height: 58,
@@ -491,13 +492,19 @@ class _PartImage extends StatelessWidget {
         borderRadius: HDTR.md,
         border: Border.all(color: HDTColors.s2),
       ),
-      child: path == null
-          ? _PartImageFallback(part: part)
-          : Image.asset(
-              path,
+      child: url != null
+          ? Image.network(
+              url,
               fit: BoxFit.contain,
               errorBuilder: (_, __, ___) => _PartImageFallback(part: part),
-            ),
+            )
+          : path == null
+              ? _PartImageFallback(part: part)
+              : Image.asset(
+                  path,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => _PartImageFallback(part: part),
+                ),
     );
   }
 }

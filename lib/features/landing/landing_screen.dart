@@ -60,8 +60,8 @@ class LandingScreen extends StatelessWidget {
           const SliverToBoxAdapter(
             child: _SectionShell(
               overline: 'META',
-              title: 'COMPONENT - WEEK 18',
-              subtitle: 'BASED ON 2,847 RANKED MATCHES',
+              title: 'COMPONENT - WEEKLY RELEASE',
+              subtitle: 'CURATED BY SUPER ADMIN OR AUTO TOP WIN RATE',
               actionLabel: 'BROWSE ALL PARTS',
               actionRoute: '/components',
               child: _ComponentMetaGrid(),
@@ -922,18 +922,49 @@ class _ComponentMetaGrid extends ConsumerWidget {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
           .collection(FirestorePaths.componentStats)
-          .orderBy('appearances', descending: true)
-          .limit(4)
+          .limit(500)
           .snapshots(),
-      builder: (context, snapshot) {
-        final statParts = (snapshot.data?.docs ?? const [])
-            .map((doc) => _Part.fromStat(doc, catalog))
-            .toList();
-        final catalogParts = catalog == null
-            ? parts
-            : _catalogPreview(catalog).map(_Part.fromBeyPart).toList();
-        return _ComponentMetaWrap(
-          parts: statParts.isEmpty ? catalogParts : statParts,
+      builder: (context, statsSnapshot) {
+        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream: FirebaseFirestore.instance
+              .doc(FirestorePaths.weeklyComponentReleaseDoc('current'))
+              .snapshots(),
+          builder: (context, releaseSnapshot) {
+            final release = releaseSnapshot.data?.data() ?? const {};
+            final selectedIds = ((release['selectedIds'] as List?) ?? const [])
+                .map((item) => item.toString())
+                .where((item) => item.isNotEmpty)
+                .toList();
+            final statDocs = statsSnapshot.data?.docs ?? const [];
+            final byId = {
+              for (final doc in statDocs) doc.id: doc,
+            };
+            final selectedParts = selectedIds
+                .map((id) => byId[id])
+                .whereType<QueryDocumentSnapshot<Map<String, dynamic>>>()
+                .map((doc) => _Part.fromStat(doc, catalog))
+                .toList();
+            final autoParts = [...statDocs]..sort((a, b) {
+                final winRate =
+                    _statWinRate(b.data()).compareTo(_statWinRate(a.data()));
+                if (winRate != 0) return winRate;
+                return _intFrom(b.data()['appearances'])
+                    .compareTo(_intFrom(a.data()['appearances']));
+              });
+            final statParts = selectedParts.isNotEmpty
+                ? selectedParts
+                : autoParts
+                    .take(4)
+                    .map((doc) => _Part.fromStat(doc, catalog))
+                    .toList();
+            final catalogParts = catalog == null
+                ? parts
+                : _catalogPreview(catalog).map(_Part.fromBeyPart).toList();
+            return _ComponentMetaWrap(
+              parts:
+                  statParts.isEmpty ? catalogParts : statParts.take(4).toList(),
+            );
+          },
         );
       },
     );
@@ -1032,14 +1063,22 @@ class _PartArtwork extends StatelessWidget {
         borderRadius: HDTR.md,
         border: Border.all(color: HDTColors.s2),
       ),
-      child: part.assetPath == null
-          ? _PartArtworkFallback(part: part)
-          : Image.asset(
-              part.assetPath!,
+      child: part.imageUrl != null
+          ? Image.network(
+              part.imageUrl!,
               fit: BoxFit.contain,
               filterQuality: FilterQuality.medium,
               errorBuilder: (_, __, ___) => _PartArtworkFallback(part: part),
-            ),
+            )
+          : part.assetPath == null
+              ? _PartArtworkFallback(part: part)
+              : Image.asset(
+                  part.assetPath!,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.medium,
+                  errorBuilder: (_, __, ___) =>
+                      _PartArtworkFallback(part: part),
+                ),
     );
   }
 }
@@ -1364,6 +1403,7 @@ class _Part {
     this.color, {
     required this.category,
     this.assetPath,
+    this.imageUrl,
     this.shortCode,
   });
 
@@ -1397,6 +1437,7 @@ class _Part {
       _partColor((data['type'] ?? part?.type ?? 'balance').toString()),
       category: part?.category ?? category,
       assetPath: part?.assetPath ?? _assetPathFromImage(image),
+      imageUrl: part?.imageUrl ?? _imageUrlFromImage(image),
       shortCode: part?.shortCode,
     );
   }
@@ -1416,6 +1457,7 @@ class _Part {
       _partColor(part.type),
       category: part.category,
       assetPath: part.assetPath,
+      imageUrl: part.imageUrl,
       shortCode: part.shortCode,
     );
   }
@@ -1428,6 +1470,7 @@ class _Part {
   final Color color;
   final String category;
   final String? assetPath;
+  final String? imageUrl;
   final String? shortCode;
 }
 
@@ -1458,9 +1501,15 @@ List<BeyPart> _catalogPreview(BeyPartsCatalog catalog) {
 
 String? _assetPathFromImage(String? image) {
   final trimmed = image?.trim();
-  return trimmed == null || trimmed.isEmpty
+  return trimmed == null || trimmed.isEmpty || _isNetworkImage(trimmed)
       ? null
       : 'assets/beybrew/parts/$trimmed';
+}
+
+String? _imageUrlFromImage(String? image) {
+  final trimmed = image?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+  return _isNetworkImage(trimmed) ? trimmed : null;
 }
 
 const _demoTournaments = [
@@ -1600,6 +1649,13 @@ int _intFrom(Object? value) {
   return int.tryParse(value?.toString() ?? '') ?? 0;
 }
 
+double _statWinRate(Map<String, dynamic> stats) {
+  final wins = _intFrom(stats['wins']);
+  final losses = _intFrom(stats['losses']);
+  if (wins + losses == 0) return 0;
+  return wins / (wins + losses) * 100;
+}
+
 String _slotLabel(String category) {
   return switch (_normalizeCategory(category)) {
     'assist_blades' => 'ASSIST',
@@ -1618,4 +1674,9 @@ Color _partColor(String type) {
     'stamina' => HDTColors.success,
     _ => HDTColors.warning,
   };
+}
+
+bool _isNetworkImage(String value) {
+  final lower = value.toLowerCase();
+  return lower.startsWith('http://') || lower.startsWith('https://');
 }

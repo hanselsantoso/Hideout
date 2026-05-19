@@ -79,6 +79,31 @@ const users = [
     totalLosses: 0,
     isQrActivated: true,
   },
+  {
+    uid: 'demo-mixed-raka',
+    email: 'hideout.mixed@example.com',
+    displayName: 'Raka Judge Ketua',
+    region: 'JKT',
+    role: 'community_admin',
+    roles: ['player', 'community_admin', 'judge'],
+    eloRating: 2716,
+    totalWins: 92,
+    totalLosses: 41,
+    isQrActivated: true,
+  },
+  {
+    uid: 'demo-banned-user',
+    email: 'hideout.banned@example.com',
+    displayName: 'Banned Demo',
+    region: 'JKT',
+    role: 'player',
+    roles: ['player'],
+    eloRating: 1200,
+    totalWins: 1,
+    totalLosses: 9,
+    isQrActivated: false,
+    isActive: false,
+  },
 ];
 
 const communities = [
@@ -176,6 +201,66 @@ const componentStats = [
   ['bits', 'Taper', 341, 177, 164],
 ];
 
+const pendingApplications = [
+  {
+    id: 'demo-app-solo-burst',
+    communityName: 'Solo Burst Lab',
+    city: 'Surakarta',
+    leaderUserId: 'demo-player-kaede',
+    requesterId: 'demo-player-kaede',
+    description:
+      'Komunitas baru Solo dengan 40+ pemain aktif. KTP OK, jadwal venue mingguan sudah tersedia.',
+  },
+  {
+    id: 'demo-app-medan-bey',
+    communityName: 'Medan Beybladers',
+    city: 'Medan',
+    leaderUserId: 'demo-judge-bayu',
+    requesterId: 'demo-judge-bayu',
+    description:
+      'Pengajuan komunitas Medan. Dokumen venue sudah ada, perlu cek ulang data penanggung jawab.',
+  },
+];
+
+const componentMaster = [
+  ['blades', 'Phoenix Wing'],
+  ['bits', 'Rush'],
+  ['ratchets', '9-60'],
+  ['bits', 'Ball'],
+  ['blades', 'Wizard Rod'],
+  ['blades', 'Dran Buster'],
+  ['ratchets', '3-60'],
+  ['bits', 'Taper'],
+];
+
+const payments = [
+  ['hideout-cup-04', 'pay-001', 'demo-player-kaede', 55000, 5000, 'paid'],
+  ['hideout-cup-04', 'pay-002', 'demo-judge-bayu', 55000, 5000, 'paid'],
+  ['east-coast-showdown', 'pay-003', 'demo-player-kaede', 38500, 3500, 'paid'],
+  ['highland-open', 'pay-004', 'demo-mixed-raka', 44000, 4000, 'paid'],
+];
+
+const withdrawals = [
+  {
+    tournamentId: 'hideout-cup-04',
+    id: 'wd-001',
+    requesterName: 'Nadia Community',
+    amount: 850000,
+    bankName: 'BCA',
+    accountNumber: '1234567890',
+    status: 'pending',
+  },
+  {
+    tournamentId: 'east-coast-showdown',
+    id: 'wd-002',
+    requesterName: 'Nadia Community',
+    amount: 420000,
+    bankName: 'Mandiri',
+    accountNumber: '9876543210',
+    status: 'approved',
+  },
+];
+
 function slug(value) {
   return value
     .toLowerCase()
@@ -189,6 +274,17 @@ function partId(category, name) {
 
 function findPart(category, name) {
   return (catalog[category] || []).find((part) => part.name === name);
+}
+
+function statsForPart(part) {
+  const fallback = part?.modes?.[0] || part || {};
+  return {
+    attack: fallback.attack || 0,
+    defense: fallback.defense || 0,
+    stamina: fallback.stamina || 0,
+    xDash: fallback.xDash || 0,
+    burstResistance: fallback.burstResistance || 0,
+  };
 }
 
 async function upsertUser(user) {
@@ -230,7 +326,7 @@ async function upsertUser(user) {
       totalLosses: user.totalLosses,
       totalMatches: user.totalWins + user.totalLosses,
       isQrActivated: user.isQrActivated,
-      isActive: true,
+      isActive: user.isActive !== false,
       seeded: true,
       updatedAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
@@ -320,12 +416,139 @@ async function seedComponentStats() {
   }
 }
 
+async function seedComponents() {
+  for (const [category, name] of componentMaster) {
+    const part = findPart(category, name);
+    if (!part) continue;
+    const id = partId(category, name);
+    const stats = statsForPart(part);
+    await db.collection('components').doc(id).set(
+      {
+        id,
+        category,
+        name,
+        alias: part.alias || null,
+        type: part.type || 'balance',
+        line: part.line || '',
+        image: part.image || null,
+        integratedRatchet: part.integratedRatchet || null,
+        description: part.description || null,
+        source: ['BeyBrew', 'Seed'],
+        active: true,
+        stats,
+        manualPerformance: {
+          appearances: 0,
+          wins: 0,
+          losses: 0,
+        },
+        seeded: true,
+        updatedAt: FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    console.log(`component:${id}`);
+  }
+}
+
+async function seedPendingApplications() {
+  for (const application of pendingApplications) {
+    await db.collection('communityApplications').doc(application.id).set(
+      {
+        ...application,
+        status: 'pending',
+        seeded: true,
+        updatedAt: FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    console.log(`communityApplication:${application.id}`);
+  }
+}
+
+async function seedFinance() {
+  for (const [tournamentId, id, playerId, amount, platformFee, status] of payments) {
+    await db
+      .collection('tournaments')
+      .doc(tournamentId)
+      .collection('payments')
+      .doc(id)
+      .set(
+        {
+          id,
+          tournamentId,
+          playerId,
+          amount,
+          platformFee,
+          providerFee: Math.round(amount * 0.03),
+          status,
+          method: 'demo_qris',
+          seeded: true,
+          paidAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    console.log(`payment:${tournamentId}/${id}`);
+  }
+
+  for (const withdrawal of withdrawals) {
+    const { tournamentId, id, ...data } = withdrawal;
+    await db
+      .collection('tournaments')
+      .doc(tournamentId)
+      .collection('withdrawals')
+      .doc(id)
+      .set(
+        {
+          id,
+          tournamentId,
+          ...data,
+          seeded: true,
+          requestedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    console.log(`withdrawal:${tournamentId}/${id}`);
+  }
+}
+
+async function seedWeeklyRelease() {
+  const selectedIds = componentStats
+    .map(([category, name, appearances, wins, losses]) => ({
+      id: partId(category, name),
+      rate: wins / Math.max(1, wins + losses),
+      appearances,
+    }))
+    .sort((a, b) => b.rate - a.rate || b.appearances - a.appearances)
+    .slice(0, 4)
+    .map((item) => item.id);
+  await db.collection('weeklyComponentReleases').doc('current').set(
+    {
+      id: 'current',
+      weekLabel: '2026-W21',
+      source: 'manual',
+      selectedIds,
+      seeded: true,
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+  console.log('weeklyComponentRelease:current');
+}
+
 async function main() {
   console.log(`Seeding Firebase project ${projectId}`);
   await seedUsers();
   await seedCommunities();
   await seedTournaments();
+  await seedPendingApplications();
+  await seedComponents();
   await seedComponentStats();
+  await seedFinance();
+  await seedWeeklyRelease();
   console.log('Seed complete');
   console.log('Demo password source: HIDEOUT_DEMO_PASSWORD');
 }

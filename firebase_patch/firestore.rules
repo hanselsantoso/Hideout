@@ -89,8 +89,9 @@ service cloud.firestore {
         || isAdmin()
         || isJudge()
         || (isCommunityAdmin() && resource.data.role in ['player', 'judge']);
-      allow create: if isSelf(uid)
-        && request.resource.data.role == 'player';
+      allow create: if isAdmin()
+        || (isSelf(uid)
+          && request.resource.data.role == 'player');
       allow update: if isAdmin()
         || canCommunityManageJudgeRole(uid)
         || (isSelf(uid)
@@ -115,9 +116,10 @@ service cloud.firestore {
       allow read: if isAdmin()
         || (isAuthenticated() && resource.data.requesterId == request.auth.uid)
         || (isAuthenticated() && resource.data.leaderUserId == request.auth.uid);
-      allow create: if isAuthenticated()
-        && request.resource.data.requesterId == request.auth.uid
-        && request.resource.data.status == 'pending';
+      allow create: if isAdmin()
+        || (isAuthenticated()
+          && request.resource.data.requesterId == request.auth.uid
+          && request.resource.data.status == 'pending');
       allow update, delete: if isAdmin();
     }
 
@@ -157,7 +159,14 @@ service cloud.firestore {
       // Payments — only Cloud Functions write via Admin SDK; player/admin can read
       match /payments/{payId} {
         allow read: if isAdmin() || (isPlayer() && resource.data.playerId == request.auth.uid);
-        allow write: if false; // Cloud Functions only
+        allow write: if isAdmin(); // Cloud Functions/admin back office
+      }
+
+      match /withdrawals/{withdrawId} {
+        allow read: if isAdmin() || isCommunityAdmin();
+        allow create: if isAdmin() || isCommunityAdmin();
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
       }
 
       // Rounds — admin creates, all authenticated can read
@@ -220,6 +229,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /weeklyComponentReleases/{releaseId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // ── /elo_history/{id} ────────────────────────────────────────
     match /elo_history/{histId} {
       allow read: if isAuthenticated();
@@ -261,6 +275,9 @@ service cloud.firestore {
     }
     match /{path=**}/payments/{payId} {
       allow read: if isAdmin() || (isPlayer() && resource.data.playerId == request.auth.uid);
+    }
+    match /{path=**}/withdrawals/{withdrawId} {
+      allow read: if isAdmin() || isCommunityAdmin();
     }
     match /{path=**}/registrations/{regId} {
       allow read: if isAuthenticated();

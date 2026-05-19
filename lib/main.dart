@@ -106,8 +106,11 @@ class BeyTourneyApp extends StatelessWidget {
             const SuperAdminConsoleScreen(
                 section: SuperAdminSection.componentStats),
             allowedRoles: _superAdminAccess),
-        '/super-admin/parts/new': (_) => _roleRoute('/super-admin/parts/new',
-            const SuperAdminConsoleScreen(section: SuperAdminSection.newParts),
+        '/super-admin/users': (_) => _roleRoute('/super-admin/users',
+            const SuperAdminConsoleScreen(section: SuperAdminSection.users),
+            allowedRoles: _superAdminAccess),
+        '/super-admin/parts/new': (_) => _roleRoute('/super-admin/users',
+            const SuperAdminConsoleScreen(section: SuperAdminSection.users),
             allowedRoles: _superAdminAccess),
         '/admin/tournaments/new': (_) => _roleRoute(
               '/admin/tournaments/new',
@@ -250,6 +253,15 @@ class _AuthzRoute extends ConsumerWidget {
                     'Akun sudah login, tetapi dokumen profil belum tersedia.',
                 actionLabel: 'ONBOARDING',
                 actionRoute: '/onboarding',
+              );
+            }
+            if (!user.isActive) {
+              return const _RouteStateScreen(
+                title: 'ACCOUNT SUSPENDED',
+                message:
+                    'Akun ini sedang diblokir dan tidak bisa membuka menu platform.',
+                actionLabel: 'SIGN IN',
+                actionRoute: '/signin',
               );
             }
             if (!_hasRouteAccess(user, allowedRoles)) {
@@ -543,9 +555,9 @@ const _roleNavItems = [
     roles: {'super_admin'},
   ),
   _RoleNavItem(
-    label: 'Part Baru',
-    route: '/super-admin/parts/new',
-    icon: Icons.new_releases_outlined,
+    label: 'Users & Roles',
+    route: '/super-admin/users',
+    icon: Icons.manage_accounts_outlined,
     section: 'platform',
     roles: {'super_admin'},
   ),
@@ -963,7 +975,7 @@ _SidebarModeConfig _modeConfigFor(AppUser? user) {
     return const _SidebarModeConfig(
       label: 'Super Admin',
       badge: 'SYS',
-      color: HDTColors.warning,
+      color: HDTColors.accentHover,
     );
   }
   final hasCommunityAdmin = capabilities.contains('community_admin');
@@ -1026,7 +1038,7 @@ Color _sectionAccent(String section) {
     case 'panel_ketua':
       return HDTColors.accentHover;
     case 'platform':
-      return HDTColors.warning;
+      return HDTColors.accentHover;
     default:
       return HDTColors.text3;
   }
@@ -1058,7 +1070,7 @@ Color _navItemAccent(_RoleNavItem item, Color fallback) {
     case 'panel_ketua':
       return HDTColors.accentHover;
     case 'platform':
-      return HDTColors.warning;
+      return HDTColors.accentHover;
     default:
       return fallback;
   }

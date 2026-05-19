@@ -93,9 +93,17 @@ class BeyPart {
   });
 
   bool get isCx => line.toUpperCase() == 'CX';
-  String? get assetPath => image == null || image!.trim().isEmpty
-      ? null
-      : 'assets/beybrew/parts/${image!.trim()}';
+  String? get imageUrl {
+    final value = image?.trim();
+    if (value == null || value.isEmpty) return null;
+    return _isNetworkImage(value) ? value : null;
+  }
+
+  String? get assetPath {
+    final value = image?.trim();
+    if (value == null || value.isEmpty || _isNetworkImage(value)) return null;
+    return 'assets/beybrew/parts/$value';
+  }
   bool get isIntegrated =>
       integratedRatchet != null ||
       name.toLowerCase().contains('integrated') ||
@@ -531,4 +539,9 @@ String _slug(String value) {
 
 String _normalizePartLookup(String value) {
   return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+}
+
+bool _isNetworkImage(String value) {
+  final lower = value.toLowerCase();
+  return lower.startsWith('http://') || lower.startsWith('https://');
 }
