@@ -93,10 +93,9 @@ class BeyPart {
   });
 
   bool get isCx => line.toUpperCase() == 'CX';
-  String? get assetPath =>
-      image == null || image!.trim().isEmpty
-          ? null
-          : 'assets/beybrew/parts/${image!.trim()}';
+  String? get assetPath => image == null || image!.trim().isEmpty
+      ? null
+      : 'assets/beybrew/parts/${image!.trim()}';
   bool get isIntegrated =>
       integratedRatchet != null ||
       name.toLowerCase().contains('integrated') ||
@@ -269,6 +268,31 @@ class BeyPartsCatalog {
       ...bits,
     ]) {
       if (part.id == id) return part;
+    }
+    return null;
+  }
+
+  BeyPart? findByName(String name, {String? category}) {
+    final target = _normalizePartLookup(name);
+    if (target.isEmpty) return null;
+    final normalizedCategory = category?.trim();
+    for (final part in [
+      ...blades,
+      ...assistBlades,
+      ...overBlades,
+      ...lockChips,
+      ...ratchets,
+      ...bits,
+    ]) {
+      if (normalizedCategory != null &&
+          normalizedCategory.isNotEmpty &&
+          part.category != normalizedCategory) {
+        continue;
+      }
+      if (_normalizePartLookup(part.name) == target ||
+          _normalizePartLookup(part.alias ?? '') == target) {
+        return part;
+      }
     }
     return null;
   }
@@ -503,4 +527,8 @@ String _slug(String value) {
       .toLowerCase()
       .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
       .replaceAll(RegExp(r'^-+|-+$'), '');
+}
+
+String _normalizePartLookup(String value) {
+  return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
 }

@@ -132,9 +132,8 @@ class _LoadedComponents extends StatelessWidget {
       return matchesQuery && matchesCategory && matchesType;
     }).toList()
       ..sort((a, b) => _compareParts(a, b, sort, statByPart));
-    final totalPages = filteredParts.isEmpty
-        ? 1
-        : (filteredParts.length / pageSize).ceil();
+    final totalPages =
+        filteredParts.isEmpty ? 1 : (filteredParts.length / pageSize).ceil();
     final currentPage = page.clamp(0, totalPages - 1).toInt();
     final start = currentPage * pageSize;
     final end = start + pageSize > filteredParts.length
@@ -229,8 +228,8 @@ class _LoadedComponents extends StatelessWidget {
                     : constraints.maxWidth >= 560
                         ? 2
                         : 1;
-            final width = (constraints.maxWidth - (cols - 1) * HDTSpace.md) /
-                cols;
+            final width =
+                (constraints.maxWidth - (cols - 1) * HDTSpace.md) / cols;
             return Wrap(
               spacing: HDTSpace.md,
               runSpacing: HDTSpace.md,
@@ -493,13 +492,30 @@ class _PartImage extends StatelessWidget {
         border: Border.all(color: HDTColors.s2),
       ),
       child: path == null
-          ? Text(part.shortCode, style: HDTText.overline(size: 11))
+          ? _PartImageFallback(part: part)
           : Image.asset(
               path,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) =>
-                  Text(part.shortCode, style: HDTText.overline(size: 11)),
+              errorBuilder: (_, __, ___) => _PartImageFallback(part: part),
             ),
+    );
+  }
+}
+
+class _PartImageFallback extends StatelessWidget {
+  const _PartImageFallback({required this.part});
+
+  final BeyPart part;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(_categoryIcon(part.category), size: 20, color: HDTColors.text3),
+        const SizedBox(height: 3),
+        Text(part.shortCode, style: HDTText.overline(size: 9)),
+      ],
     );
   }
 }
@@ -566,9 +582,8 @@ int _compareParts(
         ? byName
         : _winRate(bStats).compareTo(_winRate(aStats)),
     'name_asc' => byName,
-    'category_asc' => a.category == b.category
-        ? byName
-        : a.category.compareTo(b.category),
+    'category_asc' =>
+      a.category == b.category ? byName : a.category.compareTo(b.category),
     'attack_desc' => b.stats.attack == a.stats.attack
         ? byName
         : b.stats.attack.compareTo(a.stats.attack),
@@ -598,6 +613,17 @@ String _categoryLabel(String value) {
     'ratchets' => 'Ratchet',
     'bits' => 'Bit',
     _ => 'Blade',
+  };
+}
+
+IconData _categoryIcon(String value) {
+  return switch (value) {
+    'assist_blades' => Icons.extension_outlined,
+    'over_blades' => Icons.layers_outlined,
+    'lock_chips' => Icons.lock_outline,
+    'ratchets' => Icons.adjust,
+    'bits' => Icons.radio_button_checked,
+    _ => Icons.hexagon_outlined,
   };
 }
 

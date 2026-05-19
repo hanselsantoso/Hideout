@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/firestore_paths.dart';
 import '../../core/theme/hideout_tokens.dart';
+import '../../data/models/app_user.dart';
 import '../../data/models/bey_part.dart';
+import '../../data/models/tournament_summary.dart';
 
 class LandingScreen extends StatelessWidget {
   const LandingScreen({super.key});
@@ -27,33 +29,42 @@ class LandingScreen extends StatelessWidget {
           ),
           SliverToBoxAdapter(child: _HeroSection()),
           const SliverToBoxAdapter(child: _LiveTicker()),
-          SliverToBoxAdapter(
+          const SliverToBoxAdapter(
+            child: _SectionShell(
+              overline: 'SCHEDULE',
+              title: 'UPCOMING TOURNAMENTS',
+              actionLabel: 'BROWSE TOURNAMENTS',
+              actionRoute: '/public/tournaments',
+              child: _TournamentPreview(),
+            ),
+          ),
+          const SliverToBoxAdapter(
             child: _SectionShell(
               overline: 'RANKED',
               title: 'HIDEOUT LEADERBOARD',
               actionLabel: 'VIEW FULL LEADERBOARD',
               actionRoute: '/public/leaderboard',
-              child: const _LeaderboardPreview(),
+              child: _LeaderboardPreview(),
             ),
           ),
-          SliverToBoxAdapter(
+          const SliverToBoxAdapter(
             child: _SectionShell(
               overline: 'FEATURED',
               title: 'COMMUNITIES',
               actionLabel: 'BUKA KOMUNITAS BARU',
               actionRoute: '/communities',
-              child: const _CommunityGrid(),
+              child: _CommunityGrid(),
             ),
           ),
           const SliverToBoxAdapter(child: _PillarsBand()),
-          SliverToBoxAdapter(
+          const SliverToBoxAdapter(
             child: _SectionShell(
               overline: 'META',
               title: 'COMPONENT - WEEK 18',
               subtitle: 'BASED ON 2,847 RANKED MATCHES',
               actionLabel: 'BROWSE ALL PARTS',
               actionRoute: '/components',
-              child: const _ComponentMetaGrid(),
+              child: _ComponentMetaGrid(),
             ),
           ),
           const SliverToBoxAdapter(child: _CtaBand()),
@@ -86,23 +97,42 @@ class _TopNav extends StatelessWidget {
           ),
           const SizedBox(width: HDTSpace.sm),
           Text('HIDEOUT', style: HDTText.display(size: 22)),
-          if (!compact) ...[
+          if (compact) ...[
+            const Spacer(),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.menu, color: HDTColors.text),
+              color: HDTColors.s1,
+              onSelected: (route) => Navigator.pushNamed(context, route),
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                    value: '/public/tournaments', child: Text('Tournaments')),
+                PopupMenuItem(
+                    value: '/public/leaderboard', child: Text('Leaderboard')),
+                PopupMenuItem(
+                    value: '/communities', child: Text('Communities')),
+                PopupMenuItem(value: '/components', child: Text('Components')),
+                PopupMenuDivider(),
+                PopupMenuItem(value: '/signin', child: Text('Sign in')),
+                PopupMenuItem(value: '/signup', child: Text('Register')),
+              ],
+            ),
+          ] else ...[
             const SizedBox(width: HDTSpace.xxxl),
-            _NavLink('TOURNAMENTS', '/public/tournaments'),
-            _NavLink('LEADERBOARD', '/public/leaderboard'),
-            _NavLink('COMMUNITIES', '/communities'),
-            _NavLink('COMPONENTS', '/components'),
+            const _NavLink('TOURNAMENTS', '/public/tournaments'),
+            const _NavLink('LEADERBOARD', '/public/leaderboard'),
+            const _NavLink('COMMUNITIES', '/communities'),
+            const _NavLink('COMPONENTS', '/components'),
+            const Spacer(),
+            TextButton(
+              onPressed: () => Navigator.pushNamed(context, '/signin'),
+              child: const Text('SIGN IN'),
+            ),
+            const SizedBox(width: HDTSpace.sm),
+            ElevatedButton(
+              onPressed: () => Navigator.pushNamed(context, '/signup'),
+              child: const Text('REGISTER'),
+            ),
           ],
-          const Spacer(),
-          TextButton(
-            onPressed: () => Navigator.pushNamed(context, '/signin'),
-            child: const Text('SIGN IN'),
-          ),
-          const SizedBox(width: HDTSpace.sm),
-          ElevatedButton(
-            onPressed: () => Navigator.pushNamed(context, '/signup'),
-            child: const Text('REGISTER'),
-          ),
         ],
       ),
     );
@@ -223,7 +253,8 @@ class _HeroCopy extends StatelessWidget {
             SizedBox(
               height: 48,
               child: OutlinedButton(
-                onPressed: () => Navigator.pushNamed(context, '/public/tournaments'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/public/tournaments'),
                 child: const Text('BROWSE TOURNAMENTS'),
               ),
             ),
@@ -286,47 +317,66 @@ class _ArenaVisual extends StatelessWidget {
 class _LiveTicker extends StatelessWidget {
   const _LiveTicker();
 
+  static const fallbackItems = [
+    'JKT WOLVES / HIDEOUT CUP #04 - ROUND 4',
+    'SBY SPIN / EAST COAST SHOWDOWN - FINAL',
+    'BDG GRINDERS / HIGHLAND OPEN - CHECK-IN',
+  ];
+
   @override
   Widget build(BuildContext context) {
-    final items = [
-      'JKT WOLVES / HIDEOUT CUP #04 - ROUND 4',
-      'SBY SPIN / EAST COAST SHOWDOWN - FINAL',
-      'BDG GRINDERS / HIGHLAND OPEN - CHECK-IN',
-    ];
     return Container(
       height: 56,
       decoration: const BoxDecoration(
         color: HDTColors.s1,
         border: Border(bottom: BorderSide(color: HDTColors.s2)),
       ),
-      child: Row(
-        children: [
-          Container(
-            height: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: HDTSpace.lg),
-            color: HDTColors.accent,
-            child: Row(
-              children: [
-                const _LiveDot(color: Colors.white),
-                const SizedBox(width: HDTSpace.sm),
-                Text('LIVE NOW',
-                    style: HDTText.overline(size: 11, color: Colors.white)),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: HDTSpace.xl),
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(width: HDTSpace.xxxl),
-              itemBuilder: (context, index) => Center(
-                child: Text(items[index],
-                    style: HDTText.mono(size: 12, color: HDTColors.text2)),
+      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance
+            .collection(FirestorePaths.tournaments)
+            .orderBy('startDate', descending: true)
+            .limit(3)
+            .snapshots(),
+        builder: (context, snapshot) {
+          final items = (snapshot.data?.docs ?? const [])
+              .map(TournamentSummary.fromFirestore)
+              .map(_tickerLabel)
+              .where((item) => item.isNotEmpty)
+              .toList();
+          final labels = items.isEmpty ? fallbackItems : items;
+          return Row(
+            children: [
+              Container(
+                height: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: HDTSpace.lg),
+                color: HDTColors.accent,
+                child: Row(
+                  children: [
+                    const _LiveDot(color: Colors.white),
+                    const SizedBox(width: HDTSpace.sm),
+                    Text('LIVE NOW',
+                        style: HDTText.overline(size: 11, color: Colors.white)),
+                  ],
+                ),
               ),
-            ),
-          ),
-        ],
+              Expanded(
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: HDTSpace.xl),
+                  itemCount: labels.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(width: HDTSpace.xxxl),
+                  itemBuilder: (context, index) => Center(
+                    child: Text(
+                      labels[index],
+                      style: HDTText.mono(size: 12, color: HDTColors.text2),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -400,10 +450,131 @@ class _SectionShell extends StatelessWidget {
   }
 }
 
+class _TournamentPreview extends StatelessWidget {
+  const _TournamentPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection(FirestorePaths.tournaments)
+          .orderBy('startDate', descending: false)
+          .limit(6)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final rows = (snapshot.data?.docs ?? const [])
+            .map(TournamentSummary.fromFirestore)
+            .where((tournament) => tournament.status != 'completed')
+            .take(3)
+            .map(_TournamentSpotlight.fromSummary)
+            .toList();
+        final tournaments = rows.isEmpty ? _demoTournaments : rows;
+        return LayoutBuilder(builder: (context, constraints) {
+          final cols = constraints.maxWidth >= 980
+              ? 3
+              : constraints.maxWidth >= 640
+                  ? 2
+                  : 1;
+          final width =
+              (constraints.maxWidth - (cols - 1) * HDTSpace.md) / cols;
+          return Wrap(
+            spacing: HDTSpace.md,
+            runSpacing: HDTSpace.md,
+            children: [
+              for (final tournament in tournaments)
+                SizedBox(
+                  width: width,
+                  child: _TournamentSpotlightCard(tournament),
+                ),
+            ],
+          );
+        });
+      },
+    );
+  }
+}
+
+class _TournamentSpotlightCard extends StatelessWidget {
+  const _TournamentSpotlightCard(this.tournament);
+
+  final _TournamentSpotlight tournament;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: HDTR.lg,
+      onTap: () => Navigator.pushNamed(context, '/public/tournaments'),
+      child: Container(
+        padding: const EdgeInsets.all(HDTSpace.xl),
+        decoration: hdtCard(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: tournament.color,
+                    borderRadius: HDTR.md,
+                  ),
+                  child: const Icon(
+                    Icons.emoji_events_outlined,
+                    color: Colors.white,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  tournament.status,
+                  style: HDTText.overline(
+                    size: 9,
+                    color: tournament.isLive
+                        ? HDTColors.accentHover
+                        : HDTColors.text3,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: HDTSpace.xl),
+            Text(tournament.name, style: HDTText.display(size: 24)),
+            const SizedBox(height: HDTSpace.sm),
+            Text(
+              tournament.location,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: HDTText.body(size: 12, color: HDTColors.text2),
+            ),
+            const SizedBox(height: HDTSpace.xl),
+            hdtDivider(),
+            const SizedBox(height: HDTSpace.md),
+            Row(
+              children: [
+                Expanded(
+                  child: _MetaStat(
+                    label: 'DATE',
+                    value: tournament.dateLabel,
+                  ),
+                ),
+                Expanded(
+                  child: _MetaStat(
+                    label: 'SLOTS',
+                    value: tournament.capacityLabel,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _LeaderboardPreview extends StatelessWidget {
   const _LeaderboardPreview();
 
-  static const players = [
+  static const fallbackPlayers = [
     _Player('01', 'KAEDE', 'HDT-001', 'JKT', 2840, 4, 2, HDTColors.accent),
     _Player('02', 'HARRIS', 'HDT-202', 'BDG', 2760, 3, -1, HDTColors.info),
     _Player('03', 'GERHANA', 'HDT-045', 'SBY', 2698, 2, 4, HDTColors.warning),
@@ -412,34 +583,53 @@ class _LeaderboardPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: hdtCard(),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(HDTSpace.md),
-            color: HDTColors.bg,
-            child: Row(
-              children: [
-                Expanded(
-                    child: Text('PLAYER',
-                        style: HDTText.overline(color: HDTColors.text3))),
-                SizedBox(
-                    width: 90,
-                    child: Text('POINTS',
-                        textAlign: TextAlign.right,
-                        style: HDTText.overline(color: HDTColors.text3))),
-                SizedBox(
-                    width: 70,
-                    child: Text('TREND',
-                        textAlign: TextAlign.right,
-                        style: HDTText.overline(color: HDTColors.text3))),
-              ],
-            ),
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection(FirestorePaths.users)
+          .orderBy('eloRating', descending: true)
+          .limit(4)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final rows = (snapshot.data?.docs ?? const [])
+            .map(AppUser.fromFirestore)
+            .where((user) => user.displayName.trim().isNotEmpty)
+            .toList();
+        final players = rows.isEmpty
+            ? fallbackPlayers
+            : [
+                for (var i = 0; i < rows.length; i++)
+                  _Player.fromUser(rows[i], i),
+              ];
+        return Container(
+          decoration: hdtCard(),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(HDTSpace.md),
+                color: HDTColors.bg,
+                child: Row(
+                  children: [
+                    Expanded(
+                        child: Text('PLAYER',
+                            style: HDTText.overline(color: HDTColors.text3))),
+                    SizedBox(
+                        width: 90,
+                        child: Text('POINTS',
+                            textAlign: TextAlign.right,
+                            style: HDTText.overline(color: HDTColors.text3))),
+                    SizedBox(
+                        width: 70,
+                        child: Text('TREND',
+                            textAlign: TextAlign.right,
+                            style: HDTText.overline(color: HDTColors.text3))),
+                  ],
+                ),
+              ),
+              for (final player in players) _PlayerRow(player: player),
+            ],
           ),
-          for (final player in players) _PlayerRow(player: player),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -506,7 +696,7 @@ class _PlayerRow extends StatelessWidget {
 class _CommunityGrid extends StatelessWidget {
   const _CommunityGrid();
 
-  static const communities = [
+  static const fallbackCommunities = [
     _Community('JKT WOLVES', 'Jakarta', '1,248', '2 LIVE', HDTColors.accent),
     _Community('SBY SPIN', 'Surabaya', '843', '1 LIVE', HDTColors.danger),
     _Community('BDG GRINDERS', 'Bandung', '712', 'OPEN', HDTColors.info),
@@ -514,22 +704,38 @@ class _CommunityGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final cols = constraints.maxWidth >= 900
-          ? 3
-          : constraints.maxWidth >= 620
-              ? 2
-              : 1;
-      final width = (constraints.maxWidth - (cols - 1) * HDTSpace.md) / cols;
-      return Wrap(
-        spacing: HDTSpace.md,
-        runSpacing: HDTSpace.md,
-        children: [
-          for (final community in communities)
-            SizedBox(width: width, child: _CommunityCard(community: community)),
-        ],
-      );
-    });
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection(FirestorePaths.communities)
+          .limit(3)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final rows = (snapshot.data?.docs ?? const [])
+            .map((doc) => _Community.fromFirestore(doc))
+            .toList();
+        final communities = rows.isEmpty ? fallbackCommunities : rows;
+        return LayoutBuilder(builder: (context, constraints) {
+          final cols = constraints.maxWidth >= 900
+              ? 3
+              : constraints.maxWidth >= 620
+                  ? 2
+                  : 1;
+          final width =
+              (constraints.maxWidth - (cols - 1) * HDTSpace.md) / cols;
+          return Wrap(
+            spacing: HDTSpace.md,
+            runSpacing: HDTSpace.md,
+            children: [
+              for (final community in communities)
+                SizedBox(
+                  width: width,
+                  child: _CommunityCard(community: community),
+                ),
+            ],
+          );
+        });
+      },
+    );
   }
 }
 
@@ -596,7 +802,7 @@ class _PillarsBand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pillars = [
+    const pillars = [
       _Pillar(Icons.local_fire_department_outlined, 'COMPETITIVE',
           'Setiap match menghasilkan ELO. Setiap deck punya track record. Pemain di sini ingin menang.'),
       _Pillar(Icons.groups_outlined, 'COMMUNITY-LED',
@@ -664,10 +870,50 @@ class _ComponentMetaGrid extends ConsumerWidget {
   const _ComponentMetaGrid();
 
   static const parts = [
-    _Part('PHOENIX WING', 'BLADE', 'S', '1,204', '58.2%', HDTColors.danger),
-    _Part('RUSH', 'BIT', 'A', '902', '54.9%', HDTColors.warning),
-    _Part('9-60', 'RATCHET', 'A', '744', '52.4%', HDTColors.info),
-    _Part('BALL', 'BIT', 'B', '488', '49.8%', HDTColors.success),
+    _Part(
+      'PHOENIX WING',
+      'BLADE',
+      'S',
+      '1,204',
+      '58.2%',
+      HDTColors.danger,
+      category: 'blades',
+      assetPath: 'assets/beybrew/parts/BladePhoenixWing.png',
+      shortCode: 'PW',
+    ),
+    _Part(
+      'RUSH',
+      'BIT',
+      'A',
+      '902',
+      '54.9%',
+      HDTColors.warning,
+      category: 'bits',
+      assetPath: 'assets/beybrew/parts/BitRush.png',
+      shortCode: 'RU',
+    ),
+    _Part(
+      '9-60',
+      'RATCHET',
+      'A',
+      '744',
+      '52.4%',
+      HDTColors.info,
+      category: 'ratchets',
+      assetPath: 'assets/beybrew/parts/Ratchet9-60.png',
+      shortCode: '9-60',
+    ),
+    _Part(
+      'BALL',
+      'BIT',
+      'B',
+      '488',
+      '49.8%',
+      HDTColors.success,
+      category: 'bits',
+      assetPath: 'assets/beybrew/parts/BitBall.png',
+      shortCode: 'BA',
+    ),
   ];
 
   @override
@@ -751,7 +997,7 @@ class _PartCard extends StatelessWidget {
           const SizedBox(height: HDTSpace.lg),
           AspectRatio(
             aspectRatio: 1,
-            child: CustomPaint(painter: _PartPainter(color: part.color)),
+            child: _PartArtwork(part: part),
           ),
           const SizedBox(height: HDTSpace.lg),
           Text(part.name, style: HDTText.body(size: 15)),
@@ -764,6 +1010,56 @@ class _PartCard extends StatelessWidget {
               Expanded(
                   child: _MetaStat(label: 'WIN RATE', value: part.winRate)),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PartArtwork extends StatelessWidget {
+  const _PartArtwork({required this.part});
+
+  final _Part part;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.center,
+      padding: const EdgeInsets.all(HDTSpace.md),
+      decoration: BoxDecoration(
+        color: HDTColors.bg,
+        borderRadius: HDTR.md,
+        border: Border.all(color: HDTColors.s2),
+      ),
+      child: part.assetPath == null
+          ? _PartArtworkFallback(part: part)
+          : Image.asset(
+              part.assetPath!,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.medium,
+              errorBuilder: (_, __, ___) => _PartArtworkFallback(part: part),
+            ),
+    );
+  }
+}
+
+class _PartArtworkFallback extends StatelessWidget {
+  const _PartArtworkFallback({required this.part});
+
+  final _Part part;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_partCategoryIcon(part.category), color: part.color, size: 34),
+          const SizedBox(height: HDTSpace.sm),
+          Text(
+            part.shortCode ?? (part.slot.isEmpty ? '?' : part.slot[0]),
+            style: HDTText.display(size: 20, color: part.color),
           ),
         ],
       ),
@@ -964,49 +1260,24 @@ class _ArenaPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class _PartPainter extends CustomPainter {
-  const _PartPainter({required this.color});
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final stroke = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..color = HDTColors.s3;
-    final accent = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..color = color;
-    _hex(canvas, center, size.shortestSide * 0.36, stroke);
-    _hex(canvas, center, size.shortestSide * 0.22, accent);
-    canvas.drawCircle(center, 5, Paint()..color = color);
-  }
-
-  void _hex(Canvas canvas, Offset center, double radius, Paint paint) {
-    final path = Path();
-    for (var i = 0; i < 6; i++) {
-      final angle = -math.pi / 2 + (math.pi * 2 / 6) * i;
-      final point = center + Offset(math.cos(angle), math.sin(angle)) * radius;
-      if (i == 0) {
-        path.moveTo(point.dx, point.dy);
-      } else {
-        path.lineTo(point.dx, point.dy);
-      }
-    }
-    path.close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _PartPainter oldDelegate) =>
-      oldDelegate.color != color;
-}
-
 class _Player {
   const _Player(this.rank, this.name, this.id, this.region, this.points,
       this.trophies, this.trend, this.color);
+
+  factory _Player.fromUser(AppUser user, int index) {
+    final region = _regionFromUser(user);
+    return _Player(
+      (index + 1).toString().padLeft(2, '0'),
+      user.displayName.toUpperCase(),
+      user.uid.length > 8 ? user.uid.substring(0, 8).toUpperCase() : user.uid,
+      region,
+      user.eloRating,
+      0,
+      0,
+      _rankColor(index),
+    );
+  }
+
   final String rank;
   final String name;
   final String id;
@@ -1020,11 +1291,60 @@ class _Player {
 class _Community {
   const _Community(
       this.name, this.region, this.members, this.status, this.color);
+
+  factory _Community.fromFirestore(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data();
+    return _Community(
+      (data['name'] ?? data['communityName'] ?? doc.id)
+          .toString()
+          .toUpperCase(),
+      (data['city'] ?? data['region'] ?? 'Indonesia').toString(),
+      _compactCount((data['memberCount'] as num?)?.round() ?? 0),
+      (data['status'] ?? 'OPEN').toString().toUpperCase(),
+      _communityColor(doc.id),
+    );
+  }
+
   final String name;
   final String region;
   final String members;
   final String status;
   final Color color;
+}
+
+class _TournamentSpotlight {
+  const _TournamentSpotlight({
+    required this.name,
+    required this.status,
+    required this.location,
+    required this.dateLabel,
+    required this.capacityLabel,
+    required this.color,
+  });
+
+  factory _TournamentSpotlight.fromSummary(TournamentSummary tournament) {
+    return _TournamentSpotlight(
+      name: tournament.name.toUpperCase(),
+      status: _statusLabel(tournament.status),
+      location:
+          tournament.location.trim().isEmpty ? 'TBA' : tournament.location,
+      dateLabel: _dateLabel(tournament.startDate),
+      capacityLabel:
+          '${tournament.currentParticipantCount}/${tournament.maxParticipants}',
+      color: _statusColor(tournament.status),
+    );
+  }
+
+  final String name;
+  final String status;
+  final String location;
+  final String dateLabel;
+  final String capacityLabel;
+  final Color color;
+
+  bool get isLive => status == 'LIVE';
 }
 
 class _Pillar {
@@ -1036,26 +1356,48 @@ class _Pillar {
 
 class _Part {
   const _Part(
-      this.name, this.slot, this.tier, this.usage, this.winRate, this.color);
+    this.name,
+    this.slot,
+    this.tier,
+    this.usage,
+    this.winRate,
+    this.color, {
+    required this.category,
+    this.assetPath,
+    this.shortCode,
+  });
 
   factory _Part.fromStat(
     QueryDocumentSnapshot<Map<String, dynamic>> doc,
     BeyPartsCatalog? catalog,
   ) {
     final data = doc.data();
-    final part = catalog?.find(doc.id);
+    final rawName = (data['name'] ?? doc.id).toString();
+    final category =
+        _normalizeCategory((data['category'] ?? 'blades').toString());
+    final part = catalog?.find(doc.id) ??
+        catalog?.findByName(rawName, category: category) ??
+        catalog?.findByName(rawName);
     final wins = _intFrom(data['wins']);
     final losses = _intFrom(data['losses']);
     final played = _intFrom(data['appearances']);
     final winRate = wins + losses == 0 ? 0 : wins / (wins + losses) * 100;
     final total = part?.stats.total ?? 0;
+    final image = data['image']?.toString();
     return _Part(
-      (data['name'] ?? part?.name ?? doc.id).toString().toUpperCase(),
-      _slotLabel((data['category'] ?? part?.category ?? 'blades').toString()),
-      total >= 15 ? 'S' : total >= 10 ? 'A' : 'B',
+      (part?.name ?? rawName).toUpperCase(),
+      _slotLabel(part?.category ?? category),
+      total >= 15
+          ? 'S'
+          : total >= 10
+              ? 'A'
+              : 'B',
       played.toString(),
       '${winRate.toStringAsFixed(1)}%',
       _partColor((data['type'] ?? part?.type ?? 'balance').toString()),
+      category: part?.category ?? category,
+      assetPath: part?.assetPath ?? _assetPathFromImage(image),
+      shortCode: part?.shortCode,
     );
   }
 
@@ -1064,10 +1406,17 @@ class _Part {
     return _Part(
       part.name.toUpperCase(),
       _slotLabel(part.category),
-      total >= 15 ? 'S' : total >= 10 ? 'A' : 'B',
+      total >= 15
+          ? 'S'
+          : total >= 10
+              ? 'A'
+              : 'B',
       '0',
       '0.0%',
       _partColor(part.type),
+      category: part.category,
+      assetPath: part.assetPath,
+      shortCode: part.shortCode,
     );
   }
 
@@ -1077,15 +1426,173 @@ class _Part {
   final String usage;
   final String winRate;
   final Color color;
+  final String category;
+  final String? assetPath;
+  final String? shortCode;
 }
 
 List<BeyPart> _catalogPreview(BeyPartsCatalog catalog) {
-  return [
+  final preferred = [
+    catalog.findByName('Phoenix Wing', category: 'blades'),
+    catalog.findByName('Rush', category: 'bits'),
+    catalog.findByName('9-60', category: 'ratchets'),
+    catalog.findByName('Ball', category: 'bits'),
+  ].whereType<BeyPart>().toList();
+
+  if (preferred.length == 4) return preferred;
+
+  final fallback = [
     ...catalog.blades.take(1),
     ...catalog.bits.take(1),
     ...catalog.ratchets.take(1),
     ...catalog.assistBlades.take(1),
   ].take(4).toList();
+  return [...preferred, ...fallback]
+      .fold<List<BeyPart>>([], (parts, part) {
+        if (!parts.any((item) => item.id == part.id)) parts.add(part);
+        return parts;
+      })
+      .take(4)
+      .toList();
+}
+
+String? _assetPathFromImage(String? image) {
+  final trimmed = image?.trim();
+  return trimmed == null || trimmed.isEmpty
+      ? null
+      : 'assets/beybrew/parts/$trimmed';
+}
+
+const _demoTournaments = [
+  _TournamentSpotlight(
+    name: 'HIDEOUT CUP #04',
+    status: 'REGISTRATION OPEN',
+    location: 'Jakarta',
+    dateLabel: '24 MEI',
+    capacityLabel: '28/32',
+    color: HDTColors.accent,
+  ),
+  _TournamentSpotlight(
+    name: 'EAST COAST SHOWDOWN',
+    status: 'LIVE',
+    location: 'Surabaya',
+    dateLabel: '26 MEI',
+    capacityLabel: '16/16',
+    color: HDTColors.danger,
+  ),
+  _TournamentSpotlight(
+    name: 'HIGHLAND OPEN',
+    status: 'UPCOMING',
+    location: 'Bandung',
+    dateLabel: '31 MEI',
+    capacityLabel: '12/24',
+    color: HDTColors.info,
+  ),
+];
+
+String _tickerLabel(TournamentSummary tournament) {
+  final status = _statusLabel(tournament.status);
+  final location = tournament.location.trim().isEmpty
+      ? 'HIDEOUT'
+      : tournament.location.split(',').first.trim().toUpperCase();
+  return '$location / ${tournament.name.toUpperCase()} - $status';
+}
+
+String _statusLabel(String status) {
+  return switch (status) {
+    'registrationOpen' => 'REGISTRATION OPEN',
+    'inProgress' || 'running' => 'LIVE',
+    'completed' => 'COMPLETED',
+    'cancelled' => 'CANCELLED',
+    _ => 'UPCOMING',
+  };
+}
+
+Color _statusColor(String status) {
+  return switch (status) {
+    'registrationOpen' => HDTColors.accent,
+    'inProgress' || 'running' => HDTColors.danger,
+    'completed' => HDTColors.success,
+    'cancelled' => HDTColors.text3,
+    _ => HDTColors.info,
+  };
+}
+
+String _dateLabel(DateTime? date) {
+  if (date == null) return 'TBA';
+  const months = [
+    'JAN',
+    'FEB',
+    'MAR',
+    'APR',
+    'MEI',
+    'JUN',
+    'JUL',
+    'AGU',
+    'SEP',
+    'OKT',
+    'NOV',
+    'DES',
+  ];
+  return '${date.day} ${months[date.month - 1]}';
+}
+
+String _compactCount(int value) {
+  if (value >= 1000) {
+    final count = value / 1000;
+    return '${count.toStringAsFixed(count >= 10 ? 0 : 1)}K';
+  }
+  return value.toString();
+}
+
+String _regionFromUser(AppUser user) {
+  final parts = user.email.split('@');
+  if (parts.length > 1) return parts.last.split('.').first.toUpperCase();
+  return 'ID';
+}
+
+Color _rankColor(int index) {
+  return switch (index) {
+    0 => HDTColors.accent,
+    1 => HDTColors.info,
+    2 => HDTColors.warning,
+    _ => HDTColors.success,
+  };
+}
+
+Color _communityColor(String seed) {
+  final colors = [
+    HDTColors.accent,
+    HDTColors.danger,
+    HDTColors.info,
+    HDTColors.success,
+    HDTColors.warning,
+  ];
+  return colors[seed.hashCode.abs() % colors.length];
+}
+
+IconData _partCategoryIcon(String category) {
+  return switch (_normalizeCategory(category)) {
+    'ratchets' => Icons.adjust,
+    'bits' => Icons.radio_button_checked,
+    'assist_blades' => Icons.extension_outlined,
+    'over_blades' => Icons.layers_outlined,
+    'lock_chips' => Icons.lock_outline,
+    _ => Icons.hexagon_outlined,
+  };
+}
+
+String _normalizeCategory(String category) {
+  final value = category.trim().toLowerCase().replaceAll('-', '_');
+  return switch (value) {
+    'blade' || 'blades' => 'blades',
+    'assist' || 'assist_blade' || 'assist_blades' => 'assist_blades',
+    'over' || 'over_blade' || 'over_blades' => 'over_blades',
+    'lock' || 'lock_chip' || 'lock_chips' => 'lock_chips',
+    'ratchet' || 'ratchets' => 'ratchets',
+    'bit' || 'bits' => 'bits',
+    _ => value.isEmpty ? 'blades' : value,
+  };
 }
 
 int _intFrom(Object? value) {
@@ -1094,7 +1601,7 @@ int _intFrom(Object? value) {
 }
 
 String _slotLabel(String category) {
-  return switch (category) {
+  return switch (_normalizeCategory(category)) {
     'assist_blades' => 'ASSIST',
     'over_blades' => 'OVER',
     'lock_chips' => 'LOCK',
