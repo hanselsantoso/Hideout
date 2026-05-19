@@ -66,7 +66,7 @@ class BeyTourneyApp extends StatelessWidget {
         '/dashboard': (_) => const AppShell(),
         '/signin': (_) => const SignInScreen(),
         '/signup': (_) => const SignUpScreen(),
-        '/onboarding': (_) => const OnboardingScreen(),
+        '/onboarding': (_) => _authRoute(const OnboardingScreen()),
         '/components': (_) => const ComponentsScreen(),
         '/public/tournaments': (_) => const PublicTournamentsScreen(),
         '/public/leaderboard': (_) => const PublicLeaderboardScreen(),
@@ -79,29 +79,46 @@ class BeyTourneyApp extends StatelessWidget {
         '/me/qr': (_) => _roleRoute('/me/qr', const CheckInPassScreen()),
         '/communities/new': (_) =>
             _roleRoute('/communities/new', const CommunityApplyScreen()),
-        '/community/admin': (_) =>
-            _roleRoute('/community/admin', const CommunityAdminScreen()),
-        '/community/judges': (_) =>
-            _roleRoute('/community/judges', const CommunityJudgesScreen()),
+        '/community/admin': (_) => _roleRoute(
+              '/community/admin',
+              const CommunityAdminScreen(),
+              allowedRoles: _communityManagerAccess,
+            ),
+        '/community/judges': (_) => _roleRoute(
+              '/community/judges',
+              const CommunityJudgesScreen(),
+              allowedRoles: _communityManagerAccess,
+            ),
         '/super-admin/community-approvals': (_) => _roleRoute(
             '/super-admin/community-approvals',
-            const CommunityApprovalsScreen()),
+            const CommunityApprovalsScreen(),
+            allowedRoles: _superAdminAccess),
         '/super-admin/reports': (_) => _roleRoute('/super-admin/reports',
-            const SuperAdminConsoleScreen(section: SuperAdminSection.reports)),
+            const SuperAdminConsoleScreen(section: SuperAdminSection.reports),
+            allowedRoles: _superAdminAccess),
         '/super-admin/components': (_) => _roleRoute(
             '/super-admin/components',
             const SuperAdminConsoleScreen(
-                section: SuperAdminSection.components)),
+                section: SuperAdminSection.components),
+            allowedRoles: _superAdminAccess),
         '/super-admin/component-stats': (_) => _roleRoute(
             '/super-admin/component-stats',
             const SuperAdminConsoleScreen(
-                section: SuperAdminSection.componentStats)),
+                section: SuperAdminSection.componentStats),
+            allowedRoles: _superAdminAccess),
         '/super-admin/parts/new': (_) => _roleRoute('/super-admin/parts/new',
-            const SuperAdminConsoleScreen(section: SuperAdminSection.newParts)),
+            const SuperAdminConsoleScreen(section: SuperAdminSection.newParts),
+            allowedRoles: _superAdminAccess),
         '/admin/tournaments/new': (_) => _roleRoute(
-            '/admin/tournaments/new', const TournamentWizardScreen()),
-        '/admin/tournaments/ops': (_) =>
-            _roleRoute('/admin/tournaments/ops', const TournamentOpsScreen()),
+              '/admin/tournaments/new',
+              const TournamentWizardScreen(),
+              allowedRoles: _communityManagerAccess,
+            ),
+        '/admin/tournaments/ops': (_) => _roleRoute(
+              '/admin/tournaments/ops',
+              const TournamentOpsScreen(),
+              allowedRoles: _communityManagerAccess,
+            ),
         '/tournaments': (_) =>
             _roleRoute('/tournaments', const TournamentsScreen()),
         '/tournaments/detail': (_) =>
@@ -113,19 +130,57 @@ class BeyTourneyApp extends StatelessWidget {
         '/matches': (_) => _roleRoute('/matches', const MatchHistoryScreen()),
         '/notifications': (_) =>
             _roleRoute('/notifications', const NotificationsScreen()),
-        '/juri/matches': (_) =>
-            _roleRoute('/juri/matches', const JudgeMatchesScreen()),
-        '/juri/scan': (_) =>
-            _roleRoute('/juri/scan', const JudgeScannerScreen()),
-        '/juri/score': (_) =>
-            _roleRoute('/juri/score', const JudgeScoreScreen()),
+        '/juri/matches': (_) => _roleRoute(
+              '/juri/matches',
+              const JudgeMatchesScreen(),
+              allowedRoles: _judgeAccess,
+            ),
+        '/juri/scan': (_) => _roleRoute(
+              '/juri/scan',
+              const JudgeScannerScreen(),
+              allowedRoles: _judgeAccess,
+            ),
+        '/juri/score': (_) => _roleRoute(
+              '/juri/score',
+              const JudgeScoreScreen(),
+              allowedRoles: _judgeAccess,
+            ),
       },
     );
   }
 }
 
-Widget _roleRoute(String route, Widget child) {
-  return RoleShell(selectedRoute: route, child: child);
+const _playerAccess = {'player', 'judge', 'community_admin'};
+const _judgeAccess = {'judge'};
+const _communityManagerAccess = {'community_admin', 'super_admin'};
+const _superAdminAccess = {'super_admin'};
+const _anySignedInAccess = {
+  'player',
+  'judge',
+  'community_admin',
+  'super_admin',
+};
+
+Widget _authRoute(Widget child) {
+  return _AuthzRoute(
+    selectedRoute: null,
+    allowedRoles: _anySignedInAccess,
+    requireProfile: false,
+    useRoleShell: false,
+    child: child,
+  );
+}
+
+Widget _roleRoute(
+  String route,
+  Widget child, {
+  Set<String> allowedRoles = _playerAccess,
+}) {
+  return _AuthzRoute(
+    selectedRoute: route,
+    allowedRoles: allowedRoles,
+    child: child,
+  );
 }
 
 class AppShell extends StatelessWidget {
@@ -133,11 +188,175 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const RoleShell(
-      selectedRoute: '/dashboard',
-      child: DashboardScreen(),
+    return _roleRoute(
+      '/dashboard',
+      const DashboardScreen(),
+      allowedRoles: _playerAccess,
     );
   }
+}
+
+class _AuthzRoute extends ConsumerWidget {
+  const _AuthzRoute({
+    required this.selectedRoute,
+    required this.allowedRoles,
+    required this.child,
+    this.requireProfile = true,
+    this.useRoleShell = true,
+  });
+
+  final String? selectedRoute;
+  final Set<String> allowedRoles;
+  final Widget child;
+  final bool requireProfile;
+  final bool useRoleShell;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authStateProvider);
+    return auth.when(
+      loading: () => const _RouteStateScreen.loading(),
+      error: (_, __) => const _RouteStateScreen(
+        title: 'SESSION ERROR',
+        message:
+            'Sesi login belum bisa dibaca. Muat ulang halaman atau masuk ulang.',
+        actionLabel: 'SIGN IN',
+        actionRoute: '/signin',
+      ),
+      data: (firebaseUser) {
+        if (firebaseUser == null) {
+          return const _RouteStateScreen(
+            title: 'LOGIN REQUIRED',
+            message: 'Halaman ini hanya untuk akun terdaftar.',
+            actionLabel: 'SIGN IN',
+            actionRoute: '/signin',
+          );
+        }
+        if (!requireProfile) return child;
+        final profile = ref.watch(currentUserProfileProvider);
+        return profile.when(
+          loading: () => const _RouteStateScreen.loading(),
+          error: (_, __) => const _RouteStateScreen(
+            title: 'PROFILE ERROR',
+            message: 'Profil akun belum bisa dimuat. Coba masuk ulang.',
+            actionLabel: 'SIGN IN',
+            actionRoute: '/signin',
+          ),
+          data: (user) {
+            if (user == null) {
+              return const _RouteStateScreen(
+                title: 'PROFILE MISSING',
+                message:
+                    'Akun sudah login, tetapi dokumen profil belum tersedia.',
+                actionLabel: 'ONBOARDING',
+                actionRoute: '/onboarding',
+              );
+            }
+            if (!_hasRouteAccess(user, allowedRoles)) {
+              final home = _defaultRouteFor(user);
+              final expected = allowedRoles.map(_roleLabel).join(', ');
+              return RoleShell(
+                selectedRoute: home,
+                child: _RouteStateScreen(
+                  title: 'ACCESS DENIED',
+                  message:
+                      'Role akun ini tidak punya akses ke halaman tersebut. Akses diperlukan: $expected.',
+                  actionLabel: 'GO TO MY MENU',
+                  actionRoute: home,
+                  embedded: true,
+                ),
+              );
+            }
+            if (!useRoleShell) return child;
+            return RoleShell(
+              selectedRoute: selectedRoute ?? _defaultRouteFor(user),
+              child: child,
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _RouteStateScreen extends StatelessWidget {
+  const _RouteStateScreen({
+    required this.title,
+    required this.message,
+    required this.actionLabel,
+    required this.actionRoute,
+    this.embedded = false,
+  });
+
+  const _RouteStateScreen.loading()
+      : title = 'LOADING',
+        message = 'Mengecek sesi dan role akun...',
+        actionLabel = null,
+        actionRoute = null,
+        embedded = false;
+
+  final String title;
+  final String message;
+  final String? actionLabel;
+  final String? actionRoute;
+  final bool embedded;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: Container(
+          padding: const EdgeInsets.all(HDTSpace.xl),
+          decoration: hdtCard(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: HDTText.display(size: 28)),
+              const SizedBox(height: HDTSpace.sm),
+              Text(message,
+                  style: HDTText.body(color: HDTColors.text2, height: 1.5)),
+              if (title == 'LOADING') ...[
+                const SizedBox(height: HDTSpace.lg),
+                const LinearProgressIndicator(),
+              ],
+              if (actionLabel != null && actionRoute != null) ...[
+                const SizedBox(height: HDTSpace.lg),
+                ElevatedButton(
+                  onPressed: () =>
+                      Navigator.pushReplacementNamed(context, actionRoute!),
+                  child: Text(actionLabel!),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+    if (embedded) return content;
+    return Scaffold(backgroundColor: HDTColors.bg, body: content);
+  }
+}
+
+bool _hasRouteAccess(AppUser user, Set<String> allowedRoles) {
+  final capabilities = _capabilitiesFor(user);
+  return allowedRoles.any(capabilities.contains);
+}
+
+String _defaultRouteFor(AppUser user) {
+  final capabilities = _capabilitiesFor(user);
+  if (capabilities.contains('super_admin')) return '/super-admin/reports';
+  return '/dashboard';
+}
+
+String _roleLabel(String role) {
+  return switch (role) {
+    'super_admin' => 'super admin',
+    'community_admin' => 'admin komunitas',
+    'judge' => 'juri',
+    _ => 'player',
+  };
 }
 
 class RoleShell extends ConsumerWidget {

@@ -461,9 +461,9 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () =>
-                            Navigator.pushReplacementNamed(context, '/'),
-                        child: const Text('HOME'),
+                        onPressed: () => Navigator.pushReplacementNamed(
+                            context, '/me/tournaments'),
+                        child: const Text('MY TOURNAMENTS'),
                       ),
                     ),
                     const SizedBox(width: HDTSpace.md),
@@ -584,7 +584,8 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Pengajuan belum bisa dikirim. Coba ulangi beberapa saat lagi.';
+        _error =
+            'Pengajuan belum bisa dikirim. Coba ulangi beberapa saat lagi.';
       });
     } finally {
       if (mounted) setState(() => _busy = false);

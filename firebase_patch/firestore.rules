@@ -123,7 +123,7 @@ service cloud.firestore {
 
     // â”€â”€ /communities/{id} â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     match /communities/{communityId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create, delete: if isAdmin();
       allow update: if isAdmin()
         || (isCommunityAdmin()
@@ -132,7 +132,7 @@ service cloud.firestore {
 
     // ── /tournaments/{id} ────────────────────────────────────────
     match /tournaments/{tournamentId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create: if isAdmin() || isCommunityAdmin();
       allow update: if isAdmin() || isCommunityAdmin() || canJudgeAdvanceTournament();
       allow delete: if isAdmin();
