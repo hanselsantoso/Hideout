@@ -163,8 +163,11 @@ service cloud.firestore {
       }
 
       match /withdrawals/{withdrawId} {
-        allow read: if isAdmin() || isCommunityAdmin();
-        allow create: if isAdmin() || isCommunityAdmin();
+        allow read: if isAdmin()
+          || (isCommunityAdmin() && resource.data.requesterId == request.auth.uid);
+        allow create: if isAdmin()
+          || (isCommunityAdmin()
+            && request.resource.data.requesterId == request.auth.uid);
         allow update: if isAdmin();
         allow delete: if isAdmin();
       }
@@ -277,7 +280,8 @@ service cloud.firestore {
       allow read: if isAdmin() || (isPlayer() && resource.data.playerId == request.auth.uid);
     }
     match /{path=**}/withdrawals/{withdrawId} {
-      allow read: if isAdmin() || isCommunityAdmin();
+      allow read: if isAdmin()
+        || (isCommunityAdmin() && resource.data.requesterId == request.auth.uid);
     }
     match /{path=**}/registrations/{regId} {
       allow read: if isAuthenticated();

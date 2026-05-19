@@ -54,8 +54,8 @@ final superAdminMetricsProvider = StreamProvider<SuperAdminMetrics>((ref) {
             0,
             (total, doc) => total + _intFrom(doc.data()['platformFee']),
           );
-      final pendingWithdrawals = withdrawals.docs
-          .where((doc) => ['requested', 'pending']
+      final activeWithdrawals = withdrawals.docs
+          .where((doc) => ['processing', 'queued', 'requested', 'pending']
               .contains((doc.data()['status'] ?? '').toString().toLowerCase()))
           .fold<int>(
             0,
@@ -84,22 +84,10 @@ final superAdminMetricsProvider = StreamProvider<SuperAdminMetrics>((ref) {
         grossRevenue: grossRevenue,
         platformRevenue: platformRevenue,
         paymentCount: payments.docs.length,
-        pendingWithdrawals: pendingWithdrawals,
+        activeWithdrawals: activeWithdrawals,
       );
     },
   );
-});
-
-final superAdminWithdrawQueueProvider =
-    StreamProvider<List<WithdrawRequestSummary>>((ref) {
-  final firestore = ref.watch(firestoreProvider);
-  return firestore
-      .collectionGroup(FirestorePaths.withdrawals)
-      .limit(25)
-      .snapshots()
-      .map((snap) => snap.docs
-          .map((doc) => WithdrawRequestSummary.fromFirestore(doc))
-          .toList());
 });
 
 final componentStatsReviewProvider =
@@ -298,7 +286,6 @@ class _ReportGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final metrics = ref.watch(superAdminMetricsProvider);
-    final withdraws = ref.watch(superAdminWithdrawQueueProvider);
     final data = metrics.valueOrNull ?? SuperAdminMetrics.demo;
     final cards = [
       _MetricCard(
@@ -358,9 +345,7 @@ class _ReportGrid extends ConsumerWidget {
         _PendingApplicationsPanel(
             applications: ref.watch(pendingApplicationsPreviewProvider)),
         const SizedBox(height: HDTSpace.xl),
-        _FinanceStatsPanel(data: data, withdraws: withdraws),
-        const SizedBox(height: HDTSpace.xl),
-        _WithdrawQueuePanel(withdraws: withdraws),
+        _FinanceStatsPanel(data: data),
       ],
     );
   }
@@ -1098,129 +1083,6 @@ class _StatsReview extends ConsumerWidget {
         ),
       ],
     );
-  }
-}
-
-class _WithdrawQueuePanel extends StatelessWidget {
-  const _WithdrawQueuePanel({required this.withdraws});
-
-  final AsyncValue<List<WithdrawRequestSummary>> withdraws;
-
-  @override
-  Widget build(BuildContext context) {
-    final rows = withdraws.valueOrNull ?? const <WithdrawRequestSummary>[];
-    return _DataPanel(
-      title: 'WITHDRAW REQUESTS',
-      icon: Icons.account_balance_wallet_outlined,
-      children: rows.isEmpty
-          ? const [
-              _ManagementRow(
-                item: _DataRowItem(
-                  'Belum ada request withdraw',
-                  'CLEAR',
-                  'Setiap request dari ketua komunitas akan tampil di sini untuk direview super admin.',
-                ),
-              ),
-            ]
-          : [for (final row in rows) _WithdrawRequestRow(item: row)],
-    );
-  }
-}
-
-class _WithdrawRequestRow extends ConsumerStatefulWidget {
-  const _WithdrawRequestRow({required this.item});
-
-  final WithdrawRequestSummary item;
-
-  @override
-  ConsumerState<_WithdrawRequestRow> createState() =>
-      _WithdrawRequestRowState();
-}
-
-class _WithdrawRequestRowState extends ConsumerState<_WithdrawRequestRow> {
-  bool _busy = false;
-  String? _message;
-
-  @override
-  Widget build(BuildContext context) {
-    final item = widget.item;
-    return Container(
-      margin: const EdgeInsets.only(bottom: HDTSpace.sm),
-      padding: const EdgeInsets.all(HDTSpace.md),
-      decoration: BoxDecoration(
-        color: HDTColors.s1,
-        borderRadius: HDTR.md,
-        border: Border.all(color: HDTColors.s2),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child:
-                    Text(item.requesterName, style: HDTText.display(size: 15)),
-              ),
-              Text(item.status.toUpperCase(),
-                  style: HDTText.overline(size: 9, color: HDTColors.warning)),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${_formatRp(item.amount)} ke ${item.bankName} ${item.accountNumber}. Admin menerima nominal net, fee dibebankan ke user.',
-            style: HDTText.body(size: 12, color: HDTColors.text2),
-          ),
-          if (_message != null) ...[
-            const SizedBox(height: HDTSpace.sm),
-            Text(_message!,
-                style: HDTText.body(size: 11, color: HDTColors.text3)),
-          ],
-          const SizedBox(height: HDTSpace.sm),
-          Row(
-            children: [
-              OutlinedButton.icon(
-                onPressed: _busy ? null : () => _review('rejected'),
-                icon: const Icon(Icons.close, size: 14),
-                label: const Text('REJECT'),
-              ),
-              const SizedBox(width: HDTSpace.sm),
-              ElevatedButton.icon(
-                onPressed: _busy ? null : () => _review('approved'),
-                icon: _busy
-                    ? const SizedBox.square(
-                        dimension: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.check, size: 14),
-                label: Text(_busy ? 'SAVING...' : 'APPROVE'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _review(String status) async {
-    setState(() {
-      _busy = true;
-      _message = null;
-    });
-    try {
-      await ref.read(firestoreProvider).doc(widget.item.path).set({
-        'status': status,
-        'reviewedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-      if (!mounted) return;
-      setState(() => _message = 'Withdraw ditandai $status.');
-    } catch (_) {
-      if (!mounted) return;
-      setState(
-          () => _message = 'Review withdraw belum tersimpan. Coba ulangi.');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
   }
 }
 
@@ -2073,15 +1935,15 @@ class _PendingApplicationsPanel extends StatelessWidget {
     final rows =
         applications.valueOrNull ?? const <PendingApplicationSummary>[];
     return _DataPanel(
-      title: 'PENDING APPROVAL PREVIEW',
+      title: 'PENGAJUAN KOMUNITAS BARU',
       icon: Icons.fact_check_outlined,
       children: [
         if (rows.isEmpty)
           const _ManagementRow(
             item: _DataRowItem(
-              'Belum ada approval pending',
+              'Belum ada komunitas pending',
               'CLEAR',
-              'Seed data akan menampilkan proposal komunitas di sini.',
+              'Setiap komunitas yang daftar dari halaman publik akan masuk ke queue ini.',
             ),
           )
         else
@@ -2112,19 +1974,12 @@ class _PendingApplicationsPanel extends StatelessWidget {
 class _FinanceStatsPanel extends StatelessWidget {
   const _FinanceStatsPanel({
     required this.data,
-    required this.withdraws,
   });
 
   final SuperAdminMetrics data;
-  final AsyncValue<List<WithdrawRequestSummary>> withdraws;
 
   @override
   Widget build(BuildContext context) {
-    final rows = withdraws.valueOrNull ?? const <WithdrawRequestSummary>[];
-    final pendingCount = rows
-        .where((row) =>
-            ['requested', 'pending'].contains(row.status.toLowerCase()))
-        .length;
     return _DataPanel(
       title: 'STATISTIK KEUANGAN',
       icon: Icons.payments_outlined,
@@ -2144,8 +1999,8 @@ class _FinanceStatsPanel extends StatelessWidget {
               color: HDTColors.accentHover,
             ),
             _FinanceTile(
-              label: 'Pending withdraw',
-              value: _formatRp(data.pendingWithdrawals),
+              label: 'Withdraw diproses',
+              value: _formatRp(data.activeWithdrawals),
               color: HDTColors.warning,
             ),
             _FinanceTile(
@@ -2157,7 +2012,7 @@ class _FinanceStatsPanel extends StatelessWidget {
         ),
         const SizedBox(height: HDTSpace.md),
         Text(
-          '$pendingCount request withdraw masih perlu diputuskan dari queue di bawah.',
+          'Withdraw dibuat dan dipantau dari halaman Ketua Komunitas; Super Admin hanya melihat agregat keuangan platform.',
           style: HDTText.body(size: 12, color: HDTColors.text2),
         ),
       ],
@@ -2505,7 +2360,7 @@ class SuperAdminMetrics {
     required this.grossRevenue,
     required this.platformRevenue,
     required this.paymentCount,
-    required this.pendingWithdrawals,
+    required this.activeWithdrawals,
   });
 
   final int activeUsers;
@@ -2520,7 +2375,7 @@ class SuperAdminMetrics {
   final int grossRevenue;
   final int platformRevenue;
   final int paymentCount;
-  final int pendingWithdrawals;
+  final int activeWithdrawals;
 
   static const demo = SuperAdminMetrics(
     activeUsers: 524,
@@ -2535,48 +2390,8 @@ class SuperAdminMetrics {
     grossRevenue: 428500000,
     platformRevenue: 42850000,
     paymentCount: 1482,
-    pendingWithdrawals: 8300000,
+    activeWithdrawals: 8300000,
   );
-}
-
-class WithdrawRequestSummary {
-  const WithdrawRequestSummary({
-    required this.id,
-    required this.tournamentId,
-    required this.requesterName,
-    required this.amount,
-    required this.bankName,
-    required this.accountNumber,
-    required this.status,
-    required this.path,
-  });
-
-  final String id;
-  final String tournamentId;
-  final String requesterName;
-  final int amount;
-  final String bankName;
-  final String accountNumber;
-  final String status;
-  final String path;
-
-  factory WithdrawRequestSummary.fromFirestore(
-    QueryDocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final data = doc.data();
-    final tournamentRef = doc.reference.parent.parent;
-    return WithdrawRequestSummary(
-      id: (data['id'] ?? doc.id).toString(),
-      tournamentId:
-          (data['tournamentId'] ?? tournamentRef?.id ?? '').toString(),
-      requesterName: (data['requesterName'] ?? 'Ketua komunitas').toString(),
-      amount: (data['amount'] as num?)?.round() ?? 0,
-      bankName: (data['bankName'] ?? '-').toString(),
-      accountNumber: (data['accountNumber'] ?? '-').toString(),
-      status: (data['status'] ?? 'requested').toString(),
-      path: doc.reference.path,
-    );
-  }
 }
 
 class AdminComponentSummary {

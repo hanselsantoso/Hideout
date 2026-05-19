@@ -171,11 +171,14 @@ class TournamentRepository {
     required DateTime registrationDeadline,
     required int maxDecksPerPlayer,
     required List<String> prizes,
+    String? organizerId,
     List<Map<String, dynamic>> stagePlan = const [],
   }) async {
     final payload = {
       'name': name.trim(),
       'description': 'Created from BeyTourney HIDEOUT',
+      if (organizerId != null && organizerId.trim().isNotEmpty)
+        'organizerId': organizerId.trim(),
       'location': location.trim(),
       'registrationFee': registrationFee,
       'feePolicy':
@@ -1239,9 +1242,9 @@ class TournamentRepository {
       _advanceDoubleEliminationInTransaction(
         tx: tx,
         tournamentRef: tournamentRef,
-      tournamentId: tournamentId,
-      tournamentData: tournamentData,
-      currentRoundData: currentRoundData,
+        tournamentId: tournamentId,
+        tournamentData: tournamentData,
+        currentRoundData: currentRoundData,
         currentMatchData: currentMatchData,
         winnerId: winnerId,
         winnerName: winnerName,
@@ -1345,13 +1348,13 @@ class TournamentRepository {
     required int scoreB,
   }) {
     final bracket = (currentRoundData['bracket'] ?? 'upper').toString();
-    final currentRoundId = (currentMatchData['roundId'] ??
-            currentRoundData['id'] ??
-            '')
-        .toString();
+    final currentRoundId =
+        (currentMatchData['roundId'] ?? currentRoundData['id'] ?? '')
+            .toString();
     final roundNo = _doubleRoundNumber(currentRoundId);
     final matchCount = (currentRoundData['matchCount'] as num?)?.round() ?? 1;
-    final position = (currentMatchData['bracketPosition'] as num?)?.round() ?? 1;
+    final position =
+        (currentMatchData['bracketPosition'] as num?)?.round() ?? 1;
     final winnerSide = winnerId == currentMatchData['playerAId'] ? 'A' : 'B';
     final loserSide = winnerSide == 'A' ? 'B' : 'A';
     final targetSide = position.isOdd ? 'A' : 'B';
@@ -1369,10 +1372,9 @@ class TournamentRepository {
           'currentStage': 2,
           'winnerId': winnerId,
           'winnerName': winnerName,
-          'winnerDeckName':
-              (currentMatchData['player${winnerSide}DeckName'] ??
-                      'Registered Deck')
-                  .toString(),
+          'winnerDeckName': (currentMatchData['player${winnerSide}DeckName'] ??
+                  'Registered Deck')
+              .toString(),
           if (currentMatchData['player${winnerSide}DeckSnapshot'] != null)
             'winnerDeckSnapshot':
                 currentMatchData['player${winnerSide}DeckSnapshot'],
@@ -1401,10 +1403,9 @@ class TournamentRepository {
           'bracket': bracket,
           'winnerId': winnerId,
           'winnerName': winnerName,
-          'winnerDeckName':
-              (currentMatchData['player${winnerSide}DeckName'] ??
-                      'Registered Deck')
-                  .toString(),
+          'winnerDeckName': (currentMatchData['player${winnerSide}DeckName'] ??
+                  'Registered Deck')
+              .toString(),
           'finalScore': '$scoreA-$scoreB',
         },
         'updatedAt': FieldValue.serverTimestamp(),
@@ -1416,7 +1417,8 @@ class TournamentRepository {
       final nextRoundNo = roundNo + 1;
       final nextRoundId = 'stage-2-upper-$nextRoundNo';
       final nextPosition = ((position + 1) / 2).floor();
-      final nextMatchId = 'u$nextRoundNo-${nextPosition.toString().padLeft(3, '0')}';
+      final nextMatchId =
+          'u$nextRoundNo-${nextPosition.toString().padLeft(3, '0')}';
       final nextMatchCount = (matchCount / 2).ceil();
       final nextSide = position.isOdd ? 'A' : 'B';
       final status = nextSide == 'B' ? 'ready' : 'waitingOpponent';
@@ -1469,12 +1471,12 @@ class TournamentRepository {
       final finalist = {
         'winnerId': winnerId,
         'winnerName': winnerName,
-        'winnerDeckName':
-            (currentMatchData['player${winnerSide}DeckName'] ??
-                    'Registered Deck')
-                .toString(),
+        'winnerDeckName': (currentMatchData['player${winnerSide}DeckName'] ??
+                'Registered Deck')
+            .toString(),
         if (currentMatchData['player${winnerSide}DeckSnapshot'] != null)
-          'winnerDeckSnapshot': currentMatchData['player${winnerSide}DeckSnapshot'],
+          'winnerDeckSnapshot':
+              currentMatchData['player${winnerSide}DeckSnapshot'],
       };
       tx.set(
         tournamentRef,
@@ -1499,7 +1501,8 @@ class TournamentRepository {
         (loserPayload['player${targetSide}Id'] ?? '').toString().isNotEmpty) {
       final lowerRoundId = 'stage-2-lower-$roundNo';
       final lowerPosition = position;
-      final lowerMatchId = 'l$roundNo-${lowerPosition.toString().padLeft(3, '0')}';
+      final lowerMatchId =
+          'l$roundNo-${lowerPosition.toString().padLeft(3, '0')}';
       tx.set(
         firestore.collection(FirestorePaths.tournamentRounds(tournamentId)).doc(
               lowerRoundId,
@@ -1531,8 +1534,7 @@ class TournamentRepository {
           'id': lowerMatchId,
           'tournamentId': tournamentId,
           'roundId': lowerRoundId,
-          'matchCode':
-              'L$roundNo-${lowerPosition.toString().padLeft(3, '0')}',
+          'matchCode': 'L$roundNo-${lowerPosition.toString().padLeft(3, '0')}',
           'status': targetSide == 'B' ? 'ready' : 'waitingOpponent',
           'stage': 2,
           'format': 'doubleElimination',
@@ -1552,10 +1554,9 @@ class TournamentRepository {
         final challenger = {
           'winnerId': winnerId,
           'winnerName': winnerName,
-          'winnerDeckName':
-              (currentMatchData['player${winnerSide}DeckName'] ??
-                      'Registered Deck')
-                  .toString(),
+          'winnerDeckName': (currentMatchData['player${winnerSide}DeckName'] ??
+                  'Registered Deck')
+              .toString(),
           if (currentMatchData['player${winnerSide}DeckSnapshot'] != null)
             'winnerDeckSnapshot':
                 currentMatchData['player${winnerSide}DeckSnapshot'],
@@ -1582,7 +1583,8 @@ class TournamentRepository {
       final nextRoundNo = roundNo + 1;
       final nextRoundId = 'stage-2-lower-$nextRoundNo';
       final nextPosition = ((position + 1) / 2).floor();
-      final nextMatchId = 'l$nextRoundNo-${nextPosition.toString().padLeft(3, '0')}';
+      final nextMatchId =
+          'l$nextRoundNo-${nextPosition.toString().padLeft(3, '0')}';
       final nextMatchCount = (matchCount / 2).ceil();
       tx.set(
         firestore.collection(FirestorePaths.tournamentRounds(tournamentId)).doc(
@@ -1834,9 +1836,12 @@ class TournamentRepository {
         'bankName': bankName.trim(),
         'accountNumber': accountNumber.trim(),
         'accountName': accountName.trim(),
-        'status': 'requested',
+        'status': 'processing',
+        'approvalMode': 'community_admin_auto',
+        'source': 'community_admin_console',
         'feeBorneBy': 'player',
         'adminReceivesNetAmount': amount,
+        'requestedAt': FieldValue.serverTimestamp(),
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
@@ -1844,10 +1849,12 @@ class TournamentRepository {
         tournamentRef,
         {
           'organizerPayout': {
-            'status': 'requested',
+            'status': 'processing',
             'requestedAmount': amount,
             'lastWithdrawalId': ref.id,
             'feeBorneBy': 'player',
+            'approvalMode': 'community_admin_auto',
+            'requestedBy': requesterId,
             'updatedAt': FieldValue.serverTimestamp(),
           },
           'updatedAt': FieldValue.serverTimestamp(),
@@ -2239,8 +2246,7 @@ class BracketMatchNode {
       playerBName: (data['playerBName'] ?? 'TBD').toString(),
       playerBDeckName: (data['playerBDeckName'] ?? '-').toString(),
       winnerName: data['winnerName']?.toString(),
-      winnerDeckName:
-          _winnerDeckName(data['winnerName']?.toString(), data),
+      winnerDeckName: _winnerDeckName(data['winnerName']?.toString(), data),
       finalScore: data['finalScore']?.toString(),
       bye: data['bye'] == true,
     );

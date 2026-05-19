@@ -699,20 +699,21 @@ class _TournamentWizardScreenState
     try {
       final now = DateTime.now();
       final id = await ref.read(tournamentRepositoryProvider).createTournament(
-        name: _name.text,
-        location: _venue.text,
-        registrationFee: int.tryParse(_entryFee.text) ?? 0,
-        maxParticipants: int.tryParse(_capacity.text) ?? 32,
-        bracketType: _backendBracketType(_stages.last.format),
-        matchPointTarget: 4,
-        startDate: now.add(const Duration(days: 14)),
-        registrationDeadline: now.add(const Duration(days: 13)),
-        maxDecksPerPlayer: int.tryParse(_deckSize) ?? 3,
-        prizes: [_firstPrize.text, _secondPrize.text, _thirdPrize.text],
-        stagePlan: [
-          for (var i = 0; i < _stages.length; i++) _stages[i].toPayload(i),
-        ],
-      );
+            name: _name.text,
+            location: _venue.text,
+            registrationFee: int.tryParse(_entryFee.text) ?? 0,
+            maxParticipants: int.tryParse(_capacity.text) ?? 32,
+            bracketType: _backendBracketType(_stages.last.format),
+            matchPointTarget: 4,
+            startDate: now.add(const Duration(days: 14)),
+            registrationDeadline: now.add(const Duration(days: 13)),
+            maxDecksPerPlayer: int.tryParse(_deckSize) ?? 3,
+            prizes: [_firstPrize.text, _secondPrize.text, _thirdPrize.text],
+            organizerId: user.uid,
+            stagePlan: [
+              for (var i = 0; i < _stages.length; i++) _stages[i].toPayload(i),
+            ],
+          );
       if (!mounted) return;
       setState(() => _createdId = id.isEmpty ? 'created' : id);
       ScaffoldMessenger.of(context).showSnackBar(

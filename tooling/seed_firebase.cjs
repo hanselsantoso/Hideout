@@ -244,20 +244,26 @@ const withdrawals = [
   {
     tournamentId: 'hideout-cup-04',
     id: 'wd-001',
+    requesterId: 'demo-community-admin-nadia',
     requesterName: 'Nadia Community',
     amount: 850000,
     bankName: 'BCA',
     accountNumber: '1234567890',
-    status: 'pending',
+    accountName: 'Nadia Community',
+    status: 'processing',
+    approvalMode: 'community_admin_auto',
   },
   {
     tournamentId: 'east-coast-showdown',
     id: 'wd-002',
+    requesterId: 'demo-community-admin-nadia',
     requesterName: 'Nadia Community',
     amount: 420000,
     bankName: 'Mandiri',
     accountNumber: '9876543210',
-    status: 'approved',
+    accountName: 'Nadia Community',
+    status: 'paid',
+    approvalMode: 'community_admin_auto',
   },
 ];
 
@@ -360,10 +366,15 @@ async function seedCommunities() {
 
 async function seedTournaments() {
   for (const tournament of tournaments) {
-    const { id, startDate, registrationDeadline, ...data } = tournament;
+    const { id, startDate, registrationDeadline, registrationFee, ...data } = tournament;
     await db.collection('tournaments').doc(id).set(
       {
         ...data,
+        registrationFee,
+        organizerPayout: {
+          netRegistrationFeePerPlayer: registrationFee,
+          status: 'notRequested',
+        },
         startDate: Timestamp.fromDate(new Date(startDate)),
         registrationDeadline: Timestamp.fromDate(new Date(registrationDeadline)),
         seeded: true,
@@ -495,6 +506,7 @@ async function seedFinance() {
 
   for (const withdrawal of withdrawals) {
     const { tournamentId, id, ...data } = withdrawal;
+    const tournament = tournaments.find((item) => item.id === tournamentId);
     await db
       .collection('tournaments')
       .doc(tournamentId)
@@ -511,6 +523,21 @@ async function seedFinance() {
         },
         { merge: true },
       );
+    await db.collection('tournaments').doc(tournamentId).set(
+      {
+        organizerPayout: {
+          netRegistrationFeePerPlayer: tournament?.registrationFee || data.amount,
+          status: data.status === 'paid' ? 'paid' : 'processing',
+          requestedAmount: data.amount,
+          lastWithdrawalId: id,
+          feeBorneBy: 'player',
+          approvalMode: 'community_admin_auto',
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
     console.log(`withdrawal:${tournamentId}/${id}`);
   }
 }

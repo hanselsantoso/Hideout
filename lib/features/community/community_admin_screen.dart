@@ -1,9 +1,61 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/firestore_paths.dart';
 import '../../core/theme/hideout_tokens.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/tournament_repository.dart';
+
+final communityAdminTournamentsProvider =
+    StreamProvider.family<List<CommunityFinanceTournament>, String>(
+  (ref, userId) {
+    if (userId.isEmpty) {
+      return Stream.value(const <CommunityFinanceTournament>[]);
+    }
+    final firestore = ref.watch(firestoreProvider);
+    return firestore
+        .collection(FirestorePaths.tournaments)
+        .where('organizerId', isEqualTo: userId)
+        .limit(25)
+        .snapshots()
+        .map((snapshot) {
+      final rows =
+          snapshot.docs.map(CommunityFinanceTournament.fromFirestore).toList();
+      rows.sort((a, b) {
+        final aDate = a.startDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate = b.startDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bDate.compareTo(aDate);
+      });
+      return rows;
+    });
+  },
+);
+
+final communityWithdrawalsProvider =
+    StreamProvider.family<List<CommunityWithdrawSummary>, String>(
+  (ref, userId) {
+    if (userId.isEmpty) {
+      return Stream.value(const <CommunityWithdrawSummary>[]);
+    }
+    final firestore = ref.watch(firestoreProvider);
+    return firestore
+        .collectionGroup(FirestorePaths.withdrawals)
+        .where('requesterId', isEqualTo: userId)
+        .limit(25)
+        .snapshots()
+        .map((snapshot) {
+      final rows =
+          snapshot.docs.map(CommunityWithdrawSummary.fromFirestore).toList();
+      rows.sort((a, b) {
+        final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bDate.compareTo(aDate);
+      });
+      return rows;
+    });
+  },
+);
 
 class CommunityAdminScreen extends ConsumerWidget {
   const CommunityAdminScreen({super.key});
@@ -133,6 +185,150 @@ class _AdminMenuItem {
   final IconData icon;
   final Color color;
   final bool primary;
+}
+
+class CommunityFinanceTournament {
+  const CommunityFinanceTournament({
+    required this.id,
+    required this.name,
+    required this.status,
+    required this.registrationFee,
+    required this.currentParticipantCount,
+    required this.maxParticipants,
+    required this.netPayoutEstimate,
+    required this.payoutStatus,
+    this.startDate,
+  });
+
+  final String id;
+  final String name;
+  final String status;
+  final int registrationFee;
+  final int currentParticipantCount;
+  final int maxParticipants;
+  final int netPayoutEstimate;
+  final String payoutStatus;
+  final DateTime? startDate;
+
+  bool get hasPayout => netPayoutEstimate > 0;
+
+  bool get withdrawLocked {
+    final normalized = payoutStatus.toLowerCase();
+    return normalized == 'processing' ||
+        normalized == 'queued' ||
+        normalized == 'paid';
+  }
+
+  factory CommunityFinanceTournament.fromFirestore(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data();
+    DateTime? readDate(String key) {
+      final value = data[key];
+      if (value is Timestamp) return value.toDate();
+      if (value is String) return DateTime.tryParse(value);
+      return null;
+    }
+
+    final registrationFee = (data['registrationFee'] as num?)?.round() ?? 0;
+    final currentParticipantCount =
+        (data['currentParticipantCount'] as num?)?.round() ??
+            (data['participantCount'] as num?)?.round() ??
+            0;
+    final organizerPayout =
+        Map<String, dynamic>.from(data['organizerPayout'] as Map? ?? {});
+    final netPerPlayer =
+        (organizerPayout['netRegistrationFeePerPlayer'] as num?)?.round() ??
+            (data['netRegistrationFeePerPlayer'] as num?)?.round() ??
+            registrationFee;
+    final requestedAmount =
+        (organizerPayout['requestedAmount'] as num?)?.round();
+
+    return CommunityFinanceTournament(
+      id: doc.id,
+      name: (data['name'] ?? 'Untitled Tournament').toString(),
+      status: (data['status'] ?? 'draft').toString(),
+      registrationFee: registrationFee,
+      currentParticipantCount: currentParticipantCount,
+      maxParticipants: (data['maxParticipants'] as num?)?.round() ?? 0,
+      netPayoutEstimate:
+          requestedAmount ?? (netPerPlayer * currentParticipantCount),
+      payoutStatus: (organizerPayout['status'] ?? 'notRequested').toString(),
+      startDate: readDate('startDate'),
+    );
+  }
+}
+
+class CommunityWithdrawSummary {
+  const CommunityWithdrawSummary({
+    required this.id,
+    required this.tournamentId,
+    required this.amount,
+    required this.bankName,
+    required this.accountNumber,
+    required this.status,
+    this.createdAt,
+  });
+
+  final String id;
+  final String tournamentId;
+  final int amount;
+  final String bankName;
+  final String accountNumber;
+  final String status;
+  final DateTime? createdAt;
+
+  factory CommunityWithdrawSummary.fromFirestore(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data();
+    final tournamentRef = doc.reference.parent.parent;
+    DateTime? readDate(String key) {
+      final value = data[key];
+      if (value is Timestamp) return value.toDate();
+      if (value is String) return DateTime.tryParse(value);
+      return null;
+    }
+
+    return CommunityWithdrawSummary(
+      id: (data['id'] ?? doc.id).toString(),
+      tournamentId:
+          (data['tournamentId'] ?? tournamentRef?.id ?? '').toString(),
+      amount: (data['amount'] as num?)?.round() ?? 0,
+      bankName: (data['bankName'] ?? '-').toString(),
+      accountNumber: (data['accountNumber'] ?? '-').toString(),
+      status: (data['status'] ?? 'processing').toString(),
+      createdAt: readDate('createdAt') ?? readDate('requestedAt'),
+    );
+  }
+}
+
+Color _statusColor(String status) {
+  switch (status.toLowerCase()) {
+    case 'paid':
+    case 'approved':
+      return HDTColors.success;
+    case 'processing':
+    case 'queued':
+      return HDTColors.info;
+    case 'rejected':
+    case 'failed':
+      return HDTColors.danger;
+    default:
+      return HDTColors.warning;
+  }
+}
+
+String _formatRp(int value) {
+  final sign = value < 0 ? '-' : '';
+  final raw = value.abs().toString();
+  final buffer = StringBuffer();
+  for (var i = 0; i < raw.length; i++) {
+    final remaining = raw.length - i;
+    buffer.write(raw[i]);
+    if (remaining > 1 && remaining % 3 == 1) buffer.write('.');
+  }
+  return '${sign}Rp ${buffer.toString()}';
 }
 
 class _AdminHeader extends StatelessWidget {
@@ -299,7 +495,7 @@ class _OperationalNotes extends StatelessWidget {
   }
 }
 
-class _FinancePolicyPanel extends StatelessWidget {
+class _FinancePolicyPanel extends ConsumerWidget {
   const _FinancePolicyPanel({
     required this.userId,
     required this.userName,
@@ -309,7 +505,10 @@ class _FinancePolicyPanel extends StatelessWidget {
   final String userName;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tournaments = ref.watch(communityAdminTournamentsProvider(userId));
+    final withdrawals = ref.watch(communityWithdrawalsProvider(userId));
+
     return Container(
       padding: const EdgeInsets.all(HDTSpace.lg),
       decoration: hdtAccentCard(accentColor: HDTColors.success),
@@ -324,15 +523,15 @@ class _FinancePolicyPanel extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('FINANCE & WITHDRAW',
+                Text('FINANCE & AUTO WITHDRAW',
                     style:
                         HDTText.overline(size: 10, color: HDTColors.success)),
                 const SizedBox(height: HDTSpace.sm),
-                Text('Dana pendaftaran diterima utuh oleh komunitas',
+                Text('Withdraw komunitas diproses otomatis',
                     style: HDTText.display(size: 26)),
                 const SizedBox(height: HDTSpace.sm),
                 Text(
-                  'Platform fee, Midtrans/QRIS fee, dan coverage fee withdraw dibebankan ke user saat checkout, sehingga nominal entry fee net tetap menjadi hak komunitas untuk hadiah dan operasional event.',
+                  'Dana pendaftaran tetap menjadi hak komunitas. Ketua komunitas mengajukan payout dari halaman ini, lalu sistem menandainya masuk proses tanpa approval manual di super admin.',
                   style: HDTText.body(
                       size: 13, color: HDTColors.text2, height: 1.5),
                 ),
@@ -340,15 +539,249 @@ class _FinancePolicyPanel extends StatelessWidget {
             ),
           ),
           ElevatedButton.icon(
-            onPressed: () => showDialog<void>(
-              context: context,
-              builder: (_) => _WithdrawDialog(
-                userId: userId,
-                userName: userName,
-              ),
-            ),
+            onPressed: () => _openWithdraw(context),
             icon: const Icon(Icons.account_balance_wallet_outlined),
-            label: const Text('REQUEST WITHDRAW'),
+            label: const Text('AUTO WITHDRAW'),
+          ),
+          SizedBox(
+            width: double.infinity,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('TURNAMEN KOMUNITAS', style: HDTText.overline(size: 10)),
+                const SizedBox(height: HDTSpace.sm),
+                tournaments.when(
+                  loading: () => const _FinanceInlineNotice(
+                    icon: Icons.hourglass_empty,
+                    text: 'Memuat turnamen komunitas...',
+                  ),
+                  error: (_, __) => const _FinanceInlineNotice(
+                    icon: Icons.info_outline,
+                    text:
+                        'Turnamen komunitas belum terbaca. Coba refresh halaman.',
+                  ),
+                  data: (rows) {
+                    if (rows.isEmpty) {
+                      return const _FinanceInlineNotice(
+                        icon: Icons.event_busy_outlined,
+                        text:
+                            'Belum ada turnamen yang terhubung ke akun ketua komunitas ini.',
+                      );
+                    }
+                    return Column(
+                      children: [
+                        for (final item in rows.take(5))
+                          _FinanceTournamentRow(
+                            item: item,
+                            onWithdraw: item.hasPayout && !item.withdrawLocked
+                                ? () => _openWithdraw(context, tournament: item)
+                                : null,
+                          ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: HDTSpace.lg),
+                Text('RIWAYAT WITHDRAW OTOMATIS',
+                    style: HDTText.overline(size: 10)),
+                const SizedBox(height: HDTSpace.sm),
+                withdrawals.when(
+                  loading: () => const _FinanceInlineNotice(
+                    icon: Icons.hourglass_empty,
+                    text: 'Memuat riwayat withdraw...',
+                  ),
+                  error: (_, __) => const _FinanceInlineNotice(
+                    icon: Icons.info_outline,
+                    text:
+                        'Riwayat withdraw belum terbaca. Coba refresh halaman.',
+                  ),
+                  data: (rows) {
+                    if (rows.isEmpty) {
+                      return const _FinanceInlineNotice(
+                        icon: Icons.account_balance_wallet_outlined,
+                        text:
+                            'Belum ada withdraw. Gunakan tombol di turnamen yang sudah memiliki dana pendaftaran.',
+                      );
+                    }
+                    return Column(
+                      children: [
+                        for (final item in rows.take(4))
+                          _WithdrawHistoryRow(item: item),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openWithdraw(
+    BuildContext context, {
+    CommunityFinanceTournament? tournament,
+  }) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => _WithdrawDialog(
+        userId: userId,
+        userName: userName,
+        initialTournamentId: tournament?.id,
+        initialAmount: tournament == null || !tournament.hasPayout
+            ? null
+            : tournament.netPayoutEstimate,
+      ),
+    );
+  }
+}
+
+class _FinanceTournamentRow extends StatelessWidget {
+  const _FinanceTournamentRow({
+    required this.item,
+    required this.onWithdraw,
+  });
+
+  final CommunityFinanceTournament item;
+  final VoidCallback? onWithdraw;
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = _statusColor(item.payoutStatus);
+    final buttonLabel = item.withdrawLocked
+        ? 'DIPROSES'
+        : item.hasPayout
+            ? 'WITHDRAW'
+            : 'BELUM ADA DANA';
+    return Container(
+      margin: const EdgeInsets.only(bottom: HDTSpace.sm),
+      padding: const EdgeInsets.all(HDTSpace.md),
+      decoration: BoxDecoration(
+        color: HDTColors.bg.withValues(alpha: 0.72),
+        borderRadius: HDTR.md,
+        border: Border.all(color: HDTColors.s2),
+      ),
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: HDTSpace.md,
+        runSpacing: HDTSpace.sm,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: HDTColors.success.withValues(alpha: 0.12),
+              borderRadius: HDTR.sm,
+            ),
+            child: const Icon(Icons.emoji_events_outlined,
+                color: HDTColors.success, size: 19),
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 180, maxWidth: 420),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item.name, style: HDTText.display(size: 15)),
+                const SizedBox(height: 4),
+                Text(
+                  '${item.currentParticipantCount}/${item.maxParticipants} pemain - ${item.status}',
+                  style: HDTText.body(size: 12, color: HDTColors.text2),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            width: 150,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(_formatRp(item.netPayoutEstimate),
+                    style: HDTText.mono(size: 12, color: HDTColors.text)),
+                const SizedBox(height: 4),
+                Text(item.payoutStatus.toUpperCase(),
+                    style: HDTText.overline(size: 8, color: statusColor)),
+              ],
+            ),
+          ),
+          OutlinedButton.icon(
+            onPressed: onWithdraw,
+            icon: const Icon(Icons.send_outlined, size: 14),
+            label: Text(buttonLabel),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WithdrawHistoryRow extends StatelessWidget {
+  const _WithdrawHistoryRow({required this.item});
+
+  final CommunityWithdrawSummary item;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _statusColor(item.status);
+    return Container(
+      margin: const EdgeInsets.only(bottom: HDTSpace.sm),
+      padding: const EdgeInsets.all(HDTSpace.md),
+      decoration: BoxDecoration(
+        color: HDTColors.bg.withValues(alpha: 0.56),
+        borderRadius: HDTR.md,
+        border: Border.all(color: HDTColors.s2),
+      ),
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: HDTSpace.md,
+        runSpacing: HDTSpace.sm,
+        children: [
+          Icon(Icons.receipt_long_outlined, size: 18, color: color),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 180, maxWidth: 520),
+            child: Text(
+              '${item.tournamentId} - ${item.bankName} ${item.accountNumber}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: HDTText.body(size: 12, color: HDTColors.text2),
+            ),
+          ),
+          Text(_formatRp(item.amount),
+              style: HDTText.mono(size: 12, color: HDTColors.text)),
+          Text(item.status.toUpperCase(),
+              style: HDTText.overline(size: 8, color: color)),
+        ],
+      ),
+    );
+  }
+}
+
+class _FinanceInlineNotice extends StatelessWidget {
+  const _FinanceInlineNotice({
+    required this.icon,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(HDTSpace.md),
+      decoration: BoxDecoration(
+        color: HDTColors.bg.withValues(alpha: 0.6),
+        borderRadius: HDTR.md,
+        border: Border.all(color: HDTColors.s2),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: HDTColors.text3),
+          const SizedBox(width: HDTSpace.sm),
+          Expanded(
+            child: Text(text,
+                style: HDTText.body(size: 12, color: HDTColors.text2)),
           ),
         ],
       ),
@@ -360,10 +793,14 @@ class _WithdrawDialog extends ConsumerStatefulWidget {
   const _WithdrawDialog({
     required this.userId,
     required this.userName,
+    this.initialTournamentId,
+    this.initialAmount,
   });
 
   final String userId;
   final String userName;
+  final String? initialTournamentId;
+  final int? initialAmount;
 
   @override
   ConsumerState<_WithdrawDialog> createState() => _WithdrawDialogState();
@@ -371,12 +808,19 @@ class _WithdrawDialog extends ConsumerStatefulWidget {
 
 class _WithdrawDialogState extends ConsumerState<_WithdrawDialog> {
   final _tournamentId = TextEditingController();
-  final _amount = TextEditingController(text: '1500000');
+  final _amount = TextEditingController();
   final _bank = TextEditingController(text: 'BCA');
   final _accountNumber = TextEditingController();
   final _accountName = TextEditingController();
   bool _busy = false;
   String? _message;
+
+  @override
+  void initState() {
+    super.initState();
+    _tournamentId.text = widget.initialTournamentId ?? '';
+    _amount.text = (widget.initialAmount ?? 1500000).toString();
+  }
 
   @override
   void dispose() {
@@ -392,7 +836,7 @@ class _WithdrawDialogState extends ConsumerState<_WithdrawDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: HDTColors.s1,
-      title: Text('REQUEST WITHDRAW', style: HDTText.display(size: 24)),
+      title: Text('AUTO WITHDRAW', style: HDTText.display(size: 24)),
       content: SizedBox(
         width: 460,
         child: SingleChildScrollView(
@@ -400,7 +844,7 @@ class _WithdrawDialogState extends ConsumerState<_WithdrawDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Admin menerima nominal net. Fee payment dan withdraw sudah ditagihkan ke user di checkout.',
+                'Withdraw dibuat dari halaman ketua komunitas dan langsung masuk proses payout. Fee payment dan withdraw sudah ditagihkan ke user saat checkout.',
                 style: HDTText.body(size: 12, color: HDTColors.text2),
               ),
               const SizedBox(height: HDTSpace.md),
@@ -468,6 +912,11 @@ class _WithdrawDialogState extends ConsumerState<_WithdrawDialog> {
       setState(() => _message = 'Isi Tournament ID terlebih dahulu.');
       return;
     }
+    final amount = int.tryParse(_amount.text) ?? 0;
+    if (amount <= 0) {
+      setState(() => _message = 'Nominal withdraw harus lebih dari 0.');
+      return;
+    }
     setState(() {
       _busy = true;
       _message = null;
@@ -479,13 +928,13 @@ class _WithdrawDialogState extends ConsumerState<_WithdrawDialog> {
             tournamentId: _tournamentId.text.trim(),
             requesterId: widget.userId,
             requesterName: widget.userName,
-            amount: int.tryParse(_amount.text) ?? 0,
+            amount: amount,
             bankName: _bank.text,
             accountNumber: _accountNumber.text,
             accountName: _accountName.text,
           );
       if (!mounted) return;
-      setState(() => _message = 'Withdraw diajukan: $id');
+      setState(() => _message = 'Withdraw otomatis masuk proses: $id');
     } catch (_) {
       if (!mounted) return;
       setState(() =>

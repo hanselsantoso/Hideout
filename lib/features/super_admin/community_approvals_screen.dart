@@ -38,8 +38,8 @@ class _CommunityApprovalsScreenState
         actions: [
           TextButton(
             onPressed: () =>
-                Navigator.pushReplacementNamed(context, '/dashboard'),
-            child: const Text('DASHBOARD'),
+                Navigator.pushReplacementNamed(context, '/super-admin/reports'),
+            child: const Text('CONSOLE'),
           ),
           const SizedBox(width: HDTSpace.sm),
         ],
@@ -148,11 +148,25 @@ class _ApprovalContent extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('APPROVAL QUEUE', style: HDTText.display(size: 32)),
+                      Text('PENGAJUAN KOMUNITAS BARU',
+                          style: HDTText.display(size: 32)),
                       const SizedBox(height: HDTSpace.xs),
                       Text(
-                        'Tinjau pengajuan komunitas dan tetapkan ketua sebagai admin komunitas pertama.',
+                        'Setiap komunitas yang mendaftar dari halaman Buka Komunitas masuk ke queue ini. Saat disetujui, ketua komunitas otomatis mendapat akses admin komunitas.',
                         style: HDTText.body(color: HDTColors.text2),
+                      ),
+                      const SizedBox(height: HDTSpace.md),
+                      const Wrap(
+                        spacing: HDTSpace.sm,
+                        runSpacing: HDTSpace.sm,
+                        children: [
+                          _MetaChip(Icons.groups_outlined,
+                              'SOURCE: REGISTRASI KOMUNITAS'),
+                          _MetaChip(Icons.admin_panel_settings_outlined,
+                              'ROLE: KETUA KOMUNITAS'),
+                          _MetaChip(Icons.account_balance_wallet_outlined,
+                              'WITHDRAW: DI HALAMAN KETUA'),
+                        ],
                       ),
                     ],
                   ),
@@ -562,7 +576,7 @@ class _EmptyApprovals extends StatelessWidget {
           const SizedBox(height: HDTSpace.md),
           Text('QUEUE KOSONG', style: HDTText.display(size: 24)),
           const SizedBox(height: HDTSpace.sm),
-          Text('Semua proposal komunitas sudah ditinjau.',
+          Text('Belum ada komunitas baru yang menunggu persetujuan.',
               style: HDTText.body(color: HDTColors.text2)),
         ],
       ),

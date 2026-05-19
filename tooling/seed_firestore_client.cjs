@@ -117,6 +117,57 @@ const pendingApplications = [
   },
 ];
 
+const tournaments = [
+  {
+    id: 'hideout-cup-04',
+    name: 'HIDEOUT CUP #04',
+    description: 'Ranked weekend cup dengan Swiss stage dan top cut.',
+    status: 'registrationOpen',
+    bracketType: 'swissTopCut',
+    location: 'Jakarta, JKT WOLVES Arena',
+    registrationFee: 50000,
+    maxParticipants: 32,
+    currentParticipantCount: 28,
+    startDate: '2026-05-24T13:00:00+07:00',
+    registrationDeadline: '2026-05-23T21:00:00+07:00',
+    communityId: 'jkt-wolves',
+    organizerId: 'demo-community-admin-nadia',
+    judgeIds: ['demo-judge-bayu'],
+  },
+  {
+    id: 'east-coast-showdown',
+    name: 'EAST COAST SHOWDOWN',
+    description: 'Event live Surabaya untuk pemain aktif komunitas.',
+    status: 'running',
+    bracketType: 'singleElimination',
+    location: 'Surabaya, SBY SPIN Base',
+    registrationFee: 35000,
+    maxParticipants: 16,
+    currentParticipantCount: 16,
+    startDate: '2026-05-26T15:00:00+07:00',
+    registrationDeadline: '2026-05-25T21:00:00+07:00',
+    communityId: 'sby-spin',
+    organizerId: 'demo-community-admin-nadia',
+    judgeIds: ['demo-judge-bayu'],
+  },
+  {
+    id: 'highland-open',
+    name: 'HIGHLAND OPEN',
+    description: 'Open event Bandung untuk testing meta baru.',
+    status: 'upcoming',
+    bracketType: 'swiss',
+    location: 'Bandung, BDG GRINDERS Hideout',
+    registrationFee: 40000,
+    maxParticipants: 24,
+    currentParticipantCount: 12,
+    startDate: '2026-05-31T11:00:00+07:00',
+    registrationDeadline: '2026-05-30T20:00:00+07:00',
+    communityId: 'bdg-grinders',
+    organizerId: 'demo-community-admin-nadia',
+    judgeIds: ['demo-judge-bayu'],
+  },
+];
+
 const componentStats = [
   ['blades', 'Phoenix Wing', 1204, 700, 504],
   ['bits', 'Rush', 902, 495, 407],
@@ -139,20 +190,26 @@ const withdrawals = [
   {
     tournamentId: 'hideout-cup-04',
     id: 'wd-001',
+    requesterId: 'demo-community-admin-nadia',
     requesterName: 'Nadia Community',
     amount: 850000,
     bankName: 'BCA',
     accountNumber: '1234567890',
-    status: 'pending',
+    accountName: 'Nadia Community',
+    status: 'processing',
+    approvalMode: 'community_admin_auto',
   },
   {
     tournamentId: 'east-coast-showdown',
     id: 'wd-002',
+    requesterId: 'demo-community-admin-nadia',
     requesterName: 'Nadia Community',
     amount: 420000,
     bankName: 'Mandiri',
     accountNumber: '9876543210',
-    status: 'approved',
+    accountName: 'Nadia Community',
+    status: 'paid',
+    approvalMode: 'community_admin_auto',
   },
 ];
 
@@ -280,6 +337,23 @@ async function main() {
     console.log(`communityApplication:${application.id}`);
   }
 
+  for (const tournament of tournaments) {
+    const { id, registrationFee, ...data } = tournament;
+    await patchDoc(token, `tournaments/${id}`, {
+      id,
+      ...data,
+      registrationFee,
+      organizerPayout: {
+        netRegistrationFeePerPlayer: registrationFee,
+        status: 'notRequested',
+      },
+      seeded: true,
+      updatedAt: now(),
+      createdAt: now(),
+    });
+    console.log(`tournament:${id}`);
+  }
+
   for (const [category, name, appearances, wins, losses] of componentStats) {
     const part = findPart(category, name);
     const id = partId(category, name);
@@ -338,12 +412,25 @@ async function main() {
 
   for (const withdrawal of withdrawals) {
     const { tournamentId, id, ...data } = withdrawal;
+    const tournament = tournaments.find((item) => item.id === tournamentId);
     await patchDoc(token, `tournaments/${tournamentId}/withdrawals/${id}`, {
       id,
       tournamentId,
       ...data,
       seeded: true,
       requestedAt: now(),
+      updatedAt: now(),
+    });
+    await patchDoc(token, `tournaments/${tournamentId}`, {
+      organizerPayout: {
+        netRegistrationFeePerPlayer: tournament?.registrationFee || data.amount,
+        status: data.status === 'paid' ? 'paid' : 'processing',
+        requestedAmount: data.amount,
+        lastWithdrawalId: id,
+        feeBorneBy: 'player',
+        approvalMode: 'community_admin_auto',
+        updatedAt: now(),
+      },
       updatedAt: now(),
     });
     console.log(`withdrawal:${tournamentId}/${id}`);
