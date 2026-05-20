@@ -1867,14 +1867,237 @@ class _DoubleEliminationBoard extends StatelessWidget {
               HDTSpace.lg,
               HDTSpace.xl,
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: _EsportsDoubleElimMap(sections: sections),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EsportsDoubleElimMap extends StatelessWidget {
+  const _EsportsDoubleElimMap({required this.sections});
+
+  final List<_DoubleElimSection> sections;
+
+  static const double laneX = 44;
+  static const double upperY = 86;
+  static const double laneGap = 86;
+  static const double finalGap = 86;
+  static const double boardMinWidth = 1060;
+
+  @override
+  Widget build(BuildContext context) {
+    if (sections.isEmpty) {
+      return const SizedBox(
+        width: boardMinWidth,
+        height: 260,
+        child: Center(
+            child: _Notice(
+                color: HDTColors.warning, text: 'Bracket belum tersedia.')),
+      );
+    }
+    final upper = _findDoubleElimSection(sections, 'Upper') ?? sections.first;
+    final lower = _findDoubleElimSection(sections, 'Lower') ?? sections.first;
+    final grand = _findDoubleElimSection(sections, 'Grand');
+    final upperPositions = _DoubleElimSectionTree.positionsFor(upper);
+    final lowerPositions = _DoubleElimSectionTree.positionsFor(lower);
+    final upperHeight = upperPositions.height + _DoubleElimSectionTree.labelTop;
+    final lowerHeight = lowerPositions.height + _DoubleElimSectionTree.labelTop;
+    final laneWidth = math.max(upperPositions.width, lowerPositions.width);
+    final finalX = laneX + laneWidth + finalGap;
+    final grandMatches =
+        grand?.rounds.expand((round) => round.matches).toList() ??
+            const <_DoubleElimMatch>[];
+    final grandHeight = grandMatches.isEmpty
+        ? _DoubleElimSectionTree.cardH
+        : (grandMatches.length * _DoubleElimSectionTree.cardH) +
+            ((grandMatches.length - 1) * HDTSpace.md);
+    final lowerY = upperY + upperHeight + laneGap;
+    final finalY = math.max(
+      upperY,
+      upperY + ((upperHeight + laneGap + lowerHeight - grandHeight) / 2),
+    );
+    final boardWidth = math.max(
+      boardMinWidth,
+      finalX + _DoubleElimSectionTree.cardW + laneX,
+    );
+    final boardHeight = lowerY + lowerHeight + 80;
+
+    return SizedBox(
+      width: boardWidth,
+      height: boardHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+              child: CustomPaint(painter: _BracketBackdropPainter())),
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _DoubleElimFinalConnectorPainter(
+                upperOut: _laneOutputPoint(upperPositions, laneX, upperY),
+                lowerOut: _laneOutputPoint(lowerPositions, laneX, lowerY),
+                finalIn: Offset(
+                  finalX,
+                  finalY + (_DoubleElimSectionTree.cardH / 2),
+                ),
+                upperColor: _doubleElimAccent(upper.title),
+                lowerColor: _doubleElimAccent(lower.title),
+                finalColor: _doubleElimAccent(grand?.title ?? 'Grand'),
+              ),
+            ),
+          ),
+          Positioned(
+            left: laneX,
+            top: 28,
+            child: _BracketLaneHeader(
+              title: upper.title,
+              subtitle: upper.subtitle,
+              accent: _doubleElimAccent(upper.title),
+              icon: _doubleElimIcon(upper.title),
+            ),
+          ),
+          Positioned(
+            left: laneX,
+            top: upperY,
+            child: _DoubleElimSectionTree(
+              section: upper,
+              accent: _doubleElimAccent(upper.title),
+              positions: upperPositions,
+            ),
+          ),
+          Positioned(
+            left: laneX,
+            top: lowerY - 45,
+            child: SizedBox(
+              width: boardWidth - (laneX * 2),
+              child: hdtDivider(),
+            ),
+          ),
+          Positioned(
+            left: laneX,
+            top: lowerY - 18,
+            child: _BracketLaneHeader(
+              title: lower.title,
+              subtitle: lower.subtitle,
+              accent: _doubleElimAccent(lower.title),
+              icon: _doubleElimIcon(lower.title),
+            ),
+          ),
+          Positioned(
+            left: laneX,
+            top: lowerY,
+            child: _DoubleElimSectionTree(
+              section: lower,
+              accent: _doubleElimAccent(lower.title),
+              positions: lowerPositions,
+            ),
+          ),
+          if (grand != null) ...[
+            Positioned(
+              left: finalX,
+              top: finalY - 48,
+              child: _BracketLaneHeader(
+                title: grand.title,
+                subtitle: grand.subtitle,
+                accent: _doubleElimAccent(grand.title),
+                icon: _doubleElimIcon(grand.title),
+                alignRight: true,
+              ),
+            ),
+            Positioned(
+              left: finalX,
+              top: finalY,
+              width: _DoubleElimSectionTree.cardW,
+              child: _GrandFinalStack(
+                matches: grandMatches,
+                accent: _doubleElimAccent(grand.title),
+              ),
+            ),
+          ],
+          Positioned(
+            right: 26,
+            bottom: 22,
+            child: _BracketPrizePanel(
+              accent: _doubleElimAccent(grand?.title ?? 'Grand'),
+              completed: grandMatches
+                  .where((match) =>
+                      match.status == 'completed' || match.winner != null)
+                  .length,
+              total: grandMatches.length,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Offset _laneOutputPoint(_TreePositions positions, double x, double y) {
+    final lastRound =
+        positions.yByRound.isEmpty ? 0 : positions.yByRound.length - 1;
+    final lastY =
+        positions.yByRound.isEmpty || positions.yByRound[lastRound].isEmpty
+            ? 0.0
+            : positions.yByRound[lastRound].first;
+    return Offset(
+      x + positions.xForRound(lastRound) + _DoubleElimSectionTree.cardW,
+      y +
+          _DoubleElimSectionTree.labelTop +
+          lastY +
+          (_DoubleElimSectionTree.cardH / 2),
+    );
+  }
+}
+
+class _BracketLaneHeader extends StatelessWidget {
+  const _BracketLaneHeader({
+    required this.title,
+    required this.subtitle,
+    required this.accent,
+    required this.icon,
+    this.alignRight = false,
+  });
+
+  final String title;
+  final String subtitle;
+  final Color accent;
+  final IconData icon;
+  final bool alignRight;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 330,
+      child: Row(
+        textDirection: alignRight ? TextDirection.rtl : TextDirection.ltr,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: .16),
+              borderRadius: HDTR.md,
+              border: Border.all(color: accent.withValues(alpha: .42)),
+            ),
+            child: Icon(icon, size: 18, color: accent),
+          ),
+          const SizedBox(width: HDTSpace.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: alignRight
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
               children: [
-                for (var i = 0; i < sections.length; i++) ...[
-                  _DoubleElimSectionColumn(section: sections[i]),
-                  if (i != sections.length - 1)
-                    const SizedBox(width: HDTSpace.lg),
-                ],
+                Text(title.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: HDTText.display(size: 20, color: accent)),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: HDTText.mono(size: 10, color: HDTColors.text3),
+                ),
               ],
             ),
           ),
@@ -1884,71 +2107,203 @@ class _DoubleEliminationBoard extends StatelessWidget {
   }
 }
 
-class _DoubleElimSectionColumn extends StatelessWidget {
-  const _DoubleElimSectionColumn({required this.section});
+class _GrandFinalStack extends StatelessWidget {
+  const _GrandFinalStack({
+    required this.matches,
+    required this.accent,
+  });
 
-  final _DoubleElimSection section;
+  final List<_DoubleElimMatch> matches;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
-    final accent = _doubleElimAccent(section.title);
-    final treeWidth = _DoubleElimSectionTree.widthFor(section);
-    final matchCount = section.rounds.fold<int>(
-      0,
-      (total, round) => total + round.matches.length,
+    if (matches.isEmpty) {
+      return SizedBox(
+        height: _DoubleElimSectionTree.cardH,
+        child: _BracketPlaceholderTile(accent: accent),
+      );
+    }
+    return Column(
+      children: [
+        for (final match in matches) ...[
+          SizedBox(
+            height: _DoubleElimSectionTree.cardH,
+            child: _DoubleElimMatchTile(match: match, accent: accent),
+          ),
+          if (match != matches.last) const SizedBox(height: HDTSpace.md),
+        ],
+      ],
     );
-    final completed = section.rounds
-        .expand((round) => round.matches)
-        .where((match) => match.status == 'completed' || match.winner != null)
-        .length;
+  }
+}
+
+class _BracketPlaceholderTile extends StatelessWidget {
+  const _BracketPlaceholderTile({required this.accent});
+
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      width: math.max(330, treeWidth + (HDTSpace.md * 2)),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: HDTColors.s1,
+        borderRadius: HDTR.lg,
+        border: Border.all(color: accent.withValues(alpha: .48)),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: .14),
+            blurRadius: 18,
+          ),
+        ],
+      ),
+      child: Text('[W]', style: HDTText.display(size: 22, color: accent)),
+    );
+  }
+}
+
+class _BracketPrizePanel extends StatelessWidget {
+  const _BracketPrizePanel({
+    required this.accent,
+    required this.completed,
+    required this.total,
+  });
+
+  final Color accent;
+  final int completed;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 178,
       padding: const EdgeInsets.all(HDTSpace.md),
       decoration: BoxDecoration(
-        color: HDTColors.bg,
+        color: HDTColors.bg.withValues(alpha: .72),
         borderRadius: HDTR.lg,
-        border: Border.all(color: accent.withValues(alpha: .46)),
+        border: Border.all(color: accent.withValues(alpha: .34)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: .14),
-                  borderRadius: HDTR.md,
-                ),
-                child: Icon(_doubleElimIcon(section.title),
-                    size: 19, color: accent),
-              ),
-              const SizedBox(width: HDTSpace.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(section.title.toUpperCase(),
-                        style: HDTText.display(size: 20, color: accent)),
-                    Text(section.subtitle,
-                        style: HDTText.mono(size: 10, color: HDTColors.text3)),
-                  ],
-                ),
-              ),
-              _BracketCountPill('$completed/$matchCount', accent),
-            ],
-          ),
-          const SizedBox(height: HDTSpace.sm),
+          Text('GRAND PATH', style: HDTText.overline(size: 8, color: accent)),
+          const SizedBox(height: HDTSpace.xs),
+          Text('$completed/$total',
+              style: HDTText.display(size: 24, color: HDTColors.text)),
           Text(
-            _doubleElimFlowText(section.title),
-            style: HDTText.body(size: 11, color: HDTColors.text3),
+            'Final match progress',
+            style: HDTText.mono(size: 9, color: HDTColors.text3),
           ),
-          const SizedBox(height: HDTSpace.md),
-          _DoubleElimSectionTree(section: section, accent: accent),
         ],
       ),
     );
+  }
+}
+
+class _BracketBackdropPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final bgPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFF11131A),
+          Color(0xFF151022),
+          Color(0xFF0E151A),
+        ],
+      ).createShader(rect);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(8)),
+      bgPaint,
+    );
+
+    final gridPaint = Paint()
+      ..color = HDTColors.text3.withValues(alpha: .08)
+      ..strokeWidth = 1;
+    for (var x = -size.height; x < size.width; x += 56) {
+      canvas.drawLine(
+        Offset(x.toDouble(), 0),
+        Offset(x + size.height, size.height),
+        gridPaint,
+      );
+    }
+
+    final borderPaint = Paint()
+      ..color = HDTColors.accentHover.withValues(alpha: .18)
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        rect.deflate(1),
+        const Radius.circular(8),
+      ),
+      borderPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _BracketBackdropPainter oldDelegate) => false;
+}
+
+class _DoubleElimFinalConnectorPainter extends CustomPainter {
+  const _DoubleElimFinalConnectorPainter({
+    required this.upperOut,
+    required this.lowerOut,
+    required this.finalIn,
+    required this.upperColor,
+    required this.lowerColor,
+    required this.finalColor,
+  });
+
+  final Offset upperOut;
+  final Offset lowerOut;
+  final Offset finalIn;
+  final Color upperColor;
+  final Color lowerColor;
+  final Color finalColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    _drawPath(canvas, upperOut, finalIn, upperColor);
+    _drawPath(canvas, lowerOut, finalIn, lowerColor);
+    final finalPaint = Paint()
+      ..color = finalColor.withValues(alpha: .5)
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(finalIn.dx, finalIn.dy - 34),
+      Offset(finalIn.dx, finalIn.dy + 34),
+      finalPaint,
+    );
+  }
+
+  void _drawPath(Canvas canvas, Offset from, Offset to, Color color) {
+    final elbowX = from.dx + ((to.dx - from.dx) * .52);
+    final paint = Paint()
+      ..color = color.withValues(alpha: .62)
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+    final path = Path()
+      ..moveTo(from.dx, from.dy)
+      ..lineTo(elbowX, from.dy)
+      ..lineTo(elbowX, to.dy)
+      ..lineTo(to.dx, to.dy);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _DoubleElimFinalConnectorPainter oldDelegate) {
+    return oldDelegate.upperOut != upperOut ||
+        oldDelegate.lowerOut != lowerOut ||
+        oldDelegate.finalIn != finalIn ||
+        oldDelegate.upperColor != upperColor ||
+        oldDelegate.lowerColor != lowerColor ||
+        oldDelegate.finalColor != finalColor;
   }
 }
 
@@ -1956,10 +2311,12 @@ class _DoubleElimSectionTree extends StatelessWidget {
   const _DoubleElimSectionTree({
     required this.section,
     required this.accent,
+    this.positions,
   });
 
   final _DoubleElimSection section;
   final Color accent;
+  final _TreePositions? positions;
 
   static const double cardW = 270;
   static const double cardH = 128;
@@ -1967,24 +2324,22 @@ class _DoubleElimSectionTree extends StatelessWidget {
   static const double baseGap = 30;
   static const double labelTop = 34;
 
-  static double widthFor(_DoubleElimSection section) {
-    if (section.rounds.isEmpty) return cardW;
-    return (section.rounds.length * cardW) +
-        ((section.rounds.length - 1) * colGap);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final positions = _buildTreePositions(
+  static _TreePositions positionsFor(_DoubleElimSection section) {
+    return _buildTreePositions(
       section.rounds.map((round) => round.matches.length).toList(),
       cardH: cardH,
       baseGap: baseGap,
       cardW: cardW,
       colGap: colGap,
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedPositions = positions ?? positionsFor(section);
     return SizedBox(
-      width: positions.width,
-      height: positions.height + labelTop,
+      width: resolvedPositions.width,
+      height: resolvedPositions.height + labelTop,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -1992,7 +2347,7 @@ class _DoubleElimSectionTree extends StatelessWidget {
             top: labelTop,
             child: CustomPaint(
               painter: _BracketTreePainter(
-                positions: positions,
+                positions: resolvedPositions,
                 cardWidth: cardW,
                 cardHeight: cardH,
                 color: accent.withValues(alpha: .58),
@@ -2001,7 +2356,7 @@ class _DoubleElimSectionTree extends StatelessWidget {
           ),
           for (var r = 0; r < section.rounds.length; r++)
             Positioned(
-              left: positions.xForRound(r),
+              left: resolvedPositions.xForRound(r),
               top: 0,
               width: cardW,
               child: Container(
@@ -2035,12 +2390,13 @@ class _DoubleElimSectionTree extends StatelessWidget {
           for (var r = 0; r < section.rounds.length; r++)
             for (var m = 0; m < section.rounds[r].matches.length; m++)
               Positioned(
-                left: positions.xForRound(r),
-                top: positions.yFor(r, m) + labelTop,
+                left: resolvedPositions.xForRound(r),
+                top: resolvedPositions.yFor(r, m) + labelTop,
                 width: cardW,
                 height: cardH,
                 child: _DoubleElimMatchTile(
                   match: section.rounds[r].matches[m],
+                  accent: accent,
                 ),
               ),
         ],
@@ -2050,20 +2406,39 @@ class _DoubleElimSectionTree extends StatelessWidget {
 }
 
 class _DoubleElimMatchTile extends StatelessWidget {
-  const _DoubleElimMatchTile({required this.match});
+  const _DoubleElimMatchTile({
+    required this.match,
+    required this.accent,
+  });
 
   final _DoubleElimMatch match;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
     final color = _doubleElimStatusColor(match);
-    final done = match.status == 'completed' || match.winner != null;
+    final scoreA = _scoreSide(match.score, 0);
+    final scoreB = _scoreSide(match.score, 1);
     return Container(
       padding: const EdgeInsets.all(HDTSpace.md),
       decoration: BoxDecoration(
-        color: HDTColors.s1,
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            accent.withValues(alpha: .18),
+            HDTColors.s1,
+          ],
+        ),
         borderRadius: HDTR.md,
         border: Border.all(color: color.withValues(alpha: .52)),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: .16),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2080,6 +2455,7 @@ class _DoubleElimMatchTile extends StatelessWidget {
           _ElimPlayerLine(
             seed: 'A',
             name: match.playerA,
+            score: scoreA,
             winner: match.winner == match.playerA,
             accent: color,
           ),
@@ -2087,20 +2463,10 @@ class _DoubleElimMatchTile extends StatelessWidget {
           _ElimPlayerLine(
             seed: 'B',
             name: match.playerB,
+            score: scoreB,
             winner: match.winner == match.playerB,
             accent: color,
           ),
-          if (done) ...[
-            const SizedBox(height: HDTSpace.sm),
-            hdtDivider(),
-            const SizedBox(height: HDTSpace.sm),
-            Text(
-              'WINNER ${(match.winner ?? '-').toUpperCase()} . ${match.score ?? '-'}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: HDTText.overline(size: 8, color: HDTColors.success),
-            ),
-          ],
         ],
       ),
     );
@@ -2111,12 +2477,14 @@ class _ElimPlayerLine extends StatelessWidget {
   const _ElimPlayerLine({
     required this.seed,
     required this.name,
+    required this.score,
     required this.winner,
     required this.accent,
   });
 
   final String seed;
   final String name;
+  final String score;
   final bool winner;
   final Color accent;
 
@@ -2160,10 +2528,29 @@ class _ElimPlayerLine extends StatelessWidget {
               ),
             ),
           ),
-          Icon(
-            winner ? Icons.north_east : Icons.drag_handle,
-            size: 13,
-            color: winner ? HDTColors.success : HDTColors.text3,
+          Container(
+            width: 28,
+            height: 22,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: winner
+                  ? HDTColors.success.withValues(alpha: .18)
+                  : HDTColors.s2,
+              borderRadius: HDTR.sm,
+              border: Border.all(
+                color: winner
+                    ? HDTColors.success.withValues(alpha: .46)
+                    : HDTColors.s3,
+              ),
+            ),
+            child: Text(
+              score,
+              style: HDTText.mono(
+                size: 10,
+                color: winner ? HDTColors.success : HDTColors.text3,
+                weight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),
@@ -2271,25 +2658,6 @@ class _BracketStatusPill extends StatelessWidget {
   }
 }
 
-class _BracketCountPill extends StatelessWidget {
-  const _BracketCountPill(this.text, this.color);
-
-  final String text;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .12),
-        borderRadius: HDTR.full,
-      ),
-      child: Text(text, style: HDTText.mono(size: 9, color: color)),
-    );
-  }
-}
-
 Color _doubleElimAccent(String title) {
   if (title.startsWith('Upper')) return HDTColors.success;
   if (title.startsWith('Lower')) return HDTColors.warning;
@@ -2300,16 +2668,6 @@ IconData _doubleElimIcon(String title) {
   if (title.startsWith('Upper')) return Icons.trending_up;
   if (title.startsWith('Lower')) return Icons.restart_alt;
   return Icons.emoji_events_outlined;
-}
-
-String _doubleElimFlowText(String title) {
-  if (title.startsWith('Upper')) {
-    return 'Pemenang lanjut ke kanan, pemain kalah turun ke lower bracket.';
-  }
-  if (title.startsWith('Lower')) {
-    return 'Setiap match adalah elimination match sebelum menuju lower final.';
-  }
-  return 'Pemenang upper dan lower bertemu, reset dimainkan jika diperlukan.';
 }
 
 Color _doubleElimStatusColor(_DoubleElimMatch match) {
@@ -2326,6 +2684,24 @@ String _doubleElimStatusLabel(_DoubleElimMatch match) {
     return match.score!;
   }
   return match.status.toUpperCase();
+}
+
+_DoubleElimSection? _findDoubleElimSection(
+  List<_DoubleElimSection> sections,
+  String prefix,
+) {
+  for (final section in sections) {
+    if (section.title.startsWith(prefix)) return section;
+  }
+  return null;
+}
+
+String _scoreSide(String? score, int side) {
+  if (score == null || score.trim().isEmpty) return '0';
+  final parts = score.split(RegExp(r'[-:]'));
+  if (parts.length != 2) return score.toUpperCase() == 'BYE' ? '-' : '0';
+  final value = parts[side].trim();
+  return value.isEmpty ? '0' : value;
 }
 
 class _BracketBoard extends StatelessWidget {

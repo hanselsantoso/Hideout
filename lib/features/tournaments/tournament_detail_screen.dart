@@ -794,21 +794,7 @@ class _PublicDoubleElimPreview extends StatelessWidget {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.only(bottom: HDTSpace.xs),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (var i = 0; i < _publicDoubleElimRounds.length; i++) ...[
-                  _PublicElimRoundCard(round: _publicDoubleElimRounds[i]),
-                  if (i != _publicDoubleElimRounds.length - 1) ...[
-                    const SizedBox(width: HDTSpace.sm),
-                    _PublicBracketConnector(
-                      label: i == 0 ? 'LOSER DROP' : 'WINNER FLOW',
-                    ),
-                    const SizedBox(width: HDTSpace.sm),
-                  ],
-                ],
-              ],
-            ),
+            child: const _PublicEsportsDoubleElimMap(),
           ),
         ],
       ),
@@ -816,68 +802,333 @@ class _PublicDoubleElimPreview extends StatelessWidget {
   }
 }
 
-class _PublicElimRoundCard extends StatelessWidget {
-  const _PublicElimRoundCard({required this.round});
+class _PublicEsportsDoubleElimMap extends StatelessWidget {
+  const _PublicEsportsDoubleElimMap();
 
-  final _PublicElimRound round;
+  static const double cardW = 236;
+  static const double cardH = 116;
 
   @override
   Widget build(BuildContext context) {
-    final accent = _publicBracketAccent(round.name);
+    final upper = _publicDoubleElimRounds[0];
+    final lower = _publicDoubleElimRounds[1];
+    final grand = _publicDoubleElimRounds[2];
+    const upperX = 34.0;
+    const upperWinnerX = 350.0;
+    const grandX = 662.0;
+    const upperA = Offset(upperX, 70);
+    const upperB = Offset(upperX, 196);
+    const upperWinner = Offset(upperWinnerX, 133);
+    const lowerA = Offset(upperX, 360);
+    const grandA = Offset(grandX, 196);
+
+    return SizedBox(
+      width: 930,
+      height: 500,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: CustomPaint(painter: _PublicBracketBackdropPainter()),
+          ),
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _PublicBracketLinePainter(
+                upperA: upperA,
+                upperB: upperB,
+                upperWinner: upperWinner,
+                lowerA: lowerA,
+                grandA: grandA,
+              ),
+            ),
+          ),
+          Positioned(
+            left: upperX,
+            top: 26,
+            child: _PublicLaneLabel(
+              title: upper.name,
+              color: HDTColors.info,
+              subtitle: 'best of three',
+            ),
+          ),
+          Positioned(
+            left: upperA.dx,
+            top: upperA.dy,
+            width: cardW,
+            height: cardH,
+            child: _PublicElimMatchCard(match: upper.matches[0]),
+          ),
+          Positioned(
+            left: upperB.dx,
+            top: upperB.dy,
+            width: cardW,
+            height: cardH,
+            child: _PublicElimMatchCard(match: upper.matches[1]),
+          ),
+          Positioned(
+            left: upperWinnerX,
+            top: upperWinner.dy,
+            width: cardW,
+            height: cardH,
+            child: const _PublicGhostBracketTile(
+              label: '[W]',
+              color: HDTColors.info,
+            ),
+          ),
+          Positioned(
+            left: upperX,
+            top: 318,
+            child: _PublicLaneLabel(
+              title: lower.name,
+              color: HDTColors.warning,
+              subtitle: 'elimination path',
+            ),
+          ),
+          Positioned(
+            left: lowerA.dx,
+            top: lowerA.dy,
+            width: cardW,
+            height: cardH,
+            child: _PublicElimMatchCard(match: lower.matches[0]),
+          ),
+          Positioned(
+            left: grandX,
+            top: 150,
+            child: _PublicLaneLabel(
+              title: grand.name,
+              color: HDTColors.accentHover,
+              subtitle: 'reset if needed',
+              alignRight: true,
+            ),
+          ),
+          Positioned(
+            left: grandA.dx,
+            top: grandA.dy,
+            width: cardW,
+            height: cardH,
+            child: _PublicElimMatchCard(match: grand.matches[0]),
+          ),
+          Positioned(
+            right: 30,
+            bottom: 28,
+            child: _PublicChampionBadge(color: HDTColors.accentHover),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PublicLaneLabel extends StatelessWidget {
+  const _PublicLaneLabel({
+    required this.title,
+    required this.color,
+    required this.subtitle,
+    this.alignRight = false,
+  });
+
+  final String title;
+  final Color color;
+  final String subtitle;
+  final bool alignRight;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 236,
+      child: Column(
+        crossAxisAlignment:
+            alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          Text(title.toUpperCase(),
+              style: HDTText.display(size: 18, color: color)),
+          Text(
+            subtitle.toUpperCase(),
+            style: HDTText.overline(size: 8, color: HDTColors.text3),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PublicGhostBracketTile extends StatelessWidget {
+  const _PublicGhostBracketTile({
+    required this.label,
+    required this.color,
+  });
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      width: 274,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            color.withValues(alpha: 0.22),
+            HDTColors.bg,
+          ],
+        ),
+        borderRadius: HDTR.md,
+        border: Border.all(color: color.withValues(alpha: 0.52)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.18),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Text(label, style: HDTText.display(size: 22, color: color)),
+    );
+  }
+}
+
+class _PublicChampionBadge extends StatelessWidget {
+  const _PublicChampionBadge({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 158,
       padding: const EdgeInsets.all(HDTSpace.md),
       decoration: BoxDecoration(
-        color: HDTColors.s1,
+        color: HDTColors.bg.withValues(alpha: 0.78),
         borderRadius: HDTR.lg,
-        border: Border.all(color: accent.withValues(alpha: 0.45)),
+        border: Border.all(color: color.withValues(alpha: 0.36)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.14),
-                  borderRadius: HDTR.md,
-                ),
-                child: Icon(
-                  _publicBracketIcon(round.name),
-                  size: 18,
-                  color: accent,
-                ),
-              ),
-              const SizedBox(width: HDTSpace.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(round.name.toUpperCase(),
-                        style: HDTText.display(size: 17, color: accent)),
-                    Text(
-                      _publicBracketSubtitle(round.name),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: HDTText.mono(size: 9, color: HDTColors.text3),
-                    ),
-                  ],
-                ),
-              ),
-              _PublicTinyPill('${round.matches.length}M', accent),
-            ],
-          ),
-          const SizedBox(height: HDTSpace.md),
-          for (final match in round.matches) ...[
-            _PublicElimMatchCard(match: match),
-            if (match != round.matches.last)
-              const SizedBox(height: HDTSpace.sm),
-          ],
+          Icon(Icons.emoji_events_outlined, size: 22, color: color),
+          const SizedBox(height: HDTSpace.sm),
+          Text('GRAND CHAMPION',
+              style: HDTText.overline(size: 8, color: color)),
+          Text('TBD', style: HDTText.display(size: 24)),
         ],
       ),
     );
+  }
+}
+
+class _PublicBracketBackdropPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final paint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFF0D1019),
+          Color(0xFF161127),
+          Color(0xFF0B1717),
+        ],
+      ).createShader(rect);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(8)),
+      paint,
+    );
+
+    final grid = Paint()
+      ..color = HDTColors.text3.withValues(alpha: 0.08)
+      ..strokeWidth = 1;
+    for (var x = -size.height; x < size.width; x += 52) {
+      canvas.drawLine(
+        Offset(x.toDouble(), 0),
+        Offset(x + size.height, size.height),
+        grid,
+      );
+    }
+
+    final border = Paint()
+      ..color = HDTColors.accentHover.withValues(alpha: 0.22)
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect.deflate(1), const Radius.circular(8)),
+      border,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _PublicBracketBackdropPainter oldDelegate) {
+    return false;
+  }
+}
+
+class _PublicBracketLinePainter extends CustomPainter {
+  const _PublicBracketLinePainter({
+    required this.upperA,
+    required this.upperB,
+    required this.upperWinner,
+    required this.lowerA,
+    required this.grandA,
+  });
+
+  final Offset upperA;
+  final Offset upperB;
+  final Offset upperWinner;
+  final Offset lowerA;
+  final Offset grandA;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final upperPaint = _linePaint(HDTColors.info);
+    final lowerPaint = _linePaint(HDTColors.warning);
+    final finalPaint = _linePaint(HDTColors.accentHover);
+    _drawElbow(
+        canvas, _rightCenter(upperA), _leftCenter(upperWinner), upperPaint);
+    _drawElbow(
+        canvas, _rightCenter(upperB), _leftCenter(upperWinner), upperPaint);
+    _drawElbow(
+        canvas, _rightCenter(upperWinner), _leftCenter(grandA), finalPaint);
+    _drawElbow(canvas, _rightCenter(lowerA), _leftCenter(grandA), lowerPaint);
+  }
+
+  Paint _linePaint(Color color) {
+    return Paint()
+      ..color = color.withValues(alpha: 0.58)
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+  }
+
+  Offset _leftCenter(Offset tile) {
+    return Offset(tile.dx, tile.dy + (_PublicEsportsDoubleElimMap.cardH / 2));
+  }
+
+  Offset _rightCenter(Offset tile) {
+    return Offset(
+      tile.dx + _PublicEsportsDoubleElimMap.cardW,
+      tile.dy + (_PublicEsportsDoubleElimMap.cardH / 2),
+    );
+  }
+
+  void _drawElbow(Canvas canvas, Offset from, Offset to, Paint paint) {
+    final elbowX = from.dx + ((to.dx - from.dx) * 0.5);
+    final path = Path()
+      ..moveTo(from.dx, from.dy)
+      ..lineTo(elbowX, from.dy)
+      ..lineTo(elbowX, to.dy)
+      ..lineTo(to.dx, to.dy);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PublicBracketLinePainter oldDelegate) {
+    return oldDelegate.upperA != upperA ||
+        oldDelegate.upperB != upperB ||
+        oldDelegate.upperWinner != upperWinner ||
+        oldDelegate.lowerA != lowerA ||
+        oldDelegate.grandA != grandA;
   }
 }
 
@@ -890,6 +1141,8 @@ class _PublicElimMatchCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final live = match.status == 'NOW';
     final done = match.winner != null;
+    final scoreA = _publicScoreSide(match.status, 0);
+    final scoreB = _publicScoreSide(match.status, 1);
     final color = done
         ? HDTColors.success
         : live
@@ -898,9 +1151,23 @@ class _PublicElimMatchCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(HDTSpace.md),
       decoration: BoxDecoration(
-        color: HDTColors.bg,
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            color.withValues(alpha: 0.18),
+            HDTColors.bg,
+          ],
+        ),
         borderRadius: HDTR.md,
         border: Border.all(color: color.withValues(alpha: .48)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.16),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -920,25 +1187,16 @@ class _PublicElimMatchCard extends StatelessWidget {
           _PublicElimPlayer(
             seed: 'A',
             name: match.playerA,
+            score: scoreA,
             winner: match.winner == match.playerA,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: HDTSpace.xs),
           _PublicElimPlayer(
             seed: 'B',
             name: match.playerB,
+            score: scoreB,
             winner: match.winner == match.playerB,
           ),
-          if (done) ...[
-            const SizedBox(height: HDTSpace.sm),
-            hdtDivider(),
-            const SizedBox(height: HDTSpace.sm),
-            Text(
-              'WINNER ${match.winner!.toUpperCase()} . ${match.status}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: HDTText.overline(size: 8, color: HDTColors.success),
-            ),
-          ],
         ],
       ),
     );
@@ -949,11 +1207,13 @@ class _PublicElimPlayer extends StatelessWidget {
   const _PublicElimPlayer({
     required this.seed,
     required this.name,
+    required this.score,
     required this.winner,
   });
 
   final String seed;
   final String name;
+  final String score;
   final bool winner;
 
   @override
@@ -997,6 +1257,30 @@ class _PublicElimPlayer extends StatelessWidget {
               ),
             ),
           ),
+          Container(
+            width: 26,
+            height: 20,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: winner
+                  ? HDTColors.success.withValues(alpha: 0.18)
+                  : HDTColors.s2,
+              borderRadius: HDTR.sm,
+              border: Border.all(
+                color: winner
+                    ? HDTColors.success.withValues(alpha: 0.44)
+                    : HDTColors.s3,
+              ),
+            ),
+            child: Text(
+              score,
+              style: HDTText.mono(
+                size: 9,
+                color: winner ? HDTColors.success : HDTColors.text3,
+                weight: FontWeight.w700,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1033,34 +1317,6 @@ class _PublicBracketMetric extends StatelessWidget {
   }
 }
 
-class _PublicBracketConnector extends StatelessWidget {
-  const _PublicBracketConnector({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 68,
-      height: 122,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          hdtDivider(),
-          const SizedBox(height: HDTSpace.sm),
-          const Icon(Icons.arrow_forward, size: 16, color: HDTColors.text3),
-          const SizedBox(height: HDTSpace.xs),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: HDTText.overline(size: 7, color: HDTColors.text3),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _PublicStatusPill extends StatelessWidget {
   const _PublicStatusPill(this.text, this.color);
 
@@ -1081,41 +1337,11 @@ class _PublicStatusPill extends StatelessWidget {
   }
 }
 
-class _PublicTinyPill extends StatelessWidget {
-  const _PublicTinyPill(this.text, this.color);
-
-  final String text;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: HDTR.full,
-      ),
-      child: Text(text, style: HDTText.mono(size: 8, color: color)),
-    );
-  }
-}
-
-Color _publicBracketAccent(String name) {
-  if (name.startsWith('Upper')) return HDTColors.success;
-  if (name.startsWith('Lower')) return HDTColors.warning;
-  return HDTColors.accentHover;
-}
-
-IconData _publicBracketIcon(String name) {
-  if (name.startsWith('Upper')) return Icons.trending_up;
-  if (name.startsWith('Lower')) return Icons.restart_alt;
-  return Icons.emoji_events_outlined;
-}
-
-String _publicBracketSubtitle(String name) {
-  if (name.startsWith('Upper')) return 'winner path';
-  if (name.startsWith('Lower')) return 'second chance path';
-  return 'reset if needed';
+String _publicScoreSide(String status, int side) {
+  final parts = status.split(RegExp(r'[-:]'));
+  if (parts.length != 2) return '0';
+  final value = parts[side].trim();
+  return value.isEmpty ? '0' : value;
 }
 
 class _SchedulePanel extends StatelessWidget {
