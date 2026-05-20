@@ -16,6 +16,16 @@ class HDTTheme {
 
     return base.copyWith(
       scaffoldBackgroundColor: HDTColors.bg,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: _NoPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: _NoPageTransitionsBuilder(),
+          TargetPlatform.iOS: _NoPageTransitionsBuilder(),
+          TargetPlatform.linux: _NoPageTransitionsBuilder(),
+          TargetPlatform.macOS: _NoPageTransitionsBuilder(),
+          TargetPlatform.windows: _NoPageTransitionsBuilder(),
+        },
+      ),
 
       // ── Color Scheme ──────────────────────────────────────
       colorScheme: const ColorScheme(
@@ -275,5 +285,20 @@ class HDTTheme {
         shape: const RoundedRectangleBorder(borderRadius: HDTR.xl),
       ),
     );
+  }
+}
+
+class _NoPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _NoPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return child;
   }
 }
