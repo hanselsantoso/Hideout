@@ -66,6 +66,17 @@ const _publicDoubleElimRounds = [
   ),
 ];
 
+const _publicParticipants = [
+  _PublicParticipant('Hansel', 'Jakarta', 'HDT-102', 'READY', 'Group A'),
+  _PublicParticipant('Nadia', 'Bandung', 'HDT-118', 'READY', 'Group A'),
+  _PublicParticipant('Raka', 'Surabaya', 'HDT-141', 'READY', 'Group A'),
+  _PublicParticipant('Clara', 'Jakarta', 'HDT-167', 'CHECK-IN', 'Group A'),
+  _PublicParticipant('Dimas', 'Medan', 'HDT-204', 'READY', 'Group B'),
+  _PublicParticipant('Mardika', 'Bali', 'HDT-225', 'READY', 'Group B'),
+  _PublicParticipant('Taro', 'Makassar', 'HDT-239', 'READY', 'Group B'),
+  _PublicParticipant('Putri', 'Yogyakarta', 'HDT-260', 'VERIFY', 'Group B'),
+];
+
 class _PublicGroup {
   const _PublicGroup(this.name, this.status, this.standings, this.calls);
 
@@ -113,8 +124,40 @@ class _PublicElimMatch {
   final String status;
 }
 
-class TournamentDetailScreen extends StatelessWidget {
+class _PublicParticipant {
+  const _PublicParticipant(
+      this.name, this.region, this.playerId, this.status, this.group);
+
+  final String name;
+  final String region;
+  final String playerId;
+  final String status;
+  final String group;
+}
+
+enum _TournamentDetailTab {
+  overview('OVERVIEW', Icons.dashboard_outlined),
+  bracket('BRACKET', Icons.account_tree_outlined),
+  rules('RULES', Icons.rule_folder_outlined),
+  participants('PARTICIPANTS', Icons.groups_outlined),
+  prizes('PRIZES', Icons.emoji_events_outlined),
+  schedule('SCHEDULE', Icons.calendar_month_outlined);
+
+  const _TournamentDetailTab(this.label, this.icon);
+
+  final String label;
+  final IconData icon;
+}
+
+class TournamentDetailScreen extends StatefulWidget {
   const TournamentDetailScreen({super.key});
+
+  @override
+  State<TournamentDetailScreen> createState() => _TournamentDetailScreenState();
+}
+
+class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
+  _TournamentDetailTab _selectedTab = _TournamentDetailTab.overview;
 
   @override
   Widget build(BuildContext context) {
@@ -135,56 +178,20 @@ class TournamentDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 90),
               child: Column(
                 children: [
-                  const _Tabs(),
+                  _Tabs(
+                    selected: _selectedTab,
+                    onSelected: (tab) => setState(() => _selectedTab = tab),
+                  ),
                   const SizedBox(height: 24),
                   if (tournament.status == 'COMPLETED') ...[
                     _WinnerAnnouncementPanel(tournament: tournament),
                     const SizedBox(height: 20),
                   ],
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final wide = constraints.maxWidth >= 980;
-                      if (!wide) {
-                        return Column(
-                          children: [
-                            const _AboutAndSchedule(),
-                            const SizedBox(height: 20),
-                            _ActionPanel(
-                              tournament: tournament,
-                              isLive: isLive,
-                              canRegister: canRegister,
-                            ),
-                            const SizedBox(height: 20),
-                            const _RulesPanel(),
-                            const SizedBox(height: 20),
-                            const _PrizesPanel(),
-                          ],
-                        );
-                      }
-
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Expanded(flex: 2, child: _AboutAndSchedule()),
-                          const SizedBox(width: 24),
-                          Expanded(
-                            child: Column(
-                              children: [
-                                _ActionPanel(
-                                  tournament: tournament,
-                                  isLive: isLive,
-                                  canRegister: canRegister,
-                                ),
-                                const SizedBox(height: 20),
-                                const _RulesPanel(),
-                                const SizedBox(height: 20),
-                                const _PrizesPanel(),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+                  _TournamentTabContent(
+                    tab: _selectedTab,
+                    tournament: tournament,
+                    isLive: isLive,
+                    canRegister: canRegister,
                   ),
                 ],
               ),
@@ -193,6 +200,82 @@ class TournamentDetailScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _TournamentTabContent extends StatelessWidget {
+  const _TournamentTabContent({
+    required this.tab,
+    required this.tournament,
+    required this.isLive,
+    required this.canRegister,
+  });
+
+  final _TournamentDetailTab tab;
+  final TournamentEntry tournament;
+  final bool isLive;
+  final bool canRegister;
+
+  @override
+  Widget build(BuildContext context) {
+    switch (tab) {
+      case _TournamentDetailTab.overview:
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final wide = constraints.maxWidth >= 980;
+            if (!wide) {
+              return Column(
+                children: [
+                  const _AboutAndSchedule(),
+                  const SizedBox(height: 20),
+                  _ActionPanel(
+                    tournament: tournament,
+                    isLive: isLive,
+                    canRegister: canRegister,
+                  ),
+                  const SizedBox(height: 20),
+                  const _RulesPanel(),
+                  const SizedBox(height: 20),
+                  const _PrizesPanel(),
+                ],
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Expanded(flex: 2, child: _AboutAndSchedule()),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _ActionPanel(
+                        tournament: tournament,
+                        isLive: isLive,
+                        canRegister: canRegister,
+                      ),
+                      const SizedBox(height: 20),
+                      const _RulesPanel(),
+                      const SizedBox(height: 20),
+                      const _PrizesPanel(),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      case _TournamentDetailTab.bracket:
+        return const _PublicFormatPanel();
+      case _TournamentDetailTab.rules:
+        return const _RulesPanel();
+      case _TournamentDetailTab.participants:
+        return const _ParticipantsPanel();
+      case _TournamentDetailTab.prizes:
+        return const _PrizesPanel();
+      case _TournamentDetailTab.schedule:
+        return const _SchedulePanel();
+    }
   }
 }
 
@@ -487,41 +570,58 @@ class _HeroStat extends StatelessWidget {
 }
 
 class _Tabs extends StatelessWidget {
-  const _Tabs();
+  const _Tabs({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final _TournamentDetailTab selected;
+  final ValueChanged<_TournamentDetailTab> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    const tabs = [
-      'OVERVIEW',
-      'BRACKET',
-      'RULES',
-      'PARTICIPANTS',
-      'PRIZES',
-      'SCHEDULE'
-    ];
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          for (final tab in tabs)
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: tab == 'OVERVIEW'
-                        ? HDTColors.accent
-                        : Colors.transparent,
-                    width: 2,
+          for (final tab in _TournamentDetailTab.values)
+            InkWell(
+              onTap: () => onSelected(tab),
+              borderRadius: HDTR.md,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+                decoration: BoxDecoration(
+                  color: selected == tab
+                      ? HDTColors.accent.withValues(alpha: .12)
+                      : Colors.transparent,
+                  borderRadius: HDTR.md,
+                  border: Border(
+                    bottom: BorderSide(
+                      color: selected == tab
+                          ? HDTColors.accent
+                          : Colors.transparent,
+                      width: 2,
+                    ),
                   ),
                 ),
-              ),
-              child: Text(
-                tab,
-                style: HDTText.body(
-                  size: 13,
-                  weight: FontWeight.w700,
-                  color: tab == 'OVERVIEW' ? Colors.white : HDTColors.text3,
+                child: Row(
+                  children: [
+                    Icon(
+                      tab.icon,
+                      size: 15,
+                      color: selected == tab ? HDTColors.text : HDTColors.text3,
+                    ),
+                    const SizedBox(width: HDTSpace.sm),
+                    Text(
+                      tab.label,
+                      style: HDTText.body(
+                        size: 13,
+                        weight: FontWeight.w700,
+                        color: selected == tab ? Colors.white : HDTColors.text3,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -1342,6 +1442,171 @@ String _publicScoreSide(String status, int side) {
   if (parts.length != 2) return '0';
   final value = parts[side].trim();
   return value.isEmpty ? '0' : value;
+}
+
+class _ParticipantsPanel extends StatelessWidget {
+  const _ParticipantsPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    final ready = _publicParticipants
+        .where((participant) => participant.status == 'READY')
+        .length;
+    return _Panel(
+      title: 'PARTICIPANTS',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: HDTSpace.sm,
+            runSpacing: HDTSpace.sm,
+            children: [
+              _PublicBracketMetric(
+                  'PLAYER', _publicParticipants.length.toString()),
+              _PublicBracketMetric('READY', ready.toString()),
+              const _PublicBracketMetric('GROUP', '2'),
+            ],
+          ),
+          const SizedBox(height: HDTSpace.lg),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: 760,
+              child: Column(
+                children: [
+                  const _ParticipantHeaderRow(),
+                  for (var i = 0; i < _publicParticipants.length; i++)
+                    _ParticipantTableRow(
+                      rank: i + 1,
+                      participant: _publicParticipants[i],
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ParticipantHeaderRow extends StatelessWidget {
+  const _ParticipantHeaderRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: HDTSpace.md,
+        vertical: HDTSpace.sm,
+      ),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: HDTColors.s2)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+              width: 46, child: Text('#', style: HDTText.overline(size: 8))),
+          Expanded(
+              flex: 3, child: Text('PLAYER', style: HDTText.overline(size: 8))),
+          Expanded(
+              flex: 2, child: Text('REGION', style: HDTText.overline(size: 8))),
+          Expanded(
+              flex: 2,
+              child: Text('PLAYER ID', style: HDTText.overline(size: 8))),
+          Expanded(
+              flex: 2, child: Text('GROUP', style: HDTText.overline(size: 8))),
+          SizedBox(
+              width: 92,
+              child: Text('STATUS', style: HDTText.overline(size: 8))),
+        ],
+      ),
+    );
+  }
+}
+
+class _ParticipantTableRow extends StatelessWidget {
+  const _ParticipantTableRow({
+    required this.rank,
+    required this.participant,
+  });
+
+  final int rank;
+  final _PublicParticipant participant;
+
+  @override
+  Widget build(BuildContext context) {
+    final ready = participant.status == 'READY';
+    final color = ready
+        ? HDTColors.success
+        : participant.status == 'VERIFY'
+            ? HDTColors.warning
+            : HDTColors.info;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: HDTSpace.md,
+        vertical: HDTSpace.sm,
+      ),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: HDTColors.s2)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 46,
+            child: Text(
+              rank.toString().padLeft(2, '0'),
+              style: HDTText.mono(size: 10, color: HDTColors.text3),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              participant.name.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: HDTText.body(size: 13, weight: FontWeight.w700),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(participant.region,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: HDTText.body(size: 12, color: HDTColors.text2)),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(participant.playerId,
+                style: HDTText.mono(size: 10, color: HDTColors.text2)),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(participant.group,
+                style: HDTText.mono(size: 10, color: HDTColors.text3)),
+          ),
+          SizedBox(
+            width: 92,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: .12),
+                  borderRadius: HDTR.full,
+                  border: Border.all(color: color.withValues(alpha: .34)),
+                ),
+                child: Text(
+                  participant.status,
+                  style: HDTText.overline(size: 7, color: color),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _SchedulePanel extends StatelessWidget {
