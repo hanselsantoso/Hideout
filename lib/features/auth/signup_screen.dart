@@ -52,7 +52,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          AuthHeader(
+          const AuthHeader(
             title: 'DAFTAR AKUN',
             subtitle: 'Sudah punya akun?',
             actionLabel: 'Masuk',
@@ -391,6 +391,16 @@ class AuthHeader extends StatelessWidget {
                   style: HDTText.body(size: 13, color: HDTColors.accentHover)),
             ),
           ],
+        ),
+        const SizedBox(height: HDTSpace.md),
+        TextButton.icon(
+          onPressed: () => Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/',
+            (_) => false,
+          ),
+          icon: const Icon(Icons.arrow_back, size: 16),
+          label: const Text('KEMBALI KE HALAMAN UTAMA'),
         ),
       ],
     );

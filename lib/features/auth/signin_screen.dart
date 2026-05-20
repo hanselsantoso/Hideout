@@ -6,6 +6,34 @@ import '../../data/models/app_user.dart';
 import '../../data/repositories/auth_repository.dart';
 import 'signup_screen.dart';
 
+const _demoPassword = 'HideoutDemo123!';
+const _demoAccounts = <_DemoAccount>[
+  _DemoAccount(
+    role: 'PLAYER',
+    email: 'hideout.player@example.com',
+    icon: Icons.person_outline,
+    color: HDTColors.accentHover,
+  ),
+  _DemoAccount(
+    role: 'JURI',
+    email: 'hideout.judge@example.com',
+    icon: Icons.shield_outlined,
+    color: HDTColors.info,
+  ),
+  _DemoAccount(
+    role: 'KETUA KOMUNITAS',
+    email: 'hideout.community@example.com',
+    icon: Icons.groups_outlined,
+    color: HDTColors.success,
+  ),
+  _DemoAccount(
+    role: 'SUPER ADMIN',
+    email: 'hideout.super@example.com',
+    icon: Icons.admin_panel_settings_outlined,
+    color: HDTColors.warning,
+  ),
+];
+
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
 
@@ -83,6 +111,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     label: Text(_busy ? 'AUTHENTICATING...' : 'MASUK'),
                   ),
                 ),
+                const SizedBox(height: HDTSpace.lg),
+                _DemoLoginPanel(
+                  busy: _busy,
+                  onSelect: _loginDemo,
+                ),
               ],
             ),
           ),
@@ -147,6 +180,158 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  Future<void> _loginDemo(_DemoAccount account) async {
+    if (_busy) return;
+    _email.text = account.email;
+    _password.text = _demoPassword;
+    await _submit();
+  }
+}
+
+class _DemoLoginPanel extends StatelessWidget {
+  const _DemoLoginPanel({
+    required this.busy,
+    required this.onSelect,
+  });
+
+  final bool busy;
+  final ValueChanged<_DemoAccount> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(HDTSpace.md),
+      decoration: hdtCard(bg: HDTColors.bg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.key_outlined,
+                size: 16,
+                color: HDTColors.accentHover,
+              ),
+              const SizedBox(width: HDTSpace.sm),
+              Text('DEMO LOGIN', style: HDTText.overline(size: 10)),
+            ],
+          ),
+          const SizedBox(height: HDTSpace.xs),
+          Text(
+            'Pilih role untuk masuk memakai akun demo.',
+            style: HDTText.body(size: 11, color: HDTColors.text3),
+          ),
+          const SizedBox(height: HDTSpace.md),
+          for (final account in _demoAccounts) ...[
+            _DemoAccountButton(
+              account: account,
+              busy: busy,
+              onSelect: onSelect,
+            ),
+            if (account != _demoAccounts.last)
+              const SizedBox(height: HDTSpace.sm),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DemoAccountButton extends StatelessWidget {
+  const _DemoAccountButton({
+    required this.account,
+    required this.busy,
+    required this.onSelect,
+  });
+
+  final _DemoAccount account;
+  final bool busy;
+  final ValueChanged<_DemoAccount> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: busy ? 0.55 : 1,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: busy ? null : () => onSelect(account),
+          borderRadius: HDTR.md,
+          child: Ink(
+            height: 52,
+            padding: const EdgeInsets.symmetric(
+              horizontal: HDTSpace.md,
+              vertical: HDTSpace.sm,
+            ),
+            decoration: BoxDecoration(
+              color: account.color.withValues(alpha: 0.08),
+              borderRadius: HDTR.md,
+              border: Border.all(color: account.color.withValues(alpha: 0.28)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: account.color.withValues(alpha: 0.16),
+                    borderRadius: HDTR.md,
+                  ),
+                  child: Icon(account.icon, size: 16, color: account.color),
+                ),
+                const SizedBox(width: HDTSpace.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        account.role,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: HDTText.overline(
+                          size: 10,
+                          color: HDTColors.text,
+                        ),
+                      ),
+                      Text(
+                        account.email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: HDTText.mono(size: 10, color: HDTColors.text2),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: HDTSpace.sm),
+                Icon(
+                  Icons.login_outlined,
+                  size: 16,
+                  color: busy ? HDTColors.text3 : account.color,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DemoAccount {
+  const _DemoAccount({
+    required this.role,
+    required this.email,
+    required this.icon,
+    required this.color,
+  });
+
+  final String role;
+  final String email;
+  final IconData icon;
+  final Color color;
 }
 
 String _homeRouteFor(AppUser? user) {
