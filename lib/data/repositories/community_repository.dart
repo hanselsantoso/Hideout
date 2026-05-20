@@ -19,6 +19,11 @@ final pendingCommunityApplicationsProvider =
   return ref.watch(communityRepositoryProvider).watchPendingApplications();
 });
 
+final reviewedCommunityApplicationsProvider =
+    StreamProvider<List<CommunityApplication>>((ref) {
+  return ref.watch(communityRepositoryProvider).watchRecentApplications();
+});
+
 final communityJudgeCandidatesProvider =
     StreamProvider<List<CommunityJudgeCandidate>>((ref) {
   return ref.watch(communityRepositoryProvider).watchJudgeCandidates();
@@ -38,6 +43,30 @@ class CommunityRepository {
         .snapshots()
         .map((snap) =>
             snap.docs.map(CommunityApplication.fromFirestore).toList());
+  }
+
+  Stream<List<CommunityApplication>> watchRecentApplications() {
+    return firestore
+        .collection(FirestorePaths.communityApplications)
+        .limit(80)
+        .snapshots()
+        .map((snap) {
+      final applications =
+          snap.docs.map(CommunityApplication.fromFirestore).toList();
+      applications.sort((a, b) {
+        final aDate = a.reviewedAt ??
+            a.createdAt ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate = b.reviewedAt ??
+            b.createdAt ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        return bDate.compareTo(aDate);
+      });
+      return applications
+          .where((application) => application.status != 'pending')
+          .take(12)
+          .toList();
+    });
   }
 
   Stream<List<CommunityJudgeCandidate>> watchJudgeCandidates() {
@@ -108,6 +137,13 @@ class CommunityRepository {
     required String city,
     required String leaderUserId,
     required String description,
+    String tag = '',
+    String type = '',
+    String region = '',
+    String website = '',
+    Map<String, Object?> leader = const {},
+    Map<String, Object?> financeAccount = const {},
+    Map<String, Object?> documents = const {},
   }) async {
     try {
       final callable = functions.httpsCallable('submitCommunityApplication');
@@ -116,6 +152,13 @@ class CommunityRepository {
         'city': city.trim(),
         'leaderUserId': leaderUserId.trim(),
         'description': description.trim(),
+        'tag': tag.trim(),
+        'type': type.trim(),
+        'region': region.trim(),
+        'website': website.trim(),
+        'leader': leader,
+        'financeAccount': financeAccount,
+        'documents': documents,
       });
       final data = Map<String, dynamic>.from(result.data as Map);
       return (data['applicationId'] ?? '').toString();
@@ -128,6 +171,13 @@ class CommunityRepository {
         'city': city.trim(),
         'leaderUserId': leaderUserId.trim(),
         'description': description.trim(),
+        'tag': tag.trim(),
+        'type': type.trim(),
+        'region': region.trim(),
+        'website': website.trim(),
+        'leader': leader,
+        'financeAccount': financeAccount,
+        'documents': documents,
         'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
@@ -147,7 +197,14 @@ class CommunityRepository {
         'decision': 'approved',
       });
       final data = Map<String, dynamic>.from(result.data as Map);
-      return (data['communityId'] ?? '').toString();
+      final communityId = (data['communityId'] ?? '').toString();
+      await _recordApplicationReview(
+        application: application,
+        reviewerId: reviewerId,
+        status: 'approved',
+        communityId: communityId,
+      );
+      return communityId;
     } catch (_) {
       final communityRef =
           firestore.collection(FirestorePaths.communities).doc();
@@ -163,10 +220,18 @@ class CommunityRepository {
           ..add('community_admin');
         tx.set(communityRef, {
           'name': application.communityName,
+          'tag': application.tag,
+          'type': application.type,
           'city': application.city,
+          'region': application.region,
+          'website': application.website,
           'description': application.description,
           'leaderUserId': application.leaderUserId,
+          'leader': _leaderPayload(application),
+          'financeAccount': _financePayload(application),
+          'documents': _documentPayload(application),
           'adminIds': [application.leaderUserId],
+          'memberCount': 1,
           'status': 'active',
           'sourceApplicationId': application.id,
           'createdAt': FieldValue.serverTimestamp(),
@@ -178,6 +243,13 @@ class CommunityRepository {
               'status': 'approved',
               'reviewerId': reviewerId,
               'communityId': communityRef.id,
+              'reviewEvents': FieldValue.arrayUnion([
+                _reviewEvent(
+                  status: 'approved',
+                  reviewerId: reviewerId,
+                  communityId: communityRef.id,
+                ),
+              ]),
               'reviewedAt': FieldValue.serverTimestamp(),
               'updatedAt': FieldValue.serverTimestamp(),
             },
@@ -193,6 +265,11 @@ class CommunityRepository {
           SetOptions(merge: true),
         );
       });
+      await _writeReviewNotification(
+        application: application,
+        status: 'approved',
+        communityId: communityRef.id,
+      );
       return communityRef.id;
     }
   }
@@ -209,6 +286,12 @@ class CommunityRepository {
         'decision': 'rejected',
         'reason': reason,
       });
+      await _recordApplicationReview(
+        application: application,
+        reviewerId: reviewerId,
+        status: 'rejected',
+        reason: reason,
+      );
     } catch (_) {
       await firestore
           .collection(FirestorePaths.communityApplications)
@@ -217,11 +300,130 @@ class CommunityRepository {
         'status': 'rejected',
         'reviewerId': reviewerId,
         'rejectionReason': reason,
+        'reviewEvents': FieldValue.arrayUnion([
+          _reviewEvent(
+            status: 'rejected',
+            reviewerId: reviewerId,
+            reason: reason,
+          ),
+        ]),
         'reviewedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+      await _writeReviewNotification(
+        application: application,
+        status: 'rejected',
+        reason: reason,
+      );
     }
   }
+
+  Future<void> _recordApplicationReview({
+    required CommunityApplication application,
+    required String reviewerId,
+    required String status,
+    String communityId = '',
+    String reason = '',
+  }) async {
+    await firestore
+        .collection(FirestorePaths.communityApplications)
+        .doc(application.id)
+        .set({
+      'status': status,
+      'reviewerId': reviewerId,
+      if (communityId.isNotEmpty) 'communityId': communityId,
+      if (reason.isNotEmpty) 'rejectionReason': reason,
+      'reviewEvents': FieldValue.arrayUnion([
+        _reviewEvent(
+          status: status,
+          reviewerId: reviewerId,
+          communityId: communityId,
+          reason: reason,
+        ),
+      ]),
+      'reviewedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    await _writeReviewNotification(
+      application: application,
+      status: status,
+      communityId: communityId,
+      reason: reason,
+    );
+  }
+
+  Future<void> _writeReviewNotification({
+    required CommunityApplication application,
+    required String status,
+    String communityId = '',
+    String reason = '',
+  }) async {
+    final recipients = <String>{
+      application.requesterId,
+      application.leaderUserId,
+    }..removeWhere((uid) => uid.trim().isEmpty);
+    final title = status == 'approved'
+        ? 'Komunitas disetujui'
+        : 'Pengajuan komunitas ditolak';
+    final body = status == 'approved'
+        ? '${application.communityName} sudah aktif. Ketua komunitas dapat membuka dashboard komunitas.'
+        : '${application.communityName} belum disetujui. ${reason.isEmpty ? 'Silakan lengkapi data lalu ajukan ulang.' : reason}';
+    for (final uid in recipients) {
+      await firestore.collection(FirestorePaths.notifications).add({
+        'recipientId': uid,
+        'type': 'communityApplication',
+        'title': title,
+        'body': body,
+        'sourceApplicationId': application.id,
+        if (communityId.isNotEmpty) 'communityId': communityId,
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+  }
+}
+
+Map<String, Object?> _reviewEvent({
+  required String status,
+  required String reviewerId,
+  String communityId = '',
+  String reason = '',
+}) {
+  return {
+    'status': status,
+    'reviewerId': reviewerId,
+    if (communityId.isNotEmpty) 'communityId': communityId,
+    if (reason.isNotEmpty) 'reason': reason,
+    'at': DateTime.now().toUtc().toIso8601String(),
+  };
+}
+
+Map<String, Object?> _leaderPayload(CommunityApplication application) {
+  return {
+    'name': application.leaderName,
+    'email': application.leaderEmail,
+    'phone': application.leaderPhone,
+    'instagram': application.leaderInstagram,
+    'userId': application.leaderUserId,
+  };
+}
+
+Map<String, Object?> _financePayload(CommunityApplication application) {
+  return {
+    'bankName': application.bankName,
+    'holderName': application.bankHolder,
+    'accountNumber': application.bankNumber,
+    'branch': application.bankBranch,
+    'withdrawMode': 'community_admin_auto',
+  };
+}
+
+Map<String, Object?> _documentPayload(CommunityApplication application) {
+  return {
+    'logoUploaded': application.logoUploaded,
+    'idUploaded': application.idUploaded,
+    'letterUploaded': application.letterUploaded,
+  };
 }
 
 class CommunityJudgeCandidate {

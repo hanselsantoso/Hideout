@@ -13,6 +13,7 @@ class FirestorePaths {
   static const componentStats = 'componentStats';
   static const weeklyComponentReleases = 'weeklyComponentReleases';
   static const withdrawals = 'withdrawals';
+  static const notifications = 'notifications';
 
   static String userDoc(String uid) => '$users/$uid';
   static String userDecks(String uid) => '$users/$uid/$decks';

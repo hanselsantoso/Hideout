@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/hideout_tokens.dart';
+import '../../data/models/app_user.dart';
 import '../../data/repositories/auth_repository.dart';
 import 'signup_screen.dart';
 
@@ -127,11 +128,16 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       _error = null;
     });
     try {
-      await ref
+      final credential = await ref
           .read(authRepositoryProvider)
           .signIn(email: _email.text, password: _password.text);
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/dashboard');
+      final uid = credential.user?.uid;
+      final profile = uid == null
+          ? null
+          : await ref.read(authRepositoryProvider).getUser(uid);
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, _homeRouteFor(profile));
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -141,4 +147,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       if (mounted) setState(() => _busy = false);
     }
   }
+}
+
+String _homeRouteFor(AppUser? user) {
+  final capabilities = user?.capabilities ?? const <String>{};
+  if (capabilities.contains('super_admin')) return '/super-admin/reports';
+  return '/dashboard';
 }

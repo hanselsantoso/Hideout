@@ -208,6 +208,28 @@ const pendingApplications = [
     city: 'Surakarta',
     leaderUserId: 'demo-player-kaede',
     requesterId: 'demo-player-kaede',
+    tag: 'SBL',
+    type: 'Regional Club',
+    region: 'Yogyakarta',
+    website: 'https://solo-burst.example',
+    leader: {
+      name: 'Kaede Demo',
+      email: 'hideout.player@example.com',
+      phone: '081234567890',
+      instagram: '@solo_burst_lab',
+    },
+    financeAccount: {
+      bankName: 'BCA',
+      accountNumber: '1234567890',
+      holderName: 'Kaede Demo',
+      branch: 'Solo',
+      withdrawMode: 'community_admin_auto',
+    },
+    documents: {
+      logoUploaded: true,
+      idUploaded: true,
+      letterUploaded: true,
+    },
     description:
       'Komunitas baru Solo dengan 40+ pemain aktif. KTP OK, jadwal venue mingguan sudah tersedia.',
   },
@@ -217,8 +239,61 @@ const pendingApplications = [
     city: 'Medan',
     leaderUserId: 'demo-judge-bayu',
     requesterId: 'demo-judge-bayu',
+    tag: 'MDB',
+    type: 'Campuran',
+    region: 'Medan',
+    website: '',
+    leader: {
+      name: 'Bayu Judge',
+      email: 'hideout.judge@example.com',
+      phone: '081987654321',
+      instagram: '@medan_beybladers',
+    },
+    financeAccount: {
+      bankName: 'Bank Mandiri',
+      accountNumber: '9876543210',
+      holderName: 'Bayu Judge',
+      branch: 'Medan Kota',
+      withdrawMode: 'community_admin_auto',
+    },
+    documents: {
+      logoUploaded: false,
+      idUploaded: true,
+      letterUploaded: false,
+    },
     description:
       'Pengajuan komunitas Medan. Dokumen venue sudah ada, perlu cek ulang data penanggung jawab.',
+  },
+];
+
+const reviewedApplications = [
+  {
+    id: 'demo-app-jkt-wolves-approved',
+    communityName: 'JKT WOLVES',
+    city: 'Jakarta',
+    leaderUserId: 'demo-community-admin-nadia',
+    requesterId: 'demo-community-admin-nadia',
+    tag: 'WLV',
+    type: 'Kompetitif',
+    region: 'Jakarta',
+    status: 'approved',
+    communityId: 'jkt-wolves',
+    reviewerId: 'demo-super-admin-hansel',
+    description: 'Komunitas Jakarta existing yang sudah terverifikasi.',
+  },
+  {
+    id: 'demo-app-bali-rejected',
+    communityName: 'Bali Spin House',
+    city: 'Denpasar',
+    leaderUserId: 'demo-player-kaede',
+    requesterId: 'demo-player-kaede',
+    tag: 'BSH',
+    type: 'Kasual & Komunitas',
+    region: 'Bali',
+    status: 'rejected',
+    reviewerId: 'demo-super-admin-hansel',
+    rejectionReason: 'Data venue dan identitas penanggung jawab belum lengkap.',
+    description: 'Pengajuan demo yang sengaja ditolak untuk histori review.',
   },
 ];
 
@@ -471,6 +546,29 @@ async function seedPendingApplications() {
         seeded: true,
         updatedAt: FieldValue.serverTimestamp(),
         createdAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    console.log(`communityApplication:${application.id}`);
+  }
+
+  for (const application of reviewedApplications) {
+    await db.collection('communityApplications').doc(application.id).set(
+      {
+        ...application,
+        seeded: true,
+        reviewEvents: [
+          {
+            status: application.status,
+            reviewerId: application.reviewerId,
+            communityId: application.communityId || '',
+            reason: application.rejectionReason || '',
+            at: new Date().toISOString(),
+          },
+        ],
+        updatedAt: FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+        reviewedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },
     );

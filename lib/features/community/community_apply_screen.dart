@@ -571,14 +571,35 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
       ].join('\n');
 
       await ref.read(communityRepositoryProvider).submitApplication(
-            requesterId: user.uid,
-            communityName: _communityName.text,
-            city: _city.text,
-            leaderUserId: _leaderUserId.text.trim().isEmpty
-                ? user.uid
-                : _leaderUserId.text,
-            description: details,
-          );
+        requesterId: user.uid,
+        communityName: _communityName.text,
+        city: _city.text,
+        leaderUserId:
+            _leaderUserId.text.trim().isEmpty ? user.uid : _leaderUserId.text,
+        description: details,
+        tag: _tag.text,
+        type: _type,
+        region: _region,
+        website: _website.text,
+        leader: {
+          'name': _leaderName.text.trim(),
+          'email': _leaderEmail.text.trim(),
+          'phone': _leaderPhone.text.trim(),
+          'instagram': _leaderInstagram.text.trim(),
+        },
+        financeAccount: {
+          'bankName': _bank,
+          'accountNumber': _bankNumber.text.trim(),
+          'holderName': _bankHolder.text.trim(),
+          'branch': _bankBranch.text.trim(),
+          'withdrawMode': 'community_admin_auto',
+        },
+        documents: {
+          'logoUploaded': _logoUploaded,
+          'idUploaded': _idUploaded,
+          'letterUploaded': _letterUploaded,
+        },
+      );
       if (!mounted) return;
       setState(() => _submitted = true);
     } catch (_) {

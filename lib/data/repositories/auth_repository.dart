@@ -82,6 +82,12 @@ class AuthRepository {
 
   Future<void> signOut() => auth.signOut();
 
+  Future<AppUser?> getUser(String uid) async {
+    final snap = await firestore.doc(FirestorePaths.userDoc(uid)).get();
+    if (!snap.exists) return null;
+    return AppUser.fromFirestore(snap);
+  }
+
   Stream<AppUser?> watchUser(String uid) {
     return firestore.doc(FirestorePaths.userDoc(uid)).snapshots().map((snap) {
       if (!snap.exists) return null;

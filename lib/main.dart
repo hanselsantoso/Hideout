@@ -475,7 +475,7 @@ const _roleNavItems = [
     route: '/communities/new',
     icon: Icons.groups_2_outlined,
     section: 'komunitas',
-    roles: {'player', 'judge'},
+    roles: {'player', 'judge', 'community_admin'},
   ),
   _RoleNavItem(
     label: 'Jadwal Juri',

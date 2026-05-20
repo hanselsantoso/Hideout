@@ -13,40 +13,53 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
+    function signedInUserRoles() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles is list
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles
+        : [];
+    }
+
+    function hasSignedInUserRole(role) {
+      return signedInUserRole() == role || role in signedInUserRoles();
+    }
+
+    function hasTokenRole(role) {
+      return request.auth.token.keys().hasAny(['role'])
+        && request.auth.token.role == role;
+    }
+
     function isAdmin() {
       return isAuthenticated()
-        && (request.auth.token.role == 'admin'
-          || request.auth.token.role == 'super_admin'
-          || signedInUserRole() == 'admin'
-          || signedInUserRole() == 'super_admin');
+        && (hasTokenRole('admin')
+          || hasTokenRole('super_admin')
+          || hasSignedInUserRole('admin')
+          || hasSignedInUserRole('super_admin'));
     }
 
     function isCommunityAdmin() {
       return isAuthenticated()
-        && (request.auth.token.role == 'community_admin'
-          || signedInUserRole() == 'community_admin');
+        && (hasTokenRole('community_admin')
+          || hasSignedInUserRole('community_admin'));
     }
 
     function isJudge() {
       return isAuthenticated()
-        && (request.auth.token.role == 'judge'
-          || signedInUserRole() == 'judge');
+        && (hasTokenRole('judge')
+          || hasSignedInUserRole('judge'));
     }
 
     function isPlayer() {
       return isAuthenticated()
-        && (request.auth.token.role == 'player'
-          || request.auth.token.role == 'community_admin'
-          || request.auth.token.role == 'judge'
-          || request.auth.token.role == 'admin'
-          || request.auth.token.role == 'super_admin'
-          || signedInUserRole() in [
-            'player',
-            'community_admin',
-            'judge',
-            'admin',
-            'super_admin'
-          ]);
+        && (hasTokenRole('player')
+          || hasTokenRole('community_admin')
+          || hasTokenRole('judge')
+          || hasTokenRole('admin')
+          || hasTokenRole('super_admin')
+          || hasSignedInUserRole('player')
+          || hasSignedInUserRole('community_admin')
+          || hasSignedInUserRole('judge')
+          || hasSignedInUserRole('admin')
+          || hasSignedInUserRole('super_admin'));
     }
 
     function isSelf(uid) {
@@ -84,6 +97,21 @@ service cloud.firestore {
     }
 
     // ── /users/{uid} ──────────────────────────────────────────────
+    function isTournamentOwner(tournamentId) {
+      return isCommunityAdmin()
+        && get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.organizerId == request.auth.uid;
+    }
+
+    function isExistingTournamentOwner() {
+      return isCommunityAdmin()
+        && resource.data.organizerId == request.auth.uid;
+    }
+
+    function isNewTournamentOwner() {
+      return isCommunityAdmin()
+        && request.resource.data.organizerId == request.auth.uid;
+    }
+
     match /users/{uid} {
       allow read: if isSelf(uid)
         || isAdmin()
@@ -135,8 +163,8 @@ service cloud.firestore {
     // ── /tournaments/{id} ────────────────────────────────────────
     match /tournaments/{tournamentId} {
       allow read: if true;
-      allow create: if isAdmin() || isCommunityAdmin();
-      allow update: if isAdmin() || isCommunityAdmin() || canJudgeAdvanceTournament();
+      allow create: if isAdmin() || isNewTournamentOwner();
+      allow update: if isAdmin() || isExistingTournamentOwner() || canJudgeAdvanceTournament();
       allow delete: if isAdmin();
 
       // Registrations — player creates own, admin can read/update all
@@ -166,7 +194,7 @@ service cloud.firestore {
         allow read: if isAdmin()
           || (isCommunityAdmin() && resource.data.requesterId == request.auth.uid);
         allow create: if isAdmin()
-          || (isCommunityAdmin()
+          || (isTournamentOwner(tournamentId)
             && request.resource.data.requesterId == request.auth.uid);
         allow update: if isAdmin();
         allow delete: if isAdmin();
@@ -175,16 +203,16 @@ service cloud.firestore {
       // Rounds — admin creates, all authenticated can read
       match /rounds/{roundId} {
         allow read: if isAuthenticated();
-        allow create, update: if isAdmin() || isCommunityAdmin() || isJudge();
+        allow create, update: if isAdmin() || isTournamentOwner(tournamentId) || isJudge();
 
         // Matches — admin creates, judge updates (their assigned match), all read
         match /matches/{matchId} {
           allow read: if isAuthenticated();
           allow create: if isAdmin()
-            || isCommunityAdmin()
+            || isTournamentOwner(tournamentId)
             || (isJudge() && request.resource.data.judgeId == request.auth.uid);
           allow update: if isAdmin()
-            || isCommunityAdmin()
+            || isTournamentOwner(tournamentId)
             || (isJudge() && resource.data.judgeId == request.auth.uid);
 
           // Battles — only the assigned judge can create; all can read
@@ -216,7 +244,15 @@ service cloud.firestore {
       allow create: if isPlayer() && request.resource.data.playerId == request.auth.uid;
       allow update: if (isPlayer() && resource.data.playerId == request.auth.uid)
         || isAdmin()
-        || isJudge(); // Judge can mark verified/illegal
+        || (isJudge()
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'verificationStatus',
+              'deckVerificationStatus',
+              'judgeChecks',
+              'lastJudgeActionAt',
+              'updatedAt'
+            ]));
       allow delete: if isAdmin();
     }
 
@@ -248,7 +284,7 @@ service cloud.firestore {
       allow read: if isAuthenticated() && resource.data.recipientId == request.auth.uid;
       allow update: if isAuthenticated() && resource.data.recipientId == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
-      allow create: if false; // Cloud Functions only
+      allow create: if isAdmin(); // Cloud Functions/admin review flow
       allow delete: if false;
     }
 

@@ -5,4 +5,5 @@
 build/
 .idea/
 .firebase/
+node_modules/
 *.log

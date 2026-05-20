@@ -52,13 +52,17 @@ class _CommunityApprovalsScreenState
           }
 
           final applications = ref.watch(pendingCommunityApplicationsProvider);
+          final reviewed = ref.watch(reviewedCommunityApplicationsProvider);
           return applications.when(
             data: (items) => _ApprovalContent(
               items: items,
+              reviewedItems:
+                  reviewed.valueOrNull ?? const <CommunityApplication>[],
+              historyLoading: reviewed.isLoading,
               message: _message,
               busyId: _busyId,
               onApprove: (item) => _approve(item, user.uid),
-              onReject: (item) => _reject(item, user.uid),
+              onReject: (item, reason) => _reject(item, user.uid, reason),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (_, __) => const _BackendNotice(),
@@ -81,14 +85,18 @@ class _CommunityApprovalsScreenState
     );
   }
 
-  Future<void> _reject(CommunityApplication application, String reviewerId) {
+  Future<void> _reject(
+    CommunityApplication application,
+    String reviewerId,
+    String reason,
+  ) {
     return _review(
       application: application,
       action: 'rejected',
       run: () => ref.read(communityRepositoryProvider).rejectApplication(
             application: application,
             reviewerId: reviewerId,
-            reason: 'Rejected from HIDEOUT super admin console',
+            reason: reason,
           ),
     );
   }
@@ -122,6 +130,8 @@ class _CommunityApprovalsScreenState
 class _ApprovalContent extends StatelessWidget {
   const _ApprovalContent({
     required this.items,
+    required this.reviewedItems,
+    required this.historyLoading,
     required this.message,
     required this.busyId,
     required this.onApprove,
@@ -129,10 +139,12 @@ class _ApprovalContent extends StatelessWidget {
   });
 
   final List<CommunityApplication> items;
+  final List<CommunityApplication> reviewedItems;
+  final bool historyLoading;
   final String? message;
   final String? busyId;
   final ValueChanged<CommunityApplication> onApprove;
-  final ValueChanged<CommunityApplication> onReject;
+  final void Function(CommunityApplication application, String reason) onReject;
 
   @override
   Widget build(BuildContext context) {
@@ -191,11 +203,16 @@ class _ApprovalContent extends StatelessWidget {
                         application: item,
                         busy: busyId == item.id,
                         onApprove: () => onApprove(item),
-                        onReject: () => onReject(item),
+                        onReject: (reason) => onReject(item, reason),
                       ),
                     ),
                 ],
               ),
+            const SizedBox(height: HDTSpace.xl),
+            _ReviewHistoryPanel(
+              items: reviewedItems,
+              loading: historyLoading,
+            ),
           ],
         ),
       ),
@@ -234,7 +251,7 @@ class _ApplicationCard extends StatelessWidget {
   final CommunityApplication application;
   final bool busy;
   final VoidCallback onApprove;
-  final VoidCallback onReject;
+  final ValueChanged<String> onReject;
 
   @override
   Widget build(BuildContext context) {
@@ -318,7 +335,18 @@ class _ApplicationCard extends StatelessWidget {
                 label: 'TOLAK',
                 icon: Icons.cancel_outlined,
                 color: HDTColors.danger,
-                onPressed: busy ? null : onReject,
+                onPressed: busy
+                    ? null
+                    : () async {
+                        final reason = await showDialog<String>(
+                          context: context,
+                          builder: (_) =>
+                              _RejectReasonDialog(application: application),
+                        );
+                        if (reason != null && reason.trim().isNotEmpty) {
+                          onReject(reason.trim());
+                        }
+                      },
               ),
               _ActionButton(
                 label: 'LIHAT DETAIL',
@@ -363,9 +391,7 @@ class _ApplicationCard extends StatelessWidget {
             width: 520,
             child: SingleChildScrollView(
               child: Text(
-                application.description.isEmpty
-                    ? 'Tidak ada detail tambahan.'
-                    : application.description,
+                _detailText(application),
                 style: HDTText.body(color: HDTColors.text2, height: 1.6),
               ),
             ),
@@ -378,6 +404,184 @@ class _ApplicationCard extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  static String _detailText(CommunityApplication application) {
+    final rows = [
+      if (application.description.isNotEmpty) application.description,
+      if (application.tag.isNotEmpty) 'Tag: ${application.tag}',
+      if (application.type.isNotEmpty) 'Tipe: ${application.type}',
+      if (application.region.isNotEmpty) 'Region: ${application.region}',
+      if (application.website.isNotEmpty) 'Website: ${application.website}',
+      if (application.leaderName.isNotEmpty)
+        'Ketua: ${application.leaderName} (${application.leaderEmail})',
+      if (application.leaderInstagram.isNotEmpty)
+        'Instagram: ${application.leaderInstagram}',
+      if (application.bankName.isNotEmpty)
+        'Rekening: ${application.bankName} - ${application.bankHolder} (${application.bankNumber})',
+      'Dokumen: KTP ${application.idUploaded ? 'OK' : 'review'}, Surat ${application.letterUploaded ? 'OK' : 'opsional'}, Logo ${application.logoUploaded ? 'OK' : 'opsional'}',
+    ];
+    return rows.isEmpty ? 'Tidak ada detail tambahan.' : rows.join('\n\n');
+  }
+}
+
+class _RejectReasonDialog extends StatefulWidget {
+  const _RejectReasonDialog({required this.application});
+
+  final CommunityApplication application;
+
+  @override
+  State<_RejectReasonDialog> createState() => _RejectReasonDialogState();
+}
+
+class _RejectReasonDialogState extends State<_RejectReasonDialog> {
+  final _reason = TextEditingController(
+    text: 'Dokumen atau data komunitas belum lengkap.',
+  );
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: HDTColors.s1,
+      title: Text('Tolak Pengajuan', style: HDTText.display(size: 22)),
+      content: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.application.communityName,
+              style: HDTText.body(color: HDTColors.text2),
+            ),
+            const SizedBox(height: HDTSpace.md),
+            TextField(
+              controller: _reason,
+              minLines: 3,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                labelText: 'Alasan penolakan',
+                prefixIcon: Icon(Icons.notes_outlined),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('BATAL'),
+        ),
+        ElevatedButton.icon(
+          onPressed: () => Navigator.pop(context, _reason.text),
+          icon: const Icon(Icons.cancel_outlined, size: 16),
+          label: const Text('TOLAK'),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReviewHistoryPanel extends StatelessWidget {
+  const _ReviewHistoryPanel({
+    required this.items,
+    required this.loading,
+  });
+
+  final List<CommunityApplication> items;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(HDTSpace.lg),
+      decoration: hdtCard(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('HISTORI REVIEW', style: HDTText.overline(size: 10)),
+              const Spacer(),
+              if (loading)
+                const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
+          const SizedBox(height: HDTSpace.md),
+          if (items.isEmpty)
+            Text(
+              'Belum ada histori approval atau rejection komunitas.',
+              style: HDTText.body(size: 12, color: HDTColors.text2),
+            )
+          else
+            for (final item in items) _ReviewHistoryRow(application: item),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReviewHistoryRow extends StatelessWidget {
+  const _ReviewHistoryRow({required this.application});
+
+  final CommunityApplication application;
+
+  @override
+  Widget build(BuildContext context) {
+    final approved = application.status == 'approved';
+    final color = approved ? HDTColors.success : HDTColors.danger;
+    final reviewed = application.reviewedAt;
+    final date = reviewed == null
+        ? 'Tanggal review belum tersedia'
+        : '${reviewed.year}-${reviewed.month.toString().padLeft(2, '0')}-${reviewed.day.toString().padLeft(2, '0')}';
+    return Container(
+      margin: const EdgeInsets.only(bottom: HDTSpace.sm),
+      padding: const EdgeInsets.all(HDTSpace.md),
+      decoration: BoxDecoration(
+        color: HDTColors.bg,
+        borderRadius: HDTR.md,
+        border: Border.all(color: HDTColors.s2),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            approved ? Icons.check_circle_outline : Icons.cancel_outlined,
+            color: color,
+            size: 18,
+          ),
+          const SizedBox(width: HDTSpace.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(application.communityName,
+                    style: HDTText.display(size: 14)),
+                const SizedBox(height: 3),
+                Text(
+                  application.rejectionReason?.isNotEmpty == true
+                      ? application.rejectionReason!
+                      : '${application.city} - $date',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: HDTText.body(size: 11, color: HDTColors.text2),
+                ),
+              ],
+            ),
+          ),
+          Text(application.status.toUpperCase(),
+              style: HDTText.overline(size: 8, color: color)),
+        ],
+      ),
     );
   }
 }
