@@ -1829,10 +1829,19 @@ class TournamentRepository {
         'registrationId': registrationId,
       });
     } catch (_) {
-      await activateTournamentRegistration(
-        tournamentId: tournamentId,
-        registrationId: registrationId,
-      );
+      await firestore
+          .doc(FirestorePaths.tournamentRegistrationDoc(
+            tournamentId,
+            registrationId,
+          ))
+          .set({
+            'paymentStatus': 'paid',
+            'registrationStatus': 'active',
+            'paymentId': 'AUTO-$registrationId',
+            'paidAt': FieldValue.serverTimestamp(),
+            'activatedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
     }
   }
 
