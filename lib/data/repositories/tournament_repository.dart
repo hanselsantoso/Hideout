@@ -538,6 +538,30 @@ class TournamentRepository {
     return roundMatchCount;
   }
 
+  Future<void> saveTournamentGroupDraft({
+    required String tournamentId,
+    required List<TournamentGroupDraft> groups,
+  }) async {
+    if (groups.isEmpty) {
+      throw StateError('Buat minimal 1 group sebelum menyimpan setup.');
+    }
+    await firestore.doc(FirestorePaths.tournamentDoc(tournamentId)).set(
+      {
+        'roundRobin': {
+          'groupCount': groups.length,
+          'assignmentMode': 'manualDraft',
+          'draftGroups': [
+            for (var i = 0; i < groups.length; i++)
+              groups[i].toFirestore(index: i),
+          ],
+          'draftUpdatedAt': FieldValue.serverTimestamp(),
+        },
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+  }
+
   Future<int> _generateRoundRobinStage({
     required String tournamentId,
     required List<JudgeArenaAssignment> arenas,
@@ -568,29 +592,36 @@ class TournamentRepository {
       );
     }
 
-    final requestedGroups = (stage['groupCount'] as num?)?.round() ?? 4;
-    final groupCount = requestedGroups.clamp(1, registrations.length).toInt();
+    final tournamentSnap =
+        await firestore.doc(FirestorePaths.tournamentDoc(tournamentId)).get();
+    final tournamentData = tournamentSnap.data() ?? const <String, dynamic>{};
+    final roundRobinData = Map<String, dynamic>.from(
+      tournamentData['roundRobin'] as Map? ?? const <String, dynamic>{},
+    );
+    final requestedGroups = (roundRobinData['groupCount'] as num?)?.round() ??
+        (stage['groupCount'] as num?)?.round() ??
+        4;
     final advancePerGroup = ((stage['advancePerGroup'] as num?)?.round() ?? 4)
         .clamp(1, registrations.length)
         .toInt();
-    final groups = List.generate(groupCount, (_) {
-      return <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-    });
-    for (var i = 0; i < registrations.length; i++) {
-      groups[i % groupCount].add(registrations[i]);
-    }
+    final groups = _manualRoundRobinGroups(
+          registrations,
+          roundRobinData['draftGroups'],
+        ) ??
+        _autoRoundRobinGroups(registrations, requestedGroups);
 
     var matchCounter = 0;
     final batch = firestore.batch();
     for (var groupIndex = 0; groupIndex < groups.length; groupIndex++) {
-      final groupName = 'Group ${String.fromCharCode(65 + groupIndex)}';
-      final roundId = 'stage-1-group-${String.fromCharCode(97 + groupIndex)}';
+      final groupName = groups[groupIndex].name;
+      final groupCode = _groupCode(groupIndex);
+      final roundId = 'stage-1-group-${groupIndex + 1}';
       final roundRef = firestore
           .collection(FirestorePaths.tournamentRounds(tournamentId))
           .doc(
             roundId,
           );
-      final group = groups[groupIndex];
+      final group = groups[groupIndex].registrations;
       final matchCount = group.length * (group.length - 1) ~/ 2;
       batch.set(
         roundRef,
@@ -632,8 +663,7 @@ class TournamentRepository {
               'id': matchId,
               'tournamentId': tournamentId,
               'roundId': roundId,
-              'matchCode':
-                  '${String.fromCharCode(65 + groupIndex)}-${position.toString().padLeft(3, '0')}',
+              'matchCode': '$groupCode-${position.toString().padLeft(3, '0')}',
               'status': position == 1 ? 'ready' : 'queued',
               'stage': 1,
               'format': 'roundRobin',
@@ -676,15 +706,17 @@ class TournamentRepository {
       {
         'status': 'running',
         'currentStage': 1,
-        'currentRoundId': 'stage-1-group-a',
+        'currentRoundId': 'stage-1-group-1',
         'stageStatus': {
           'stage1': 'running',
           'stage2': 'waitingTopCut',
         },
         'roundRobin': {
-          'groupCount': groupCount,
+          ...roundRobinData,
+          'groupCount': groups.length,
           'advancePerGroup': advancePerGroup,
           'totalMatches': matchCounter,
+          'groupNames': [for (final group in groups) group.name],
         },
         'topCutFormat': 'doubleElimination',
         'matchSeededAt': FieldValue.serverTimestamp(),
@@ -754,8 +786,8 @@ class TournamentRepository {
         const _TopCutPlayer(id: 'bye', name: 'BYE', seedScore: -1),
     ];
     final matchCount = bracketSize ~/ 2;
-    final upperRoundId = 'stage-2-upper-1';
-    final lowerRoundId = 'stage-2-lower-1';
+    const upperRoundId = 'stage-2-upper-1';
+    const lowerRoundId = 'stage-2-lower-1';
     final batch = firestore.batch();
     final upperRoundRef =
         firestore.collection(FirestorePaths.tournamentRounds(tournamentId)).doc(
@@ -2169,6 +2201,136 @@ class TournamentRegistrationSummary {
       registeredAt: rawDate is Timestamp ? rawDate.toDate() : null,
     );
   }
+}
+
+class TournamentGroupDraft {
+  const TournamentGroupDraft({
+    required this.name,
+    required this.players,
+  });
+
+  final String name;
+  final List<TournamentRegistrationSummary> players;
+
+  Map<String, dynamic> toFirestore({required int index}) {
+    final cleanName = name.trim().isEmpty ? _defaultGroupName(index) : name;
+    return {
+      'name': cleanName,
+      'index': index + 1,
+      'playerCount': players.length,
+      'players': [
+        for (final player in players)
+          {
+            'registrationId': player.id,
+            'playerId': player.playerId,
+            'playerName': player.playerName,
+            'deckId': player.deckId,
+            'deckName': player.deckName,
+            'paymentStatus': player.paymentStatus,
+            'registrationStatus': player.registrationStatus,
+          },
+      ],
+    };
+  }
+}
+
+class _RoundRobinGroup {
+  const _RoundRobinGroup({
+    required this.name,
+    required this.registrations,
+  });
+
+  final String name;
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> registrations;
+}
+
+List<_RoundRobinGroup> _autoRoundRobinGroups(
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> registrations,
+  int requestedGroups,
+) {
+  final groupCount =
+      requestedGroups.clamp(1, math.max(1, registrations.length)).toInt();
+  final groups = List.generate(
+    groupCount,
+    (index) => <QueryDocumentSnapshot<Map<String, dynamic>>>[],
+  );
+  for (var i = 0; i < registrations.length; i++) {
+    groups[i % groupCount].add(registrations[i]);
+  }
+  return [
+    for (var i = 0; i < groups.length; i++)
+      _RoundRobinGroup(name: _defaultGroupName(i), registrations: groups[i]),
+  ];
+}
+
+List<_RoundRobinGroup>? _manualRoundRobinGroups(
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> registrations,
+  Object? rawDraft,
+) {
+  if (rawDraft is! Iterable) return null;
+  final byRegistrationId = {
+    for (final doc in registrations) doc.id: doc,
+  };
+  final byPlayerId = {
+    for (final doc in registrations)
+      (doc.data()['playerId'] ?? '').toString(): doc,
+  }..remove('');
+  final used = <String>{};
+  final groups = <_RoundRobinGroup>[];
+
+  var index = 0;
+  for (final rawGroup in rawDraft) {
+    if (rawGroup is! Map) continue;
+    final data = Map<String, dynamic>.from(rawGroup);
+    final rawPlayers = data['players'];
+    final members = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    if (rawPlayers is Iterable) {
+      for (final rawPlayer in rawPlayers) {
+        String registrationId = '';
+        String playerId = '';
+        if (rawPlayer is Map) {
+          registrationId = (rawPlayer['registrationId'] ?? '').toString();
+          playerId = (rawPlayer['playerId'] ?? '').toString();
+        } else {
+          registrationId = rawPlayer.toString();
+        }
+        final doc = byRegistrationId[registrationId] ?? byPlayerId[playerId];
+        if (doc == null || !used.add(doc.id)) continue;
+        members.add(doc);
+      }
+    }
+    groups.add(
+      _RoundRobinGroup(
+        name: (data['name'] ?? _defaultGroupName(index)).toString(),
+        registrations: members,
+      ),
+    );
+    index++;
+  }
+
+  if (groups.isEmpty) return null;
+  final leftovers = registrations.where((doc) => !used.contains(doc.id));
+  for (final doc in leftovers) {
+    var targetIndex = 0;
+    for (var i = 1; i < groups.length; i++) {
+      if (groups[i].registrations.length <
+          groups[targetIndex].registrations.length) {
+        targetIndex = i;
+      }
+    }
+    groups[targetIndex].registrations.add(doc);
+  }
+  return groups;
+}
+
+String _defaultGroupName(int index) {
+  if (index < 26) return 'Group ${String.fromCharCode(65 + index)}';
+  return 'Group ${index + 1}';
+}
+
+String _groupCode(int index) {
+  if (index < 26) return String.fromCharCode(65 + index);
+  return 'G${index + 1}';
 }
 
 class BracketRoundSummary {

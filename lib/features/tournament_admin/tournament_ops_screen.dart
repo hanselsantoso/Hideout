@@ -907,25 +907,33 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
                 demo: rounds.isEmpty,
               ),
             );
-            const groupPanel = _GroupStageBoard(
-              rules: _demoStageRules,
-              groups: _demoStageGroups,
+            final groupSetupPanel = _InteractiveGroupSetupPanel(
+              key: ValueKey(
+                'groups-${selected.id}-${visibleRoster.map((item) => item.id).join('|')}',
+              ),
+              roster: visibleRoster,
+              demoMode: demoRoster,
+              busy: _busy,
+              onSave: demoRoster
+                  ? null
+                  : (groups) => _saveGroupDraft(
+                        tournament: selected,
+                        groups: groups,
+                      ),
+            );
+            final stagedModules = _StagedOpsModules(
+              bracketPanel: bracketPanel,
+              doublePreview: doublePreview,
             );
             if (!wide) {
               return Column(
                 children: [
                   setupPanel,
                   const SizedBox(height: HDTSpace.lg),
-                  groupPanel,
+                  groupSetupPanel,
                   const SizedBox(height: HDTSpace.lg),
-                  const _RoundRobinMatrixBoard(
-                    players: _demoRoundRobinPlayers,
-                    cells: _demoRoundRobinCells,
-                  ),
-                  const SizedBox(height: HDTSpace.lg),
-                  _DoubleEliminationBoard(sections: doublePreview),
-                  const SizedBox(height: HDTSpace.lg),
-                  bracketPanel,
+                  const _OpsModuleShelf(),
+                  stagedModules,
                 ],
               );
             }
@@ -936,18 +944,12 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
                   children: [
                     SizedBox(width: 360, child: setupPanel),
                     const SizedBox(width: HDTSpace.lg),
-                    const Expanded(child: groupPanel),
+                    Expanded(child: groupSetupPanel),
                   ],
                 ),
                 const SizedBox(height: HDTSpace.lg),
-                const _RoundRobinMatrixBoard(
-                  players: _demoRoundRobinPlayers,
-                  cells: _demoRoundRobinCells,
-                ),
-                const SizedBox(height: HDTSpace.lg),
-                _DoubleEliminationBoard(sections: doublePreview),
-                const SizedBox(height: HDTSpace.lg),
-                bracketPanel,
+                const _OpsModuleShelf(),
+                stagedModules,
               ],
             );
           },
@@ -962,6 +964,34 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
     if (_selectedJudgeIds.isNotEmpty) return _selectedJudgeIds;
     if (judges.isEmpty) return const {};
     return {judges.first.uid};
+  }
+
+  Future<void> _saveGroupDraft({
+    required TournamentSummary tournament,
+    required List<TournamentGroupDraft> groups,
+  }) async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref.read(tournamentRepositoryProvider).saveTournamentGroupDraft(
+            tournamentId: tournament.id,
+            groups: groups,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Group draft tersimpan. Generate round robin akan memakai setup ini.'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _generateMatches({
@@ -1343,6 +1373,621 @@ class _RoundSetupPanel extends StatelessWidget {
               label: const Text('GENERATE STAGE 2 TOP CUT'),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InteractiveGroupSetupPanel extends StatefulWidget {
+  const _InteractiveGroupSetupPanel({
+    super.key,
+    required this.roster,
+    required this.demoMode,
+    required this.busy,
+    required this.onSave,
+  });
+
+  final List<TournamentRegistrationSummary> roster;
+  final bool demoMode;
+  final bool busy;
+  final Future<void> Function(List<TournamentGroupDraft> groups)? onSave;
+
+  @override
+  State<_InteractiveGroupSetupPanel> createState() =>
+      _InteractiveGroupSetupPanelState();
+}
+
+class _InteractiveGroupSetupPanelState
+    extends State<_InteractiveGroupSetupPanel> {
+  final _groupCount = TextEditingController();
+  late List<_GroupDraftState> _groups;
+  late List<TournamentRegistrationSummary> _bench;
+  late String _rosterKey;
+
+  @override
+  void initState() {
+    super.initState();
+    _resetDraft();
+  }
+
+  @override
+  void didUpdateWidget(covariant _InteractiveGroupSetupPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextKey = _keyFor(widget.roster);
+    if (nextKey != _rosterKey) _resetDraft();
+  }
+
+  @override
+  void dispose() {
+    _groupCount.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final assigned = _groups.fold<int>(
+      0,
+      (count, group) => count + group.players.length,
+    );
+    return Container(
+      padding: const EdgeInsets.all(HDTSpace.lg),
+      decoration: hdtAccentCard(accentColor: HDTColors.info),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: HDTSpace.md,
+            runSpacing: HDTSpace.md,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('GROUP BUILDER DRAFT',
+                        style:
+                            HDTText.overline(size: 10, color: HDTColors.info)),
+                    const SizedBox(height: HDTSpace.xs),
+                    Text('Atur grup tanpa batas power-of-two',
+                        style: HDTText.display(size: 25)),
+                    const SizedBox(height: HDTSpace.sm),
+                    Text(
+                      'Ketua komunitas bisa membuat 3, 4, 5, atau jumlah grup lain, mengubah nama grup, memindahkan pemain dengan drag-and-drop, dan menaruh pemain WO di bench.',
+                      style: HDTText.body(
+                        size: 12,
+                        color: HDTColors.text2,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Wrap(
+                spacing: HDTSpace.sm,
+                runSpacing: HDTSpace.sm,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 112,
+                    child: TextField(
+                      controller: _groupCount,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Jumlah',
+                      ),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _applyGroupCount,
+                    icon: const Icon(Icons.grid_view_outlined, size: 16),
+                    label: const Text('APPLY'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _autoFill,
+                    icon: const Icon(Icons.auto_fix_high_outlined, size: 16),
+                    label: const Text('AUTO FILL'),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: widget.busy || widget.onSave == null
+                        ? null
+                        : _saveDraft,
+                    icon: widget.busy
+                        ? const SizedBox.square(
+                            dimension: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save_outlined, size: 16),
+                    label: Text(widget.busy ? 'SAVING...' : 'SAVE GROUPS'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: HDTSpace.md),
+          Wrap(
+            spacing: HDTSpace.sm,
+            runSpacing: HDTSpace.sm,
+            children: [
+              _RulePill('${_groups.length} GROUP'),
+              _RulePill('$assigned ASSIGNED'),
+              _RulePill('${_bench.length} BENCH / WO'),
+              if (widget.demoMode) const _RulePill('PREVIEW ONLY'),
+            ],
+          ),
+          if (widget.demoMode) ...[
+            const SizedBox(height: HDTSpace.md),
+            const _Notice(
+              color: HDTColors.info,
+              text:
+                  'Roster live belum tersedia, jadi builder ini hanya preview. Setelah pemain paid active masuk, tombol save akan aktif.',
+            ),
+          ],
+          const SizedBox(height: HDTSpace.lg),
+          _BenchDropZone(
+            players: _bench,
+            onAccept: (player) => setState(() => _moveToBench(player)),
+          ),
+          const SizedBox(height: HDTSpace.lg),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cols = constraints.maxWidth >= 1100
+                  ? 3
+                  : constraints.maxWidth >= 720
+                      ? 2
+                      : 1;
+              final width =
+                  (constraints.maxWidth - ((cols - 1) * HDTSpace.md)) / cols;
+              return Wrap(
+                spacing: HDTSpace.md,
+                runSpacing: HDTSpace.md,
+                children: [
+                  for (var i = 0; i < _groups.length; i++)
+                    SizedBox(
+                      width: width,
+                      child: _GroupDropCard(
+                        index: i,
+                        group: _groups[i],
+                        onNameChanged: (value) => _groups[i].name = value,
+                        onAccept: (player) =>
+                            setState(() => _moveToGroup(player, i)),
+                        onBench: (player) =>
+                            setState(() => _moveToBench(player)),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _resetDraft() {
+    final players = _eligiblePlayers();
+    final count = math.min(4, math.max(1, players.length));
+    _groupCount.text = count.toString();
+    _groups = [
+      for (var i = 0; i < count; i++)
+        _GroupDraftState(name: _draftGroupName(i)),
+    ];
+    _bench = [...players];
+    _rosterKey = _keyFor(widget.roster);
+    _autoFill(notify: false);
+  }
+
+  List<TournamentRegistrationSummary> _eligiblePlayers() {
+    final ready = widget.roster.where((item) => item.readyForBracket).toList();
+    return ready.isEmpty ? [...widget.roster] : ready;
+  }
+
+  String _keyFor(List<TournamentRegistrationSummary> roster) {
+    return roster
+        .map((item) => '${item.id}:${item.registrationStatus}')
+        .join('|');
+  }
+
+  void _applyGroupCount() {
+    final requested = int.tryParse(_groupCount.text.trim());
+    if (requested == null) return;
+    final nextCount = requested.clamp(1, 32).toInt();
+    setState(() {
+      _groupCount.text = nextCount.toString();
+      if (nextCount > _groups.length) {
+        for (var i = _groups.length; i < nextCount; i++) {
+          _groups.add(_GroupDraftState(name: _draftGroupName(i)));
+        }
+      } else if (nextCount < _groups.length) {
+        final removed = _groups.sublist(nextCount);
+        for (final group in removed) {
+          for (final player in group.players) {
+            if (!_bench.any((item) => item.id == player.id)) {
+              _bench.add(player);
+            }
+          }
+        }
+        _groups = _groups.take(nextCount).toList();
+      }
+    });
+  }
+
+  void _autoFill({bool notify = true}) {
+    final players = _eligiblePlayers();
+    for (final group in _groups) {
+      group.players.clear();
+    }
+    _bench = [];
+    for (var i = 0; i < players.length; i++) {
+      _groups[i % _groups.length].players.add(players[i]);
+    }
+    if (notify && mounted) setState(() {});
+  }
+
+  void _moveToGroup(TournamentRegistrationSummary player, int groupIndex) {
+    _bench.removeWhere((item) => item.id == player.id);
+    for (final group in _groups) {
+      group.players.removeWhere((item) => item.id == player.id);
+    }
+    _groups[groupIndex].players.add(player);
+  }
+
+  void _moveToBench(TournamentRegistrationSummary player) {
+    for (final group in _groups) {
+      group.players.removeWhere((item) => item.id == player.id);
+    }
+    if (!_bench.any((item) => item.id == player.id)) _bench.add(player);
+  }
+
+  Future<void> _saveDraft() async {
+    final onSave = widget.onSave;
+    if (onSave == null) return;
+    await onSave([
+      for (final group in _groups)
+        TournamentGroupDraft(
+          name: group.name,
+          players: [...group.players],
+        ),
+    ]);
+  }
+}
+
+String _draftGroupName(int index) {
+  if (index < 26) return 'Group ${String.fromCharCode(65 + index)}';
+  return 'Group ${index + 1}';
+}
+
+class _GroupDraftState {
+  _GroupDraftState({required this.name});
+
+  String name;
+  final List<TournamentRegistrationSummary> players = [];
+}
+
+class _BenchDropZone extends StatelessWidget {
+  const _BenchDropZone({
+    required this.players,
+    required this.onAccept,
+  });
+
+  final List<TournamentRegistrationSummary> players;
+  final ValueChanged<TournamentRegistrationSummary> onAccept;
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<TournamentRegistrationSummary>(
+      onAcceptWithDetails: (details) => onAccept(details.data),
+      builder: (context, candidates, rejected) {
+        final active = candidates.isNotEmpty;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          width: double.infinity,
+          padding: const EdgeInsets.all(HDTSpace.md),
+          decoration: BoxDecoration(
+            color: active
+                ? HDTColors.warning.withValues(alpha: .16)
+                : HDTColors.bg.withValues(alpha: .72),
+            borderRadius: HDTR.md,
+            border: Border.all(
+              color: active ? HDTColors.warning : HDTColors.s2,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('BENCH / WO', style: HDTText.overline(size: 9)),
+              const SizedBox(height: HDTSpace.sm),
+              if (players.isEmpty)
+                Text(
+                  'Drop pemain ke sini jika walk out atau belum dimasukkan grup.',
+                  style: HDTText.body(size: 12, color: HDTColors.text3),
+                )
+              else
+                Wrap(
+                  spacing: HDTSpace.sm,
+                  runSpacing: HDTSpace.sm,
+                  children: [
+                    for (final player in players) _DraggablePlayerChip(player),
+                  ],
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _GroupDropCard extends StatelessWidget {
+  const _GroupDropCard({
+    required this.index,
+    required this.group,
+    required this.onNameChanged,
+    required this.onAccept,
+    required this.onBench,
+  });
+
+  final int index;
+  final _GroupDraftState group;
+  final ValueChanged<String> onNameChanged;
+  final ValueChanged<TournamentRegistrationSummary> onAccept;
+  final ValueChanged<TournamentRegistrationSummary> onBench;
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<TournamentRegistrationSummary>(
+      onAcceptWithDetails: (details) => onAccept(details.data),
+      builder: (context, candidates, rejected) {
+        final active = candidates.isNotEmpty;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          constraints: const BoxConstraints(minHeight: 260),
+          padding: const EdgeInsets.all(HDTSpace.md),
+          decoration: BoxDecoration(
+            color: active
+                ? HDTColors.info.withValues(alpha: .18)
+                : HDTColors.bg.withValues(alpha: .82),
+            borderRadius: HDTR.md,
+            border: Border.all(color: active ? HDTColors.info : HDTColors.s2),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: HDTColors.info.withValues(alpha: .14),
+                      borderRadius: HDTR.sm,
+                      border: Border.all(color: HDTColors.info),
+                    ),
+                    child:
+                        Text('${index + 1}', style: HDTText.display(size: 15)),
+                  ),
+                  const SizedBox(width: HDTSpace.sm),
+                  Expanded(
+                    child: TextFormField(
+                      key: ValueKey('group-name-$index-${group.name}'),
+                      initialValue: group.name,
+                      onChanged: onNameChanged,
+                      decoration: const InputDecoration(
+                        labelText: 'Nama grup',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: HDTSpace.md),
+              Text('${group.players.length} pemain',
+                  style: HDTText.mono(size: 10, color: HDTColors.text3)),
+              const SizedBox(height: HDTSpace.sm),
+              if (group.players.isEmpty)
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'Drop pemain di sini',
+                      style: HDTText.body(size: 12, color: HDTColors.text3),
+                    ),
+                  ),
+                )
+              else
+                Wrap(
+                  spacing: HDTSpace.sm,
+                  runSpacing: HDTSpace.sm,
+                  children: [
+                    for (final player in group.players)
+                      _DraggablePlayerChip(
+                        player,
+                        trailing: IconButton(
+                          tooltip: 'Pindahkan ke bench / WO',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => onBench(player),
+                          icon: const Icon(Icons.logout, size: 14),
+                        ),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DraggablePlayerChip extends StatelessWidget {
+  const _DraggablePlayerChip(this.player, {this.trailing});
+
+  final TournamentRegistrationSummary player;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final chip = _PlayerDraftChip(player: player, trailing: trailing);
+    return Draggable<TournamentRegistrationSummary>(
+      data: player,
+      feedback: Material(
+        color: Colors.transparent,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 260),
+          child: _PlayerDraftChip(player: player, dragging: true),
+        ),
+      ),
+      childWhenDragging: Opacity(opacity: .35, child: chip),
+      child: chip,
+    );
+  }
+}
+
+class _PlayerDraftChip extends StatelessWidget {
+  const _PlayerDraftChip({
+    required this.player,
+    this.dragging = false,
+    this.trailing,
+  });
+
+  final TournamentRegistrationSummary player;
+  final bool dragging;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 236,
+      padding: const EdgeInsets.symmetric(
+        horizontal: HDTSpace.sm,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        color: dragging ? HDTColors.s1 : HDTColors.s2.withValues(alpha: .72),
+        borderRadius: HDTR.sm,
+        border: Border.all(
+          color: dragging ? HDTColors.info : HDTColors.s3,
+        ),
+        boxShadow: dragging
+            ? [
+                BoxShadow(
+                  color: HDTColors.info.withValues(alpha: .24),
+                  blurRadius: 18,
+                ),
+              ]
+            : null,
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.drag_indicator, size: 16, color: HDTColors.text3),
+          const SizedBox(width: HDTSpace.xs),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  player.playerName.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: HDTText.body(size: 12),
+                ),
+                Text(
+                  player.deckName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: HDTText.mono(size: 9, color: HDTColors.text3),
+                ),
+              ],
+            ),
+          ),
+          if (trailing != null) trailing!,
+        ],
+      ),
+    );
+  }
+}
+
+class _OpsModuleShelf extends StatelessWidget {
+  const _OpsModuleShelf();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(HDTSpace.lg),
+      decoration: hdtCard(),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: HDTSpace.lg,
+        runSpacing: HDTSpace.md,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('BRACKET & GROUPING MODULES',
+                    style: HDTText.overline(size: 10)),
+                const SizedBox(height: HDTSpace.sm),
+                Text(
+                  'Elemen bracketing lama disimpan sebagai modul internal',
+                  style: HDTText.display(size: 23),
+                ),
+                const SizedBox(height: HDTSpace.sm),
+                Text(
+                  'Untuk trial awal, layar ops difokuskan ke setup grup, roster, assignment juri, dan generate match. Tampilan bracket besar akan muncul lagi setelah flow turnamen stabil.',
+                  style: HDTText.body(
+                    size: 12,
+                    color: HDTColors.text2,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Wrap(
+            spacing: HDTSpace.sm,
+            runSpacing: HDTSpace.sm,
+            children: [
+              _RulePill('GROUP BUILDER ACTIVE'),
+              _RulePill('BRACKET UI STAGED'),
+              _RulePill('ROUND ROBIN READY'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StagedOpsModules extends StatelessWidget {
+  const _StagedOpsModules({
+    required this.bracketPanel,
+    required this.doublePreview,
+  });
+
+  final Widget bracketPanel;
+  final List<_DoubleElimSection> doublePreview;
+
+  @override
+  Widget build(BuildContext context) {
+    return Offstage(
+      offstage: true,
+      child: Column(
+        children: [
+          const _GroupStageBoard(
+            rules: _demoStageRules,
+            groups: _demoStageGroups,
+          ),
+          const _RoundRobinMatrixBoard(
+            players: _demoRoundRobinPlayers,
+            cells: _demoRoundRobinCells,
+          ),
+          _DoubleEliminationBoard(sections: doublePreview),
+          bracketPanel,
         ],
       ),
     );

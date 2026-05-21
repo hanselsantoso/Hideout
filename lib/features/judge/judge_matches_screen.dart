@@ -36,57 +36,58 @@ class JudgeMatchesScreen extends ConsumerWidget {
       body: SafeArea(
         child: matches.when(
           data: (items) {
-            final list = items.isEmpty ? _demoMatches : items;
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 90),
               children: [
                 _HeroSummary(
-                  liveCount: list.where((match) => !match.completed).length,
-                  demo: items.isEmpty,
+                  liveCount: items.where((match) => !match.completed).length,
+                  hasAssignments: items.isNotEmpty,
                 ),
                 const SizedBox(height: HDTSpace.lg),
-                _JudgeSchedulePanel(matches: list, demo: items.isEmpty),
+                const _JudgeGuidePanel(),
                 const SizedBox(height: HDTSpace.lg),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final cols = constraints.maxWidth >= 980 ? 2 : 1;
-                    final width =
-                        (constraints.maxWidth - ((cols - 1) * HDTSpace.md)) /
-                            cols;
-                    return Wrap(
-                      spacing: HDTSpace.md,
-                      runSpacing: HDTSpace.md,
-                      children: [
-                        for (final match in list)
-                          SizedBox(
-                            width: width,
-                            child: _MatchCard(match: match),
-                          ),
-                      ],
-                    );
-                  },
-                ),
+                _JudgeSchedulePanel(matches: items),
+                const SizedBox(height: HDTSpace.lg),
+                if (items.isEmpty)
+                  const _NoJudgeAssignmentsPanel()
+                else
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final cols = constraints.maxWidth >= 980 ? 2 : 1;
+                      final width =
+                          (constraints.maxWidth - ((cols - 1) * HDTSpace.md)) /
+                              cols;
+                      return Wrap(
+                        spacing: HDTSpace.md,
+                        runSpacing: HDTSpace.md,
+                        children: [
+                          for (final match in items)
+                            SizedBox(
+                              width: width,
+                              child: _MatchCard(match: match),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
               ],
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => ListView(
             padding: const EdgeInsets.all(20),
-            children: [
-              _HeroSummary(liveCount: _demoMatches.length, demo: true),
-              const SizedBox(height: HDTSpace.md),
-              const _Notice(
+            children: const [
+              _HeroSummary(liveCount: 0, hasAssignments: false),
+              SizedBox(height: HDTSpace.md),
+              _Notice(
                 text:
-                    'Match live untuk akun juri ini belum tersedia. Sementara sistem menampilkan assignment demo agar alur scan dan scoring tetap bisa dipreview.',
+                    'Assignment juri belum bisa dibaca. Refresh setelah ketua komunitas assign match live.',
                 color: HDTColors.warning,
               ),
-              const SizedBox(height: HDTSpace.lg),
-              const _JudgeSchedulePanel(matches: _demoMatches, demo: true),
-              const SizedBox(height: HDTSpace.lg),
-              for (final match in _demoMatches) ...[
-                _MatchCard(match: match),
-                const SizedBox(height: HDTSpace.md),
-              ],
+              SizedBox(height: HDTSpace.lg),
+              _JudgeGuidePanel(),
+              SizedBox(height: HDTSpace.lg),
+              _NoJudgeAssignmentsPanel(),
             ],
           ),
         ),
@@ -98,38 +99,21 @@ class JudgeMatchesScreen extends ConsumerWidget {
 class _JudgeSchedulePanel extends StatelessWidget {
   const _JudgeSchedulePanel({
     required this.matches,
-    required this.demo,
   });
 
   final List<JudgeMatchSummary> matches;
-  final bool demo;
 
   @override
   Widget build(BuildContext context) {
-    final rows = demo
-        ? const [
-            _JudgeScheduleRow(
-              title: 'HIDEOUT CUP #04',
-              time: 'Hari H . 10:00',
-              arena: 'Arena 02',
-              status: 'READY',
-            ),
-            _JudgeScheduleRow(
-              title: 'East Coast Showdown',
-              time: 'Hari H . 13:30',
-              arena: 'Arena 03',
-              status: 'STANDBY',
-            ),
-          ]
-        : [
-            for (final match in matches.take(4))
-              _JudgeScheduleRow(
-                title: match.matchCode,
-                time: match.completed ? 'Selesai' : 'Hari H . Live queue',
-                arena: match.arena,
-                status: match.status.toUpperCase(),
-              ),
-          ];
+    final rows = [
+      for (final match in matches.take(4))
+        _JudgeScheduleRow(
+          title: match.matchCode,
+          time: match.completed ? 'Selesai' : 'Hari H . Live queue',
+          arena: match.arena,
+          status: match.status.toUpperCase(),
+        ),
+    ];
     return Container(
       padding: const EdgeInsets.all(HDTSpace.lg),
       decoration: hdtCard(),
@@ -160,9 +144,7 @@ class _JudgeSchedulePanel extends StatelessWidget {
                   children: [
                     Text('JADWAL JURI', style: HDTText.display(size: 22)),
                     Text(
-                      demo
-                          ? 'Contoh jadwal assignment sampai data live tersedia.'
-                          : 'Turnamen dan arena yang assigned ke akun juri ini.',
+                      'Turnamen dan arena yang assigned ke akun juri ini.',
                       style: HDTText.body(size: 12, color: HDTColors.text2),
                     ),
                   ],
@@ -171,7 +153,13 @@ class _JudgeSchedulePanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: HDTSpace.md),
-          for (final row in rows) row,
+          if (rows.isEmpty)
+            Text(
+              'Belum ada match live untuk akun ini.',
+              style: HDTText.body(size: 12, color: HDTColors.text3),
+            )
+          else
+            for (final row in rows) row,
         ],
       ),
     );
@@ -226,16 +214,19 @@ class _JudgeScheduleRow extends StatelessWidget {
 
 class _HeroSummary extends StatelessWidget {
   final int liveCount;
-  final bool demo;
+  final bool hasAssignments;
 
-  const _HeroSummary({required this.liveCount, required this.demo});
+  const _HeroSummary({
+    required this.liveCount,
+    required this.hasAssignments,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(HDTSpace.lg),
       decoration: hdtAccentCard(
-        accentColor: demo ? HDTColors.warning : HDTColors.accent,
+        accentColor: hasAssignments ? HDTColors.accent : HDTColors.info,
         highlighted: true,
       ),
       child: Row(
@@ -249,8 +240,10 @@ class _HeroSummary extends StatelessWidget {
               border: Border.all(color: HDTColors.s2),
             ),
             child: Icon(
-              demo ? Icons.cloud_off_outlined : Icons.sports_martial_arts,
-              color: demo ? HDTColors.warning : HDTColors.accentHover,
+              hasAssignments
+                  ? Icons.sports_martial_arts
+                  : Icons.assignment_outlined,
+              color: hasAssignments ? HDTColors.accentHover : HDTColors.info,
             ),
           ),
           const SizedBox(width: HDTSpace.md),
@@ -261,13 +254,97 @@ class _HeroSummary extends StatelessWidget {
                 Text('$liveCount MATCH READY',
                     style: HDTText.display(size: 26)),
                 Text(
-                  demo
-                      ? 'Assignment demo aktif sampai match live juri tersedia.'
-                      : 'Match yang assigned ke akun juri login.',
+                  hasAssignments
+                      ? 'Match yang assigned ke akun juri login.'
+                      : 'Belum ada assignment live. Tunggu ketua komunitas generate match.',
                   style: HDTText.body(size: 12, color: HDTColors.text2),
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JudgeGuidePanel extends StatelessWidget {
+  const _JudgeGuidePanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(HDTSpace.lg),
+      decoration: hdtAccentCard(accentColor: HDTColors.info),
+      child: Wrap(
+        spacing: HDTSpace.lg,
+        runSpacing: HDTSpace.md,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: HDTColors.info.withValues(alpha: .14),
+              borderRadius: HDTR.md,
+              border: Border.all(color: HDTColors.info),
+            ),
+            child:
+                const Icon(Icons.rule_folder_outlined, color: HDTColors.info),
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('PANDUAN AWAL JURI',
+                    style: HDTText.overline(size: 10, color: HDTColors.info)),
+                const SizedBox(height: HDTSpace.sm),
+                Text('Kerjakan match live yang di-assign',
+                    style: HDTText.display(size: 24)),
+                const SizedBox(height: HDTSpace.sm),
+                Text(
+                  'Panggil peserta sesuai arena, scan QR deck sisi A dan B, bandingkan deck dengan data registrasi, tolak jika tidak sama, lalu input skor setelah match selesai.',
+                  style: HDTText.body(
+                    size: 13,
+                    color: HDTColors.text2,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.pushNamed(context, '/juri/scan'),
+            icon: const Icon(Icons.qr_code_scanner, size: 16),
+            label: const Text('BUKA SCANNER'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoJudgeAssignmentsPanel extends StatelessWidget {
+  const _NoJudgeAssignmentsPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(HDTSpace.xl),
+      decoration: hdtCard(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('BELUM ADA ASSIGNMENT', style: HDTText.overline(size: 10)),
+          const SizedBox(height: HDTSpace.sm),
+          Text('Match juri akan muncul setelah generate',
+              style: HDTText.display(size: 25)),
+          const SizedBox(height: HDTSpace.sm),
+          Text(
+            'Ketua komunitas perlu memilih akun juri ini di Tournament Ops dan generate match dari roster paid active. Halaman ini tidak lagi menampilkan match contoh agar trial data tetap bersih.',
+            style: HDTText.body(size: 13, color: HDTColors.text2, height: 1.5),
           ),
         ],
       ),
@@ -467,38 +544,3 @@ class _Notice extends StatelessWidget {
     );
   }
 }
-
-const _demoMatches = [
-  JudgeMatchSummary(
-    id: 'demo-m-018',
-    tournamentId: '',
-    roundId: '',
-    matchCode: 'M-018',
-    status: 'ready',
-    arena: 'Arena 02',
-    playerAId: 'hdt-202',
-    playerAName: 'Hansel',
-    playerADeck: 'Phantom Reaper',
-    playerARegistrationId: 'DEMO-QR-TICKET',
-    playerBId: 'hdt-007',
-    playerBName: 'Mardika',
-    playerBDeck: 'Void Bastion',
-    playerBRegistrationId: 'DEMO-QR-TICKET',
-  ),
-  JudgeMatchSummary(
-    id: 'demo-m-019',
-    tournamentId: '',
-    roundId: '',
-    matchCode: 'M-019',
-    status: 'assigned',
-    arena: 'Arena 03',
-    playerAId: 'hdt-091',
-    playerAName: 'Nadia',
-    playerADeck: 'CX Lockdown',
-    playerARegistrationId: 'DEMO-QR-TICKET',
-    playerBId: 'hdt-044',
-    playerBName: 'Bayu',
-    playerBDeck: 'Cobalt Rush',
-    playerBRegistrationId: 'DEMO-QR-TICKET',
-  ),
-];

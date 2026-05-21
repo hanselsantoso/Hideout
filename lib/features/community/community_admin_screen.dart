@@ -92,6 +92,8 @@ class CommunityAdminScreen extends ConsumerWidget {
                       : user.displayName.trim(),
                 ),
                 const SizedBox(height: HDTSpace.xl),
+                const _CommunityAdminGuidePanel(),
+                const SizedBox(height: HDTSpace.xl),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final cols = constraints.maxWidth >= 1040
@@ -137,7 +139,7 @@ const _adminMenu = [
   _AdminMenuItem(
     title: 'Tournament Ops',
     subtitle:
-        'Control room untuk group stage, round-robin standings, bracket, next call, dan hasil match.',
+        'Control room untuk roster, setup grup fleksibel, auto fill pemain, assign juri, dan generate match.',
     route: '/admin/tournaments/ops',
     icon: Icons.account_tree_outlined,
     color: HDTColors.accent,
@@ -146,7 +148,7 @@ const _adminMenu = [
   _AdminMenuItem(
     title: 'Buat Turnamen',
     subtitle:
-        'Atur stage, group, top cut, rules, pricing, juri, arena, dan prize pool.',
+        'Buka trial dari nol: nama event, rules, pricing, arena, jadwal, dan stage awal.',
     route: '/admin/tournaments/new',
     icon: Icons.add_circle_outline,
     color: HDTColors.success,
@@ -467,6 +469,66 @@ class _AdminMenuCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _CommunityAdminGuidePanel extends StatelessWidget {
+  const _CommunityAdminGuidePanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(HDTSpace.lg),
+      decoration: hdtAccentCard(accentColor: HDTColors.info),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: HDTSpace.lg,
+        runSpacing: HDTSpace.lg,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 740),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('PANDUAN AWAL KETUA KOMUNITAS',
+                    style: HDTText.overline(size: 10, color: HDTColors.info)),
+                const SizedBox(height: HDTSpace.sm),
+                Text('Trial dimulai dari membuat turnamen baru',
+                    style: HDTText.display(size: 26)),
+                const SizedBox(height: HDTSpace.sm),
+                Text(
+                  'Urutan kerja yang disarankan: buat turnamen, buka pendaftaran, tunggu pemain daftar dan bayar, atur grup lewat drag-and-drop, assign juri, lalu generate match. Bracket besar disimpan dulu sampai data live siap.',
+                  style: HDTText.body(
+                    size: 13,
+                    color: HDTColors.text2,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Wrap(
+            spacing: HDTSpace.sm,
+            runSpacing: HDTSpace.sm,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/admin/tournaments/new'),
+                icon: const Icon(Icons.add_circle_outline, size: 16),
+                label: const Text('BUAT TURNAMEN'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/admin/tournaments/ops'),
+                icon: const Icon(Icons.account_tree_outlined, size: 16),
+                label: const Text('BUKA OPS'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
