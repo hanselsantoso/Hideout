@@ -400,7 +400,7 @@ class AuthHeader extends StatelessWidget {
             (_) => false,
           ),
           icon: const Icon(Icons.arrow_back, size: 16),
-          label: const Text('KEMBALI KE HALAMAN UTAMA'),
+          label: const Text('BATAL, KEMBALI KE HOME'),
         ),
       ],
     );

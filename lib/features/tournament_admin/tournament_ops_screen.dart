@@ -670,6 +670,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
   final Set<String> _selectedJudgeIds = {};
   String? _selectedTournamentId;
   String? _error;
+  String? _registrationBusyId;
   bool _busy = false;
 
   @override
@@ -955,7 +956,23 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
           },
         ),
         const SizedBox(height: HDTSpace.xl),
-        _RosterList(roster: visibleRoster, demo: demoRoster),
+        _RosterList(
+          roster: visibleRoster,
+          demo: demoRoster,
+          busyRegistrationId: _registrationBusyId,
+          onActivate: demoRoster
+              ? null
+              : (registration) => _activateRegistration(
+                    tournament: selected,
+                    registration: registration,
+                  ),
+          onWalkOut: demoRoster
+              ? null
+              : (registration) => _markWalkOut(
+                    tournament: selected,
+                    registration: registration,
+                  ),
+        ),
       ],
     );
   }
@@ -991,6 +1008,59 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
       setState(() => _error = error.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _activateRegistration({
+    required TournamentSummary tournament,
+    required TournamentRegistrationSummary registration,
+  }) async {
+    setState(() {
+      _registrationBusyId = registration.id;
+      _error = null;
+    });
+    try {
+      await ref
+          .read(tournamentRepositoryProvider)
+          .activateTournamentRegistration(
+            tournamentId: tournament.id,
+            registrationId: registration.id,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('${registration.playerName} sudah paid active.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _registrationBusyId = null);
+    }
+  }
+
+  Future<void> _markWalkOut({
+    required TournamentSummary tournament,
+    required TournamentRegistrationSummary registration,
+  }) async {
+    setState(() {
+      _registrationBusyId = registration.id;
+      _error = null;
+    });
+    try {
+      await ref.read(tournamentRepositoryProvider).markRegistrationWalkOut(
+            tournamentId: tournament.id,
+            registrationId: registration.id,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${registration.playerName} ditandai WO.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _registrationBusyId = null);
     }
   }
 
@@ -3782,10 +3852,19 @@ class _BracketPlayerLine extends StatelessWidget {
 }
 
 class _RosterList extends StatelessWidget {
-  const _RosterList({required this.roster, this.demo = false});
+  const _RosterList({
+    required this.roster,
+    this.demo = false,
+    this.busyRegistrationId,
+    this.onActivate,
+    this.onWalkOut,
+  });
 
   final List<TournamentRegistrationSummary> roster;
   final bool demo;
+  final String? busyRegistrationId;
+  final ValueChanged<TournamentRegistrationSummary>? onActivate;
+  final ValueChanged<TournamentRegistrationSummary>? onWalkOut;
 
   @override
   Widget build(BuildContext context) {
@@ -3814,7 +3893,13 @@ class _RosterList extends StatelessWidget {
               ],
             ),
           ),
-          for (final item in roster) _RosterRow(item: item),
+          for (final item in roster)
+            _RosterRow(
+              item: item,
+              busy: busyRegistrationId == item.id,
+              onActivate: onActivate,
+              onWalkOut: onWalkOut,
+            ),
         ],
       ),
     );
@@ -3822,9 +3907,17 @@ class _RosterList extends StatelessWidget {
 }
 
 class _RosterRow extends StatelessWidget {
-  const _RosterRow({required this.item});
+  const _RosterRow({
+    required this.item,
+    required this.busy,
+    required this.onActivate,
+    required this.onWalkOut,
+  });
 
   final TournamentRegistrationSummary item;
+  final bool busy;
+  final ValueChanged<TournamentRegistrationSummary>? onActivate;
+  final ValueChanged<TournamentRegistrationSummary>? onWalkOut;
 
   @override
   Widget build(BuildContext context) {
@@ -3868,11 +3961,39 @@ class _RosterRow extends StatelessWidget {
               ],
             ),
           ),
-          _StatusPill(ready ? 'READY' : item.paymentStatus.toUpperCase(),
-              ready: ready),
+          Wrap(
+            spacing: HDTSpace.sm,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _StatusPill(_statusLabel(item), ready: ready),
+              if (!ready && onActivate != null)
+                OutlinedButton.icon(
+                  onPressed: busy ? null : () => onActivate!(item),
+                  icon: busy
+                      ? const SizedBox.square(
+                          dimension: 12,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check_circle_outline, size: 14),
+                  label: const Text('PAID ACTIVE'),
+                ),
+              if (item.registrationStatus != 'walkOut' && onWalkOut != null)
+                TextButton.icon(
+                  onPressed: busy ? null : () => onWalkOut!(item),
+                  icon: const Icon(Icons.logout, size: 14),
+                  label: const Text('WO'),
+                ),
+            ],
+          ),
         ],
       ),
     );
+  }
+
+  String _statusLabel(TournamentRegistrationSummary item) {
+    if (item.readyForBracket) return 'READY';
+    if (item.registrationStatus == 'walkOut') return 'WO';
+    return item.paymentStatus.toUpperCase();
   }
 }
 

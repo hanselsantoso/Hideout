@@ -1829,19 +1829,93 @@ class TournamentRepository {
         'registrationId': registrationId,
       });
     } catch (_) {
-      await firestore
-          .doc(FirestorePaths.tournamentRegistrationDoc(
-        tournamentId,
-        registrationId,
-      ))
-          .set({
-        'paymentStatus': 'paid',
-        'registrationStatus': 'active',
-        'paymentId': 'AUTO-$registrationId',
-        'paidAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      await activateTournamentRegistration(
+        tournamentId: tournamentId,
+        registrationId: registrationId,
+      );
     }
+  }
+
+  Future<void> activateTournamentRegistration({
+    required String tournamentId,
+    required String registrationId,
+  }) async {
+    final registrationRef = firestore.doc(
+      FirestorePaths.tournamentRegistrationDoc(tournamentId, registrationId),
+    );
+    final tournamentRef = firestore.doc(FirestorePaths.tournamentDoc(
+      tournamentId,
+    ));
+    await firestore.runTransaction((tx) async {
+      final registrationSnap = await tx.get(registrationRef);
+      final wasReady = registrationSnap.exists &&
+          registrationSnap.data()?['paymentStatus'] == 'paid' &&
+          registrationSnap.data()?['registrationStatus'] == 'active';
+      tx.set(
+        registrationRef,
+        {
+          'paymentStatus': 'paid',
+          'registrationStatus': 'active',
+          'paymentId': 'AUTO-$registrationId',
+          'paidAt': FieldValue.serverTimestamp(),
+          'activatedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      if (!wasReady) {
+        tx.set(
+          tournamentRef,
+          {
+            'currentParticipantCount': FieldValue.increment(1),
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+      }
+    });
+  }
+
+  Future<void> markRegistrationWalkOut({
+    required String tournamentId,
+    required String registrationId,
+  }) async {
+    final registrationRef = firestore.doc(
+      FirestorePaths.tournamentRegistrationDoc(tournamentId, registrationId),
+    );
+    final tournamentRef = firestore.doc(FirestorePaths.tournamentDoc(
+      tournamentId,
+    ));
+    await firestore.runTransaction((tx) async {
+      final registrationSnap = await tx.get(registrationRef);
+      final data = registrationSnap.data() ?? const <String, dynamic>{};
+      final wasReady = data['paymentStatus'] == 'paid' &&
+          data['registrationStatus'] == 'active';
+      final tournamentSnap = await tx.get(tournamentRef);
+      final currentCount =
+          (tournamentSnap.data()?['currentParticipantCount'] as num?)
+                  ?.round() ??
+              0;
+      tx.set(
+        registrationRef,
+        {
+          'registrationStatus': 'walkOut',
+          'walkOutAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      if (wasReady) {
+        tx.set(
+          tournamentRef,
+          {
+            'currentParticipantCount': math.max(0, currentCount - 1),
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+      }
+    });
   }
 
   Future<String> requestTournamentWithdrawal({

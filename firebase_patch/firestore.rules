@@ -96,6 +96,22 @@ service cloud.firestore {
           ]);
     }
 
+    function canUpdateRegistrationForTrial(tournamentId) {
+      return isAuthenticated()
+        && (isTournamentOwner(tournamentId)
+          || resource.data.playerId == request.auth.uid)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            'paymentStatus',
+            'registrationStatus',
+            'paymentId',
+            'paidAt',
+            'activatedAt',
+            'walkOutAt',
+            'updatedAt'
+          ]);
+    }
+
     // ── /users/{uid} ──────────────────────────────────────────────
     function isTournamentOwner(tournamentId) {
       return isCommunityAdmin()
@@ -172,6 +188,7 @@ service cloud.firestore {
         allow read: if isAuthenticated();
         allow create: if isPlayer() && request.resource.data.playerId == request.auth.uid;
         allow update: if isAdmin()
+          || canUpdateRegistrationForTrial(tournamentId)
           || (isJudge()
             && request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly([

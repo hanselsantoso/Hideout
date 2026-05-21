@@ -134,6 +134,18 @@ class _Header extends StatelessWidget {
           runSpacing: 10,
           children: [
             OutlinedButton.icon(
+              onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/',
+                (_) => false,
+              ),
+              icon: const Icon(Icons.home_outlined, size: 16),
+              label: const Text('HOME'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(112, 42),
+              ),
+            ),
+            OutlinedButton.icon(
               onPressed: () => Navigator.pushNamed(context, '/juri/matches'),
               icon: const Icon(Icons.sports_martial_arts_outlined, size: 16),
               label: const Text('JUDGE MATCHES'),

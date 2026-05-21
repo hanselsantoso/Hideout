@@ -415,6 +415,13 @@ class RoleShell extends ConsumerWidget {
 
 const _roleNavItems = [
   _RoleNavItem(
+    label: 'Home',
+    route: '/',
+    icon: Icons.home_outlined,
+    section: 'overview',
+    roles: {'player', 'judge', 'community_admin', 'super_admin'},
+  ),
+  _RoleNavItem(
     label: 'Dashboard',
     route: '/dashboard',
     icon: Icons.dashboard_outlined,
@@ -614,7 +621,16 @@ class _RoleSidebar extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
               child: _SidebarFooter(
                 signedIn: user != null,
-                onSignOut: () => ref.read(authRepositoryProvider).signOut(),
+                onSignOut: () async {
+                  await ref.read(authRepositoryProvider).signOut();
+                  if (context.mounted) {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/',
+                      (_) => false,
+                    );
+                  }
+                },
               ),
             ),
           ],
@@ -1087,6 +1103,10 @@ Map<String, List<_RoleNavItem>> _groupNavItems(List<_RoleNavItem> items) {
 void _goToRoleItem(BuildContext context, _RoleNavItem item) {
   final current = ModalRoute.of(context)?.settings.name;
   if (_routeMatches(current, item.route)) return;
+  if (item.route == '/') {
+    Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
+    return;
+  }
   Navigator.pushReplacementNamed(context, item.route);
 }
 
