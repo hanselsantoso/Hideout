@@ -72,20 +72,21 @@ class CommunityRepository {
   Stream<List<CommunityJudgeCandidate>> watchJudgeCandidates() {
     return firestore
         .collection(FirestorePaths.users)
+        .where('role', whereIn: ['player', 'judge'])
         .limit(100)
         .snapshots()
         .map((snap) {
-      final users = snap.docs
-          .map(CommunityJudgeCandidate.fromFirestore)
-          .where((user) => !user.isSuperAdmin)
-          .toList();
-      users.sort((a, b) {
-        final role = a.roleLabel.compareTo(b.roleLabel);
-        if (role != 0) return role;
-        return a.displayName.compareTo(b.displayName);
-      });
-      return users;
-    });
+          final users = snap.docs
+              .map(CommunityJudgeCandidate.fromFirestore)
+              .where((user) => !user.isSuperAdmin)
+              .toList();
+          users.sort((a, b) {
+            final role = a.roleLabel.compareTo(b.roleLabel);
+            if (role != 0) return role;
+            return a.displayName.compareTo(b.displayName);
+          });
+          return users;
+        });
   }
 
   Future<void> assignJudge({

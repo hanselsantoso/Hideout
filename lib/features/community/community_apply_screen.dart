@@ -189,7 +189,7 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
         _Field(
           label: 'COMMUNITY NAME',
           controller: _communityName,
-          hint: 'contoh: JKT WOLVES',
+          hint: 'example: JKT WOLVES',
           maxLength: 40,
           textCapitalization: TextCapitalization.characters,
         ),
@@ -284,7 +284,7 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
           label: 'INSTAGRAM / SOSMED',
           controller: _leaderInstagram,
           icon: Icons.alternate_email,
-          hint: 'tanpa @',
+          hint: 'without @',
         ),
         _Wide(
           child: _Field(

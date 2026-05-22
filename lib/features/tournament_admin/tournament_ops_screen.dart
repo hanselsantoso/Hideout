@@ -953,7 +953,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${registration.playerName} ditandai WO.')),
+        SnackBar(content: Text('${registration.playerName} marked as WO.')),
       );
     } catch (error) {
       if (!mounted) return;
@@ -1421,7 +1421,7 @@ class _InteractiveGroupSetupPanelState
                         style:
                             HDTText.overline(size: 10, color: HDTColors.info)),
                     const SizedBox(height: HDTSpace.xs),
-                    Text('Atur grup tanpa batas power-of-two',
+                    Text('Set groups without power-of-two limits',
                         style: HDTText.display(size: 25)),
                     const SizedBox(height: HDTSpace.sm),
                     Text(

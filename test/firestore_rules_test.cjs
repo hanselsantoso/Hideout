@@ -5,10 +5,14 @@ const {
   initializeTestEnvironment,
 } = require('@firebase/rules-unit-testing');
 const {
+  collection,
   doc,
   getDoc,
+  getDocs,
+  query,
   setDoc,
   updateDoc,
+  where,
 } = require('firebase/firestore');
 
 let testEnv;
@@ -232,14 +236,32 @@ describe('firestore security rules', () => {
     );
   });
 
+  it('allows community admins to query player and judge candidates only', async () => {
+    const db = authedDb('community-b');
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(db, 'users'),
+          where('role', 'in', ['player', 'judge']),
+        ),
+      ),
+    );
+    await assertSucceeds(
+      getDocs(
+        query(collection(db, 'users'), where('role', '==', 'judge')),
+      ),
+    );
+    await assertFails(getDocs(collection(db, 'users')));
+  });
+
   it('allows admins to create review notifications for applicants', async () => {
     const db = authedDb('super-a');
     await assertSucceeds(
       setDoc(doc(db, 'notifications/review-1'), {
         recipientId: 'player-a',
         type: 'communityApplication',
-        title: 'Komunitas disetujui',
-        body: 'Pengajuan komunitas sudah selesai direview.',
+        title: 'Community approved',
+        body: 'The community application review is complete.',
         isRead: false,
       }),
     );

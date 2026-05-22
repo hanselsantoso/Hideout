@@ -79,6 +79,7 @@ class TournamentRepository {
   Stream<List<AssignableJudge>> watchAssignableJudges() {
     return firestore
         .collection(FirestorePaths.users)
+        .where('role', isEqualTo: 'judge')
         .limit(100)
         .snapshots()
         .map((snap) {

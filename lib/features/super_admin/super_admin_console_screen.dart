@@ -800,7 +800,7 @@ class _ComponentEditorDialogState
               Row(
                 children: [
                   Expanded(
-                      child: _textField(_line, 'Line, contoh: BX / UX / CX')),
+                      child: _textField(_line, 'Line, example: BX / UX / CX')),
                   const SizedBox(width: HDTSpace.md),
                   Expanded(child: _textField(_image, 'Image filename / URL')),
                 ],
@@ -841,7 +841,7 @@ class _ComponentEditorDialogState
               const SizedBox(height: HDTSpace.md),
               _textField(
                 _integrated,
-                'Integrated ratchet, jika ada',
+                'Integrated ratchet, if any',
               ),
               const SizedBox(height: HDTSpace.md),
               _textField(_description, 'Description'),

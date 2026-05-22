@@ -397,7 +397,7 @@ class _TournamentWizardScreenState
             const _InfoRow(
               title: 'Time Limit Per Round',
               value: '5 min',
-              subtitle: 'Round auto-resolves jika melewati batas waktu.',
+              subtitle: 'Round auto-resolves if it exceeds the time limit.',
             ),
             const _InfoRow(
               title: 'Tiebreaker',

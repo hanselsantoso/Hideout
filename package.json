@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "test:rules": "firebase emulators:exec --only firestore \"mocha --timeout 30000 test/firestore_rules_test.cjs\"",
-    "smoke:live": "node tooling/live_ui_smoke.cjs"
+    "smoke:live": "node tooling/live_ui_smoke.cjs",
+    "smoke:roles": "node tooling/live_role_smoke.cjs"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^4.0.1",
