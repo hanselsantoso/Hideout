@@ -54,11 +54,16 @@ Reset data trial/prototype sambil menjaga 4 akun demo dan parts:
 ```powershell
 node tooling/reset_firebase_trial_data.cjs
 node tooling/reset_firebase_trial_data.cjs --execute-cli
+node tooling/reset_firebase_trial_data.cjs --execute-cli --delete-auth-users
 ```
 
 Gunakan `--execute-cli` untuk production cleanup karena Firebase CLI menjalankan
 delete recursive sampai subcollection. `--execute` dipakai hanya kalau rules masih
 mengizinkan REST client membaca seluruh tree.
+
+Tambahkan `--delete-auth-users` jika Firebase Auth user non-demo juga perlu
+dibersihkan. Mode ini mempertahankan empat email demo utama dan membutuhkan akun
+Firebase CLI yang punya izin `firebaseauth.users.delete`.
 
 Deploy:
 

@@ -6,6 +6,7 @@ const password = process.env.HIDEOUT_DEMO_PASSWORD;
 const execute = process.argv.includes('--execute');
 const executeCli = process.argv.includes('--execute-cli');
 const deleteAuthUsers = process.argv.includes('--delete-auth-users');
+const shouldExecute = execute || executeCli;
 
 const preserveDemoUids = new Set([
   'demo-player-kaede',
@@ -188,6 +189,26 @@ async function resetFirestore(token) {
 
 async function resetAuthUsers(stats) {
   if (!deleteAuthUsers) return { checked: false, deleted: [], warning: null };
+  const adminResult = await resetAuthUsersWithAdminSdk().catch((error) => ({
+    checked: true,
+    deleted: [],
+    warning: `firebase-admin cleanup gagal: ${error.message}`,
+    fallback: true,
+  }));
+  if (!adminResult.fallback) return adminResult;
+
+  const cliResult = await resetAuthUsersWithFirebaseCliToken().catch((error) => ({
+    checked: true,
+    deleted: [],
+    warning: `${adminResult.warning}. Firebase CLI token cleanup juga gagal: ${error.message}`,
+  }));
+  if (cliResult.warning && adminResult.warning) {
+    cliResult.warning = `${adminResult.warning}. ${cliResult.warning}`;
+  }
+  return cliResult;
+}
+
+async function resetAuthUsersWithAdminSdk() {
   let admin;
   try {
     admin = require('firebase-admin');
@@ -196,7 +217,8 @@ async function resetAuthUsers(stats) {
       checked: true,
       deleted: [],
       warning:
-        'firebase-admin belum terpasang, jadi Auth user cleanup dilewati. Jalankan npm install firebase-admin jika ingin menghapus Auth user non-demo.',
+        'firebase-admin belum terpasang',
+      fallback: true,
     };
   }
 
@@ -213,11 +235,93 @@ async function resetAuthUsers(stats) {
         continue;
       }
       deleted.push(`${user.uid} <${user.email || 'no-email'}>`);
-      if (execute) await auth.deleteUser(user.uid);
+      if (shouldExecute) await auth.deleteUser(user.uid);
     }
     pageToken = page.pageToken;
   } while (pageToken);
   return { checked: true, deleted, warning: null };
+}
+
+async function resetAuthUsersWithFirebaseCliToken() {
+  let firebaseAuth;
+  try {
+    firebaseAuth = require('firebase-tools/lib/auth');
+  } catch (error) {
+    throw new Error(`firebase-tools auth module tidak tersedia: ${error.message}`);
+  }
+
+  const account = firebaseAuth.getGlobalDefaultAccount();
+  const refreshToken = account?.tokens?.refresh_token;
+  if (!refreshToken) {
+    throw new Error('Firebase CLI belum login. Jalankan npx firebase login lebih dulu.');
+  }
+
+  const access = await firebaseAuth.getAccessToken(refreshToken, [
+    'https://www.googleapis.com/auth/cloud-platform',
+  ]);
+  const accessToken = access?.access_token;
+  if (!accessToken) throw new Error('Gagal mengambil access token Firebase CLI.');
+
+  const users = await listAuthUsersWithAccessToken(accessToken);
+  const deleted = [];
+  const localIds = [];
+  for (const user of users) {
+    if (preserveDemoUids.has(user.localId) || preserveDemoEmails.has(user.email)) {
+      continue;
+    }
+    deleted.push(`${user.localId} <${user.email || 'no-email'}>`);
+    localIds.push(user.localId);
+  }
+  if (shouldExecute && localIds.length) {
+    await batchDeleteAuthUsersWithAccessToken(accessToken, localIds);
+  }
+  return { checked: true, deleted, warning: null };
+}
+
+async function listAuthUsersWithAccessToken(accessToken) {
+  const users = [];
+  let nextPageToken = '';
+  do {
+    const body = await requestJson(
+      'https://www.googleapis.com/identitytoolkit/v3/relyingparty/downloadAccount',
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          targetProjectId: projectId,
+          maxResults: 1000,
+          nextPageToken,
+        }),
+      },
+    );
+    users.push(...(body.users || []));
+    nextPageToken = body.nextPageToken || '';
+  } while (nextPageToken);
+  return users;
+}
+
+async function batchDeleteAuthUsersWithAccessToken(accessToken, localIds) {
+  const chunkSize = 1000;
+  for (let index = 0; index < localIds.length; index += chunkSize) {
+    const chunk = localIds.slice(index, index + chunkSize);
+    const body = await requestJson(
+      `https://identitytoolkit.googleapis.com/v1/projects/${projectId}/accounts:batchDelete`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ localIds: chunk, force: true }),
+      },
+    );
+    if (body.errors?.length) {
+      throw new Error(`Auth batchDelete errors: ${JSON.stringify(body.errors)}`);
+    }
+  }
 }
 
 function runFirebaseDelete(path) {
@@ -281,10 +385,10 @@ async function main() {
     console.log('\nAuth summary');
     if (authStats.warning) console.log(authStats.warning);
     console.log(
-      `Auth users ${execute ? 'deleted' : 'to delete'}: ${authStats.deleted.length}`,
+      `Auth users ${shouldExecute ? 'deleted' : 'to delete'}: ${authStats.deleted.length}`,
     );
     for (const user of authStats.deleted.slice(0, 80)) {
-      console.log(`  ${execute ? 'deleted' : 'delete'} ${user}`);
+      console.log(`  ${shouldExecute ? 'deleted' : 'delete'} ${user}`);
     }
   } else {
     console.log('\nAuth summary');
