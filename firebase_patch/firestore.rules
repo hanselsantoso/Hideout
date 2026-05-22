@@ -96,7 +96,7 @@ service cloud.firestore {
           ]);
     }
 
-    function canUpdateRegistrationForTrial(tournamentId) {
+    function canUpdateRegistrationOps(tournamentId) {
       return isAuthenticated()
         && ((get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.organizerId == request.auth.uid)
           || resource.data.playerId == request.auth.uid)
@@ -144,11 +144,6 @@ service cloud.firestore {
     function isTournamentOwner(tournamentId) {
       return isCommunityAdmin()
         && get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.organizerId == request.auth.uid;
-    }
-
-    function isExistingTournamentOwner() {
-      return isCommunityAdmin()
-        && resource.data.organizerId == request.auth.uid;
     }
 
     function isNewTournamentOwner() {
@@ -209,7 +204,6 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isAdmin() || isNewTournamentOwner();
       allow update: if isAdmin()
-        || isExistingTournamentOwner()
         || canUpdateTournamentOps()
         || canJudgeAdvanceTournament();
       allow delete: if isAdmin();
@@ -219,7 +213,7 @@ service cloud.firestore {
         allow read: if isAuthenticated();
         allow create: if isPlayer() && request.resource.data.playerId == request.auth.uid;
         allow update: if isAdmin()
-          || canUpdateRegistrationForTrial(tournamentId)
+          || canUpdateRegistrationOps(tournamentId)
           || (isJudge()
             && request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly([
@@ -253,16 +247,14 @@ service cloud.firestore {
         allow read: if isAuthenticated();
         allow create, update: if isAdmin()
           || isTournamentOwner(tournamentId)
-          || isTournamentOrganizer(tournamentId)
-          || isJudge();
+          || isTournamentOrganizer(tournamentId);
 
         // Matches — admin creates, judge updates (their assigned match), all read
         match /matches/{matchId} {
           allow read: if isAuthenticated();
           allow create: if isAdmin()
             || isTournamentOwner(tournamentId)
-            || isTournamentOrganizer(tournamentId)
-            || (isJudge() && request.resource.data.judgeId == request.auth.uid);
+            || isTournamentOrganizer(tournamentId);
           allow update: if isAdmin()
             || isTournamentOwner(tournamentId)
             || isTournamentOrganizer(tournamentId)

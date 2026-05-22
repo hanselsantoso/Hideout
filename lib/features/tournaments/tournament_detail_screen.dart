@@ -158,6 +158,23 @@ class TournamentDetailScreen extends StatefulWidget {
 
 class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
   _TournamentDetailTab _selectedTab = _TournamentDetailTab.overview;
+  bool _initialTabApplied = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialTabApplied) return;
+    _initialTabApplied = true;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is! Map) return;
+    final initial = args['initialTab']?.toString().toLowerCase();
+    for (final tab in _TournamentDetailTab.values) {
+      if (tab.name == initial || tab.label.toLowerCase() == initial) {
+        _selectedTab = tab;
+        break;
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

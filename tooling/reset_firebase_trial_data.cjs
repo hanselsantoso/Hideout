@@ -9,7 +9,6 @@ const deleteAuthUsers = process.argv.includes('--delete-auth-users');
 
 const preserveDemoUids = new Set([
   'demo-player-kaede',
-  'demo-player-raka',
   'demo-judge-bayu',
   'demo-community-admin-nadia',
   'demo-super-admin-hansel',

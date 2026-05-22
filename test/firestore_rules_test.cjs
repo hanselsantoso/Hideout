@@ -46,6 +46,16 @@ describe('firestore security rules', () => {
         roles: ['player', 'community_admin'],
         isActive: true,
       });
+      await setDoc(doc(db, 'users/judge-a'), {
+        role: 'judge',
+        roles: ['player', 'judge'],
+        isActive: true,
+      });
+      await setDoc(doc(db, 'users/judge-b'), {
+        role: 'judge',
+        roles: ['player', 'judge'],
+        isActive: true,
+      });
       await setDoc(doc(db, 'users/super-a'), {
         role: 'super_admin',
         roles: ['super_admin'],
@@ -65,6 +75,19 @@ describe('firestore security rules', () => {
         requesterId: 'community-a',
         amount: 100000,
         status: 'processing',
+      });
+      await setDoc(doc(db, 'tournaments/owned-event/registrations/reg-a'), {
+        playerId: 'player-a',
+        paymentStatus: 'pending',
+        registrationStatus: 'pendingPayment',
+      });
+      await setDoc(doc(db, 'tournaments/owned-event/rounds/round-a'), {
+        index: 1,
+        name: 'Round A',
+      });
+      await setDoc(doc(db, 'tournaments/owned-event/rounds/round-a/matches/match-a'), {
+        judgeId: 'judge-a',
+        status: 'ready',
       });
     });
   });
@@ -89,6 +112,83 @@ describe('firestore security rules', () => {
     await assertFails(
       updateDoc(doc(db, 'tournaments/other-event'), {
         name: 'Hijacked Event',
+      }),
+    );
+  });
+
+  it('allows tournament organizers to update only ops fields', async () => {
+    const db = authedDb('community-a');
+    await assertSucceeds(
+      updateDoc(doc(db, 'tournaments/owned-event'), {
+        currentParticipantCount: 1,
+        updatedAt: 'now',
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(db, 'tournaments/owned-event'), {
+        organizerId: 'community-b',
+      }),
+    );
+  });
+
+  it('allows organizers and players to update limited registration ops fields', async () => {
+    await assertSucceeds(
+      updateDoc(doc(authedDb('community-a'), 'tournaments/owned-event/registrations/reg-a'), {
+        paymentStatus: 'paid',
+        registrationStatus: 'active',
+        updatedAt: 'now',
+      }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(authedDb('player-a'), 'tournaments/owned-event/registrations/reg-a'), {
+        paymentStatus: 'paid',
+        registrationStatus: 'active',
+        updatedAt: 'now',
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(authedDb('player-a'), 'tournaments/owned-event/registrations/reg-a'), {
+        playerId: 'judge-a',
+      }),
+    );
+  });
+
+  it('keeps round and match creation limited to organizers, not arbitrary judges', async () => {
+    await assertSucceeds(
+      setDoc(doc(authedDb('community-a'), 'tournaments/owned-event/rounds/round-b'), {
+        index: 2,
+        name: 'Round B',
+      }),
+    );
+    await assertFails(
+      setDoc(doc(authedDb('judge-a'), 'tournaments/owned-event/rounds/round-c'), {
+        index: 3,
+        name: 'Round C',
+      }),
+    );
+    await assertSucceeds(
+      setDoc(doc(authedDb('community-a'), 'tournaments/owned-event/rounds/round-a/matches/match-b'), {
+        judgeId: 'judge-a',
+        status: 'queued',
+      }),
+    );
+    await assertFails(
+      setDoc(doc(authedDb('judge-a'), 'tournaments/owned-event/rounds/round-a/matches/match-c'), {
+        judgeId: 'judge-a',
+        status: 'queued',
+      }),
+    );
+  });
+
+  it('allows only the assigned judge to update an existing match', async () => {
+    await assertSucceeds(
+      updateDoc(doc(authedDb('judge-a'), 'tournaments/owned-event/rounds/round-a/matches/match-a'), {
+        status: 'completed',
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(authedDb('judge-b'), 'tournaments/owned-event/rounds/round-a/matches/match-a'), {
+        status: 'completed',
       }),
     );
   });

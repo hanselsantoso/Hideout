@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/firestore_paths.dart';
 import '../../core/theme/hideout_tokens.dart';
 import '../../core/widgets/hdt_widgets.dart';
+import '../../data/repositories/auth_repository.dart';
 
 enum PlayerTournamentStatus {
   registered,
@@ -26,6 +30,8 @@ class PlayerTournamentEntry {
   final Color color;
   final String deck;
   final String ticketId;
+  final String playerName;
+  final String playerCode;
   final String? result;
   final int? position;
   final int? eloChange;
@@ -46,6 +52,8 @@ class PlayerTournamentEntry {
     required this.color,
     required this.deck,
     required this.ticketId,
+    this.playerName = 'PLAYER',
+    this.playerCode = '',
     this.result,
     this.position,
     this.eloChange,
@@ -75,8 +83,8 @@ class PlayerTournamentEntry {
         'ticketId': ticketId,
         'tournamentName': name,
         'community': community,
-        'player': 'HANSEL',
-        'bjxId': 'HDT-202',
+        'player': playerName,
+        'bjxId': playerCode.isEmpty ? ticketId : playerCode,
         'deck': deck,
         'venue': venue,
         'city': city,
@@ -95,146 +103,210 @@ class PlayerTournamentEntry {
   }
 }
 
-final playerTournamentDemo = [
-  PlayerTournamentEntry(
-    id: 'bjx-cup-3',
-    name: 'HIDEOUT Cup #3. Spring Showdown',
-    community: 'JKT Wolves',
-    status: PlayerTournamentStatus.ongoing,
-    date: DateTime(2026, 5, 9),
-    venue: 'GBK Senayan',
-    city: 'Jakarta',
-    tier: 'PREMIER',
-    format: 'Swiss to Double Elim',
-    registered: 64,
-    capacity: 64,
-    color: HDTColors.accent,
-    deck: 'Phantom Reaper',
-    ticketId: 'HDT-CUP-3-0064',
-  ),
-  PlayerTournamentEntry(
-    id: 'bjx-cup-4',
-    name: 'HIDEOUT Cup #4. Summer Open',
-    community: 'JKT Wolves',
-    status: PlayerTournamentStatus.registered,
-    date: DateTime(2026, 6, 14),
-    venue: 'GBK Senayan',
-    city: 'Jakarta',
-    tier: 'STANDARD',
-    format: 'Single Elim',
-    registered: 42,
-    capacity: 64,
-    color: HDTColors.info,
-    deck: 'Void Bastion',
-    ticketId: 'HDT-CUP-4-0042',
-  ),
-  PlayerTournamentEntry(
-    id: 'snyo-apr',
-    name: 'Senayan Open. April',
-    community: 'JKT Wolves',
-    status: PlayerTournamentStatus.completed,
-    date: DateTime(2026, 4, 26),
-    venue: 'GBK Senayan',
-    city: 'Jakarta',
-    tier: 'STANDARD',
-    format: 'Swiss to Double Elim',
-    registered: 48,
-    capacity: 48,
-    color: HDTColors.success,
-    deck: 'Phantom Reaper',
-    ticketId: 'HDT-APR-0048',
-    result: 'TOP 8',
-    position: 6,
-    eloChange: 42,
-  ),
-  PlayerTournamentEntry(
-    id: 'bdg-h1',
-    name: 'BDG Highland Open Vol.1',
-    community: 'BDG Grinders',
-    status: PlayerTournamentStatus.completed,
-    date: DateTime(2026, 3, 15),
-    venue: 'Trans Studio',
-    city: 'Bandung',
-    tier: 'STANDARD',
-    format: 'Single Elim',
-    registered: 32,
-    capacity: 32,
-    color: HDTColors.warning,
-    deck: 'Shrike Mk.II',
-    ticketId: 'BDG-H1-0016',
-    result: 'CHAMPION',
-    position: 1,
-    eloChange: 88,
-    prize: 'Rp 500.000 + DranSword 2-60S',
-  ),
-  PlayerTournamentEntry(
-    id: 'wkly-17',
-    name: 'Weekly Ranked #17',
-    community: 'JKT Wolves',
-    status: PlayerTournamentStatus.completed,
-    date: DateTime(2026, 2, 14),
-    venue: 'Senayan Hub',
-    city: 'Jakarta',
-    tier: 'CASUAL',
-    format: 'Swiss',
-    registered: 28,
-    capacity: 32,
-    color: HDTColors.info,
-    deck: 'Void Bastion',
-    ticketId: 'WKLY-17-0012',
-    result: 'TOP 4',
-    position: 3,
-    eloChange: 30,
-  ),
-  PlayerTournamentEntry(
-    id: 'wkly-16',
-    name: 'Weekly Ranked #16',
-    community: 'JKT Wolves',
-    status: PlayerTournamentStatus.eliminated,
-    date: DateTime(2026, 2, 7),
-    venue: 'Senayan Hub',
-    city: 'Jakarta',
-    tier: 'CASUAL',
-    format: 'Swiss',
-    registered: 24,
-    capacity: 32,
-    color: HDTColors.danger,
-    deck: 'Cobalt Rush',
-    ticketId: 'WKLY-16-0012',
-    result: 'TOP 16',
-    position: 12,
-    eloChange: -8,
-  ),
-];
+final playerTournamentEntriesProvider =
+    StreamProvider<List<PlayerTournamentEntry>>((ref) {
+  final user = ref.watch(authStateProvider).valueOrNull;
+  if (user == null) return Stream<List<PlayerTournamentEntry>>.value(const []);
+  final firestore = ref.watch(firestoreProvider);
+  return firestore
+      .collectionGroup(FirestorePaths.registrations)
+      .where('playerId', isEqualTo: user.uid)
+      .limit(80)
+      .snapshots()
+      .asyncMap((snap) async {
+    final rows = <PlayerTournamentEntry>[];
+    for (final doc in snap.docs) {
+      final tournamentRef = doc.reference.parent.parent;
+      if (tournamentRef == null) continue;
+      final tournamentSnap = await tournamentRef.get();
+      rows.add(_entryFromLive(
+        registrationId: doc.id,
+        registration: doc.data(),
+        tournamentId: tournamentRef.id,
+        tournament: tournamentSnap.data() ?? const <String, dynamic>{},
+      ));
+    }
+    rows.sort((a, b) => b.date.compareTo(a.date));
+    return rows;
+  });
+});
 
-class MyTournamentsScreen extends StatefulWidget {
+PlayerTournamentEntry _entryFromLive({
+  required String registrationId,
+  required String tournamentId,
+  required Map<String, dynamic> registration,
+  required Map<String, dynamic> tournament,
+}) {
+  final status = _statusFromLive(registration, tournament);
+  final rank = _intFrom(registration['finalRank'] ?? registration['position']);
+  final eloChange = _nullableInt(registration['eloChange']);
+  return PlayerTournamentEntry(
+    id: tournamentId,
+    name: _text(tournament['name'], fallback: 'Tournament'),
+    community: _text(
+      tournament['communityName'] ?? tournament['community'],
+      fallback: _text(tournament['communityId'], fallback: 'Community'),
+    ),
+    status: status,
+    date: _dateFrom(tournament['startDate'] ?? tournament['date']),
+    venue: _text(
+      tournament['venue'] ?? tournament['location'],
+      fallback: 'Venue TBA',
+    ),
+    city: _text(tournament['city'], fallback: ''),
+    tier: _text(tournament['tier'], fallback: 'STANDARD').toUpperCase(),
+    format: _text(
+      tournament['bracketType'] ?? tournament['format'],
+      fallback: 'Tournament',
+    ),
+    registered: _intFrom(tournament['currentParticipantCount']),
+    capacity: _intFrom(tournament['maxParticipants'], fallback: 0),
+    color: _colorForStatus(status),
+    deck: _text(registration['deckName'], fallback: 'Registered deck'),
+    ticketId: registrationId,
+    playerName: _text(registration['playerName'], fallback: 'Player'),
+    playerCode: _text(
+      registration['playerCode'] ?? registration['playerId'],
+      fallback: registrationId,
+    ),
+    result: rank > 0 ? 'TOP $rank' : registration['result']?.toString(),
+    position: rank > 0 ? rank : null,
+    eloChange: eloChange,
+    prize: registration['prize']?.toString(),
+  );
+}
+
+PlayerTournamentStatus _statusFromLive(
+  Map<String, dynamic> registration,
+  Map<String, dynamic> tournament,
+) {
+  final registrationStatus =
+      _text(registration['registrationStatus']).toLowerCase();
+  final checkInStatus = _text(registration['checkInStatus']).toLowerCase();
+  final tournamentStatus = _text(tournament['status']).toLowerCase();
+  if (registrationStatus == 'walkout' ||
+      registrationStatus == 'walk_out' ||
+      registrationStatus == 'eliminated') {
+    return PlayerTournamentStatus.eliminated;
+  }
+  if (tournamentStatus == 'completed') return PlayerTournamentStatus.completed;
+  if (tournamentStatus == 'running' || tournamentStatus == 'live') {
+    return PlayerTournamentStatus.ongoing;
+  }
+  if (checkInStatus == 'checkedin' || checkInStatus == 'checked_in') {
+    return PlayerTournamentStatus.checkedIn;
+  }
+  return PlayerTournamentStatus.registered;
+}
+
+DateTime _dateFrom(Object? value) {
+  if (value is Timestamp) return value.toDate();
+  if (value is DateTime) return value;
+  if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
+  return DateTime.now();
+}
+
+String _text(Object? value, {String fallback = ''}) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? fallback : text;
+}
+
+int _intFrom(Object? value, {int fallback = 0}) {
+  if (value is num) return value.round();
+  return int.tryParse(value?.toString() ?? '') ?? fallback;
+}
+
+int? _nullableInt(Object? value) {
+  if (value == null) return null;
+  if (value is num) return value.round();
+  return int.tryParse(value.toString());
+}
+
+Color _colorForStatus(PlayerTournamentStatus status) {
+  return switch (status) {
+    PlayerTournamentStatus.ongoing => HDTColors.accent,
+    PlayerTournamentStatus.registered => HDTColors.info,
+    PlayerTournamentStatus.checkedIn => HDTColors.success,
+    PlayerTournamentStatus.completed => HDTColors.text3,
+    PlayerTournamentStatus.eliminated => HDTColors.danger,
+  };
+}
+
+class MyTournamentsScreen extends ConsumerStatefulWidget {
   const MyTournamentsScreen({super.key});
 
   @override
-  State<MyTournamentsScreen> createState() => _MyTournamentsScreenState();
+  ConsumerState<MyTournamentsScreen> createState() =>
+      _MyTournamentsScreenState();
 }
 
-class _MyTournamentsScreenState extends State<MyTournamentsScreen> {
+class _MyTournamentsScreenState extends ConsumerState<MyTournamentsScreen> {
   String _filter = 'ALL';
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filter == 'ALL'
-        ? playerTournamentDemo
-        : playerTournamentDemo
-            .where((item) => item.statusLabel == _filter)
-            .toList();
-    final completed = playerTournamentDemo
+    final live = ref.watch(playerTournamentEntriesProvider);
+    return live.when(
+      loading: () => const Scaffold(
+        backgroundColor: HDTColors.bg,
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, __) => _MyTournamentsView(
+        filter: _filter,
+        tournaments: const [],
+        notice:
+            'Turnamen kamu belum bisa dibaca dari Firebase. Refresh atau coba lagi setelah koneksi stabil.',
+        onFilterChanged: (value) => setState(() => _filter = value),
+      ),
+      data: (items) => _MyTournamentsView(
+        filter: _filter,
+        tournaments: items,
+        onFilterChanged: (value) => setState(() => _filter = value),
+      ),
+    );
+  }
+}
+
+class _MyTournamentsView extends StatelessWidget {
+  const _MyTournamentsView({
+    required this.filter,
+    required this.tournaments,
+    required this.onFilterChanged,
+    this.notice,
+  });
+
+  final String filter;
+  final List<PlayerTournamentEntry> tournaments;
+  final ValueChanged<String> onFilterChanged;
+  final String? notice;
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = filter == 'ALL'
+        ? tournaments
+        : tournaments.where((item) => item.statusLabel == filter).toList();
+    final completed = tournaments
         .where((item) =>
             item.status == PlayerTournamentStatus.completed ||
             item.status == PlayerTournamentStatus.eliminated)
         .length;
-    final wins = playerTournamentDemo
+    final wins = tournaments
         .where((item) => item.position != null && item.position == 1)
         .length;
-    final top4 = playerTournamentDemo
+    final top4 = tournaments
         .where((item) => item.position != null && item.position! <= 4)
         .length;
+    PlayerTournamentEntry? activeTicket;
+    for (final item in tournaments) {
+      final active = item.status == PlayerTournamentStatus.ongoing ||
+          item.status == PlayerTournamentStatus.registered ||
+          item.status == PlayerTournamentStatus.checkedIn;
+      if (active) {
+        activeTicket = item;
+        break;
+      }
+    }
+    final ticket = activeTicket;
 
     return Scaffold(
       backgroundColor: HDTColors.bg,
@@ -244,11 +316,13 @@ class _MyTournamentsScreenState extends State<MyTournamentsScreen> {
             _Header(
               onBack: () =>
                   Navigator.pushReplacementNamed(context, '/dashboard'),
-              onQr: () => Navigator.pushNamed(
-                context,
-                '/me/qr',
-                arguments: playerTournamentDemo.first.toTicketArgs(),
-              ),
+              onQr: ticket == null
+                  ? null
+                  : () => Navigator.pushNamed(
+                        context,
+                        '/me/qr',
+                        arguments: ticket.toTicketArgs(),
+                      ),
             ),
             Expanded(
               child: Center(
@@ -259,8 +333,12 @@ class _MyTournamentsScreenState extends State<MyTournamentsScreen> {
                     children: [
                       _TitleBar(
                         onFind: () => Navigator.pushReplacementNamed(
-                            context, '/dashboard'),
+                            context, '/tournaments'),
                       ),
+                      if (notice != null) ...[
+                        const SizedBox(height: 12),
+                        _Notice(text: notice!),
+                      ],
                       const SizedBox(height: 20),
                       Row(
                         children: [
@@ -304,8 +382,8 @@ class _MyTournamentsScreenState extends State<MyTournamentsScreen> {
                                 padding: const EdgeInsets.only(right: 8),
                                 child: HDTFilterChip(
                                   label: filter,
-                                  selected: _filter == filter,
-                                  onTap: () => setState(() => _filter = filter),
+                                  selected: this.filter == filter,
+                                  onTap: () => onFilterChanged(filter),
                                 ),
                               ),
                           ],
@@ -321,7 +399,7 @@ class _MyTournamentsScreenState extends State<MyTournamentsScreen> {
                           icon: Icons.emoji_events_outlined,
                           title: 'BELUM ADA TURNAMEN',
                           subtitle:
-                              'Ubah filter atau daftar tournament terlebih dahulu.',
+                              'Daftar tournament terlebih dahulu, atau ubah filter kalau event kamu sudah ada.',
                         ),
                     ],
                   ),
@@ -337,7 +415,7 @@ class _MyTournamentsScreenState extends State<MyTournamentsScreen> {
 
 class _Header extends StatelessWidget {
   final VoidCallback onBack;
-  final VoidCallback onQr;
+  final VoidCallback? onQr;
 
   const _Header({required this.onBack, required this.onQr});
 
@@ -419,6 +497,32 @@ class _TitleBar extends StatelessWidget {
           label: const Text('CARI TURNAMEN'),
         ),
       ],
+    );
+  }
+}
+
+class _Notice extends StatelessWidget {
+  const _Notice({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: hdtAccentCard(accentColor: HDTColors.warning),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, color: HDTColors.warning, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: HDTText.body(size: 12, color: HDTColors.text2),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -594,7 +698,14 @@ class _Actions extends StatelessWidget {
             style: ElevatedButton.styleFrom(minimumSize: const Size(76, 34)),
           ),
         OutlinedButton(
-          onPressed: () {},
+          onPressed: () => Navigator.pushNamed(
+            context,
+            '/tournaments/detail',
+            arguments: {
+              ...tournament.toTournamentArgs(),
+              'initialTab': 'bracket',
+            },
+          ),
           child: const Text('BRACKET'),
         ),
         OutlinedButton(

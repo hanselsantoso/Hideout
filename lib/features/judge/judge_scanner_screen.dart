@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../core/theme/hideout_tokens.dart';
-import '../../data/models/bey_part.dart';
 import '../../data/models/player_deck.dart';
 import '../../data/repositories/tournament_repository.dart';
 
@@ -122,7 +120,7 @@ class _JudgeScannerScreenState extends ConsumerState<JudgeScannerScreen> {
                               ? _ResultPanel(
                                   matchVerify: _matchVerify,
                                   allOk: allOk,
-                                  registration: _registration,
+                                  registration: _registration!,
                                   deckMatches: _deckMatches,
                                   bladeOk: _bladeOk,
                                   ratchetOk: _ratchetOk,
@@ -219,17 +217,26 @@ class _JudgeScannerScreenState extends ConsumerState<JudgeScannerScreen> {
                 registrationId: _ticketController.text,
               );
       if (!mounted) return;
+      if (registration == null) {
+        setState(() {
+          _registration = null;
+          _scanned = false;
+          _error =
+              'Tiket tidak ditemukan di data live. Pastikan ID registrasi benar atau scan QR peserta yang sudah terdaftar.';
+        });
+        return;
+      }
       setState(() {
-        _registration = registration ?? _demoRegistration();
+        _registration = registration;
         _scanned = true;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _registration = _demoRegistration();
-        _scanned = true;
+        _registration = null;
+        _scanned = false;
         _error =
-            'Tiket belum ditemukan di data live. Data demo ditampilkan agar proses verifikasi tetap bisa dipreview.';
+            'Tiket belum bisa dibaca dari Firebase. Periksa koneksi lalu coba scan ulang.';
       });
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -238,7 +245,7 @@ class _JudgeScannerScreenState extends ConsumerState<JudgeScannerScreen> {
 
   Future<void> _confirm(bool allOk) async {
     final registration = _registration;
-    if (registration == null || registration.id.startsWith('DEMO-')) {
+    if (registration == null) {
       _reset();
       return;
     }
@@ -471,7 +478,7 @@ class _ResultPanel extends StatelessWidget {
 
   final bool matchVerify;
   final bool allOk;
-  final JudgeRegistrationSnapshot? registration;
+  final JudgeRegistrationSnapshot registration;
   final bool deckMatches;
   final bool bladeOk;
   final bool ratchetOk;
@@ -485,7 +492,7 @@ class _ResultPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final data = registration ?? _demoRegistration();
+    final data = registration;
     final deck = data.deckSnapshot;
     final playerInitial = data.playerName.isEmpty ? '?' : data.playerName[0];
     return Container(
@@ -849,129 +856,4 @@ class _MockQrPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _MockQrPainter oldDelegate) =>
       oldDelegate.seed != seed;
-}
-
-JudgeRegistrationSnapshot _demoRegistration() {
-  return JudgeRegistrationSnapshot(
-    id: 'DEMO-QR-TICKET',
-    tournamentId: 'demo-tournament',
-    playerId: 'demo-player',
-    playerName: 'Hansel',
-    deckId: 'demo-phantom-reaper',
-    deckName: 'Phantom Reaper',
-    paymentStatus: 'paid',
-    registrationStatus: 'active',
-    deckSnapshot: const PlayerDeck(
-      id: 'demo-phantom-reaper',
-      ownerId: 'demo-player',
-      name: 'Phantom Reaper',
-      deckClass: 'ATTACK',
-      tier: 'STANDARD',
-      legal: true,
-      issues: [],
-      stats: PartStats(attack: 87, defense: 59, stamina: 71),
-      combos: [
-        DeckComboSnapshot(
-          blade: DeckPartSnapshot(
-            partId: 'blades_dran-sword',
-            category: 'blades',
-            name: 'Dran Sword',
-            type: 'attack',
-            line: 'BX',
-            image: 'BladeDranSword.png',
-            stats: PartStats(attack: 60, defense: 30, stamina: 25),
-            source: ['BX-01 DRANSWORD3-60F'],
-          ),
-          ratchet: DeckPartSnapshot(
-            partId: 'ratchets_3-60',
-            category: 'ratchets',
-            name: '3-60',
-            type: 'balance',
-            line: '',
-            image: 'Ratchet3-60.png',
-            stats: PartStats(attack: 15, defense: 9, stamina: 6),
-            source: ['BX-01 DRANSWORD3-60F'],
-          ),
-          bit: DeckPartSnapshot(
-            partId: 'bits_flat',
-            category: 'bits',
-            name: 'Flat',
-            alias: 'F',
-            type: 'attack',
-            line: '',
-            image: 'BitFlat.png',
-            stats: PartStats(attack: 40, defense: 10, stamina: 10),
-            source: ['BX-01 DRANSWORD3-60F'],
-          ),
-        ),
-        DeckComboSnapshot(
-          blade: DeckPartSnapshot(
-            partId: 'blades_wizard-rod',
-            category: 'blades',
-            name: 'Wizard Rod',
-            type: 'stamina',
-            line: 'UX',
-            image: 'BladeWizardRod.png',
-            stats: PartStats(attack: 15, defense: 25, stamina: 70),
-            source: ['UX-03 WIZARDROD5-70DB'],
-          ),
-          ratchet: DeckPartSnapshot(
-            partId: 'ratchets_9-60',
-            category: 'ratchets',
-            name: '9-60',
-            type: 'stamina',
-            line: '',
-            image: 'Ratchet9-60.png',
-            stats: PartStats(attack: 9, defense: 15, stamina: 6),
-            source: ['BX-35 WIZARDROD1-60R'],
-          ),
-          bit: DeckPartSnapshot(
-            partId: 'bits_ball',
-            category: 'bits',
-            name: 'Ball',
-            alias: 'B',
-            type: 'stamina',
-            line: '',
-            image: 'BitBall.png',
-            stats: PartStats(attack: 10, defense: 15, stamina: 50),
-            source: ['BX-02 HELLSCYTHE4-60T'],
-          ),
-        ),
-        DeckComboSnapshot(
-          blade: DeckPartSnapshot(
-            partId: 'blades_phoenix-wing',
-            category: 'blades',
-            name: 'Phoenix Wing',
-            type: 'attack',
-            line: 'BX',
-            image: 'BladePhoenixWing.png',
-            stats: PartStats(attack: 65, defense: 35, stamina: 25),
-            source: ['BX-23 PHOENIXWING9-60GF'],
-          ),
-          ratchet: DeckPartSnapshot(
-            partId: 'ratchets_5-60',
-            category: 'ratchets',
-            name: '5-60',
-            type: 'balance',
-            line: '',
-            image: 'Ratchet5-60.png',
-            stats: PartStats(attack: 11, defense: 13, stamina: 6),
-            source: ['BX-23 PHOENIXWING9-60GF'],
-          ),
-          bit: DeckPartSnapshot(
-            partId: 'bits_point',
-            category: 'bits',
-            name: 'Point',
-            alias: 'P',
-            type: 'balance',
-            line: '',
-            image: 'BitPoint.png',
-            stats: PartStats(attack: 25, defense: 25, stamina: 25),
-            source: ['UX-10 CUSTOMIZE SET U'],
-          ),
-        ),
-      ],
-    ),
-    reference: FirebaseFirestore.instance.doc('_demo/registration'),
-  );
 }

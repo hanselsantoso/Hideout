@@ -8,97 +8,6 @@ import '../../data/models/tournament_summary.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/tournament_repository.dart';
 
-const _demoRoster = [
-  TournamentRegistrationSummary(
-    id: 'demo-reg-001',
-    tournamentId: 'demo-tourney',
-    playerId: 'demo-player-001',
-    playerName: 'Hansel',
-    deckId: 'demo-deck-001',
-    deckName: 'Cobalt Dragoon Rush',
-    paymentStatus: 'paid',
-    registrationStatus: 'active',
-    registeredAt: null,
-  ),
-  TournamentRegistrationSummary(
-    id: 'demo-reg-002',
-    tournamentId: 'demo-tourney',
-    playerId: 'demo-player-002',
-    playerName: 'Mardika',
-    deckId: 'demo-deck-002',
-    deckName: 'Wizard Rod Balance',
-    paymentStatus: 'paid',
-    registrationStatus: 'active',
-    registeredAt: null,
-  ),
-  TournamentRegistrationSummary(
-    id: 'demo-reg-003',
-    tournamentId: 'demo-tourney',
-    playerId: 'demo-player-003',
-    playerName: 'Nadia',
-    deckId: 'demo-deck-003',
-    deckName: 'Phoenix Wing Attack',
-    paymentStatus: 'paid',
-    registrationStatus: 'active',
-    registeredAt: null,
-  ),
-  TournamentRegistrationSummary(
-    id: 'demo-reg-004',
-    tournamentId: 'demo-tourney',
-    playerId: 'demo-player-004',
-    playerName: 'Bayu',
-    deckId: 'demo-deck-004',
-    deckName: 'Hells Scythe Stamina',
-    paymentStatus: 'paid',
-    registrationStatus: 'active',
-    registeredAt: null,
-  ),
-  TournamentRegistrationSummary(
-    id: 'demo-reg-005',
-    tournamentId: 'demo-tourney',
-    playerId: 'demo-player-005',
-    playerName: 'Raka',
-    deckId: 'demo-deck-005',
-    deckName: 'Dran Buster CX',
-    paymentStatus: 'paid',
-    registrationStatus: 'active',
-    registeredAt: null,
-  ),
-  TournamentRegistrationSummary(
-    id: 'demo-reg-006',
-    tournamentId: 'demo-tourney',
-    playerId: 'demo-player-006',
-    playerName: 'Sinta',
-    deckId: 'demo-deck-006',
-    deckName: 'Knight Shield Defense',
-    paymentStatus: 'paid',
-    registrationStatus: 'active',
-    registeredAt: null,
-  ),
-  TournamentRegistrationSummary(
-    id: 'demo-reg-007',
-    tournamentId: 'demo-tourney',
-    playerId: 'demo-player-007',
-    playerName: 'Dimas',
-    deckId: 'demo-deck-007',
-    deckName: 'Shark Edge Low Flat',
-    paymentStatus: 'paid',
-    registrationStatus: 'active',
-    registeredAt: null,
-  ),
-  TournamentRegistrationSummary(
-    id: 'demo-reg-008',
-    tournamentId: 'demo-tourney',
-    playerId: 'demo-player-008',
-    playerName: 'Clara',
-    deckId: 'demo-deck-008',
-    deckName: 'Unicorn Sting Balance',
-    paymentStatus: 'paid',
-    registrationStatus: 'active',
-    registeredAt: null,
-  ),
-];
-
 const _demoBracketRounds = [
   BracketRoundSummary(
     id: 'round-1',
@@ -771,7 +680,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
                   judges: const [],
                   bracket: bracket,
                   dataNotice:
-                      'Roster belum bisa dimuat. Tampilan demo ditampilkan sementara.',
+                      'Roster belum bisa dimuat. Refresh halaman sebelum mengubah setup turnamen.',
                 ),
                 error: (_, __) => _opsPanel(
                   selected: selected,
@@ -779,7 +688,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
                   judges: const [],
                   bracket: bracket,
                   dataNotice:
-                      'Data live belum bisa dimuat. Tampilan demo ditampilkan sementara.',
+                      'Data live belum bisa dimuat. Refresh halaman sebelum mengubah setup turnamen.',
                 ),
                 data: (judgeList) => _opsPanel(
                   selected: selected,
@@ -787,7 +696,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
                   judges: judgeList,
                   bracket: bracket,
                   dataNotice:
-                      'Roster belum bisa dimuat. Tampilan demo ditampilkan sementara.',
+                      'Roster belum bisa dimuat. Refresh halaman sebelum mengubah setup turnamen.',
                 ),
               ),
               data: (roster) {
@@ -800,7 +709,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
                     judges: const [],
                     bracket: bracket,
                     dataNotice:
-                        'Daftar juri belum bisa dimuat. Tampilan demo tetap tersedia.',
+                        'Daftar juri belum bisa dimuat. Generate match aktif setelah data juri live terbaca.',
                   ),
                   data: (judgeList) => _opsPanel(
                     selected: selected,
@@ -834,8 +743,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
     required AsyncValue<List<BracketRoundSummary>> bracket,
     String? dataNotice,
   }) {
-    final demoRoster = roster.isEmpty;
-    final visibleRoster = demoRoster ? _demoRoster : roster;
+    final visibleRoster = roster;
     final ready = visibleRoster.where((item) => item.readyForBracket).toList();
     final bracketSeedRoster = ready.length >= 2 ? ready : visibleRoster;
     final singlePreview = _buildSingleEliminationPreview(bracketSeedRoster);
@@ -848,7 +756,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
           tournament: selected,
           totalRegistrations: visibleRoster.length,
           readyRegistrations: ready.length,
-          judgeCount: judges.isEmpty ? 2 : judges.length,
+          judgeCount: judges.length,
           onCreateTournament: () =>
               Navigator.pushNamed(context, '/admin/tournaments/new'),
           onManageJudges: () =>
@@ -872,7 +780,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
               selectedJudgeIds: selectedJudgeIds,
               readyCount: ready.length,
               busy: _busy,
-              demoMode: demoRoster,
+              demoMode: false,
               onJudgeSelected: (judge, selected) {
                 setState(() {
                   selected
@@ -880,17 +788,14 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
                       : _selectedJudgeIds.remove(judge.uid);
                 });
               },
-              onGenerate: !demoRoster &&
-                      ready.length >= 2 &&
-                      judges.isNotEmpty &&
-                      !_busy
+              onGenerate: ready.length >= 2 && judges.isNotEmpty && !_busy
                   ? () => _generateMatches(
                         tournament: selected,
                         readyCount: ready.length,
                         judges: judges,
                       )
                   : null,
-              onGenerateTopCut: !demoRoster && judges.isNotEmpty && !_busy
+              onGenerateTopCut: judges.isNotEmpty && !_busy
                   ? () => _generateTopCut(
                         tournament: selected,
                         judges: judges,
@@ -913,14 +818,12 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
                 'groups-${selected.id}-${visibleRoster.map((item) => item.id).join('|')}',
               ),
               roster: visibleRoster,
-              demoMode: demoRoster,
+              demoMode: false,
               busy: _busy,
-              onSave: demoRoster
-                  ? null
-                  : (groups) => _saveGroupDraft(
-                        tournament: selected,
-                        groups: groups,
-                      ),
+              onSave: (groups) => _saveGroupDraft(
+                tournament: selected,
+                groups: groups,
+              ),
             );
             final stagedModules = _StagedOpsModules(
               bracketPanel: bracketPanel,
@@ -958,20 +861,16 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
         const SizedBox(height: HDTSpace.xl),
         _RosterList(
           roster: visibleRoster,
-          demo: demoRoster,
+          demo: false,
           busyRegistrationId: _registrationBusyId,
-          onActivate: demoRoster
-              ? null
-              : (registration) => _activateRegistration(
-                    tournament: selected,
-                    registration: registration,
-                  ),
-          onWalkOut: demoRoster
-              ? null
-              : (registration) => _markWalkOut(
-                    tournament: selected,
-                    registration: registration,
-                  ),
+          onActivate: (registration) => _activateRegistration(
+            tournament: selected,
+            registration: registration,
+          ),
+          onWalkOut: (registration) => _markWalkOut(
+            tournament: selected,
+            registration: registration,
+          ),
         ),
       ],
     );
