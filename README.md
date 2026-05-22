@@ -35,6 +35,17 @@ flutter build web
 npm run test:rules
 ```
 
+Live smoke test memakai Chrome/Edge lokal:
+
+```powershell
+node tooling/verify_demo_accounts.cjs
+npm run smoke:live
+```
+
+`smoke:live` membuka route production, mengambil screenshot ke
+`C:\tmp\turney-live-smoke`, dan gagal jika login/register/dashboard guard masih
+render identik dengan landing.
+
 ## Firebase Workflows
 
 Seed data pendukung:
