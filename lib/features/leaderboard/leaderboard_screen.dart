@@ -514,7 +514,7 @@ class LeaderboardScreen extends ConsumerWidget {
                     width: 180,
                     child: HDTSearchField(
                       controller: TextEditingController(text: state.query),
-                      placeholder: 'Cari pemain…',
+                      placeholder: 'Search players...',
                       onChanged: notifier.setQuery,
                     ),
                   ),
@@ -556,7 +556,7 @@ class LeaderboardScreen extends ConsumerWidget {
                   total: rest.length,
                   page: state.page,
                   perPage: _perPage,
-                  label: 'pemain',
+                  label: 'players',
                   onPage: notifier.setPage,
                 ),
                 const SizedBox(height: HDTSpace.xxl),

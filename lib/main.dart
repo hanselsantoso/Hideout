@@ -223,7 +223,7 @@ class _AuthzRoute extends ConsumerWidget {
       error: (_, __) => const _RouteStateScreen(
         title: 'SESSION ERROR',
         message:
-            'Sesi login belum bisa dibaca. Muat ulang halaman atau masuk ulang.',
+            'The login session could not be read. Refresh the page or sign in again.',
         actionLabel: 'SIGN IN',
         actionRoute: '/signin',
       ),
@@ -231,7 +231,7 @@ class _AuthzRoute extends ConsumerWidget {
         if (firebaseUser == null) {
           return const _RouteStateScreen(
             title: 'LOGIN REQUIRED',
-            message: 'Halaman ini hanya untuk akun terdaftar.',
+            message: 'This page is only available to registered accounts.',
             actionLabel: 'SIGN IN',
             actionRoute: '/signin',
           );
@@ -242,7 +242,8 @@ class _AuthzRoute extends ConsumerWidget {
           loading: () => const _RouteStateScreen.loading(),
           error: (_, __) => const _RouteStateScreen(
             title: 'PROFILE ERROR',
-            message: 'Profil akun belum bisa dimuat. Coba masuk ulang.',
+            message:
+                'The account profile could not be loaded. Try signing in again.',
             actionLabel: 'SIGN IN',
             actionRoute: '/signin',
           ),
@@ -251,7 +252,7 @@ class _AuthzRoute extends ConsumerWidget {
               return const _RouteStateScreen(
                 title: 'PROFILE MISSING',
                 message:
-                    'Akun sudah login, tetapi dokumen profil belum tersedia.',
+                    'The account is signed in, but the profile document is not available yet.',
                 actionLabel: 'ONBOARDING',
                 actionRoute: '/onboarding',
               );
@@ -260,7 +261,7 @@ class _AuthzRoute extends ConsumerWidget {
               return const _RouteStateScreen(
                 title: 'ACCOUNT SUSPENDED',
                 message:
-                    'Akun ini sedang diblokir dan tidak bisa membuka menu platform.',
+                    'This account is currently suspended and cannot open platform menus.',
                 actionLabel: 'SIGN IN',
                 actionRoute: '/signin',
               );
@@ -273,7 +274,7 @@ class _AuthzRoute extends ConsumerWidget {
                 child: _RouteStateScreen(
                   title: 'ACCESS DENIED',
                   message:
-                      'Role akun ini tidak punya akses ke halaman tersebut. Akses diperlukan: $expected.',
+                      'This account role cannot access that page. Required access: $expected.',
                   actionLabel: 'GO TO MY MENU',
                   actionRoute: home,
                   embedded: true,
@@ -303,7 +304,7 @@ class _RouteStateScreen extends StatelessWidget {
 
   const _RouteStateScreen.loading()
       : title = 'LOADING',
-        message = 'Mengecek sesi dan role akun...',
+        message = 'Checking account session and role...',
         actionLabel = null,
         actionRoute = null,
         embedded = false;
@@ -366,8 +367,8 @@ String _defaultRouteFor(AppUser user) {
 String _roleLabel(String role) {
   return switch (role) {
     'super_admin' => 'super admin',
-    'community_admin' => 'admin komunitas',
-    'judge' => 'juri',
+    'community_admin' => 'community admin',
+    'judge' => 'judge',
     _ => 'player',
   };
 }
@@ -430,112 +431,112 @@ const _roleNavItems = [
     roles: {'player', 'judge', 'community_admin'},
   ),
   _RoleNavItem(
-    label: 'Jelajah Turnamen',
+    label: 'Explore Tournaments',
     route: '/tournaments',
     icon: Icons.emoji_events_outlined,
-    section: 'turnamen',
+    section: 'tournaments',
     roles: {'player', 'judge', 'community_admin'},
   ),
   _RoleNavItem(
     label: 'My Tournaments',
     route: '/me/tournaments',
     icon: Icons.confirmation_number_outlined,
-    section: 'turnamen',
+    section: 'tournaments',
     roles: {'player', 'judge', 'community_admin'},
   ),
   _RoleNavItem(
     label: 'My Decks',
     route: '/me/decks',
     icon: Icons.view_in_ar_outlined,
-    section: 'koleksi',
+    section: 'collection',
     roles: {'player', 'judge', 'community_admin'},
   ),
   _RoleNavItem(
     label: 'QR Check-In',
     route: '/me/qr',
     icon: Icons.qr_code_2_outlined,
-    section: 'turnamen',
+    section: 'tournaments',
     roles: {'player', 'judge', 'community_admin'},
   ),
   _RoleNavItem(
     label: 'Leaderboard',
     route: '/leaderboard',
     icon: Icons.bar_chart_outlined,
-    section: 'komunitas',
+    section: 'community',
     roles: {'player', 'judge', 'community_admin'},
   ),
   _RoleNavItem(
     label: 'My Matches',
     route: '/matches',
     icon: Icons.sports_martial_arts_outlined,
-    section: 'turnamen',
+    section: 'tournaments',
     roles: {'player', 'judge', 'community_admin'},
   ),
   _RoleNavItem(
     label: 'Notifications',
     route: '/notifications',
     icon: Icons.notifications_outlined,
-    section: 'akun',
+    section: 'account',
     roles: {'player', 'judge', 'community_admin'},
   ),
   _RoleNavItem(
-    label: 'Buka Komunitas',
+    label: 'Open a Community',
     route: '/communities/new',
     icon: Icons.groups_2_outlined,
-    section: 'komunitas',
+    section: 'community',
     roles: {'player', 'judge', 'community_admin'},
   ),
   _RoleNavItem(
-    label: 'Jadwal Juri',
+    label: 'Judge Schedule',
     route: '/juri/matches',
     icon: Icons.assignment_ind_outlined,
-    section: 'panel_juri',
+    section: 'judge_panel',
     roles: {'judge'},
   ),
   _RoleNavItem(
     label: 'Scan QR Player',
     route: '/juri/scan',
     icon: Icons.qr_code_scanner,
-    section: 'panel_juri',
+    section: 'judge_panel',
     roles: {'judge'},
   ),
   _RoleNavItem(
     label: 'Input Score',
     route: '/juri/score',
     icon: Icons.shield_outlined,
-    section: 'panel_juri',
+    section: 'judge_panel',
     roles: {'judge'},
   ),
   _RoleNavItem(
-    label: 'Dashboard Komunitas',
+    label: 'Community Dashboard',
     route: '/community/admin',
     icon: Icons.admin_panel_settings_outlined,
-    section: 'panel_ketua',
+    section: 'lead_panel',
     roles: {'community_admin'},
   ),
   _RoleNavItem(
     label: 'Tournament Ops',
     route: '/admin/tournaments/ops',
     icon: Icons.account_tree_outlined,
-    section: 'panel_ketua',
+    section: 'lead_panel',
     roles: {'community_admin'},
   ),
   _RoleNavItem(
-    label: 'Buat Event Baru',
+    label: 'Create New Event',
     route: '/admin/tournaments/new',
     icon: Icons.add_circle_outline,
-    section: 'panel_ketua',
+    section: 'lead_panel',
     roles: {'community_admin'},
   ),
   _RoleNavItem(
-    label: 'Kelola Juri',
+    label: 'Manage Judges',
     route: '/community/judges',
     icon: Icons.verified_user_outlined,
-    section: 'panel_ketua',
+    section: 'lead_panel',
     roles: {'community_admin'},
   ),
   _RoleNavItem(
-    label: 'Laporan Platform',
+    label: 'Platform Reports',
     route: '/super-admin/reports',
     icon: Icons.query_stats_outlined,
     section: 'platform',
@@ -549,14 +550,14 @@ const _roleNavItems = [
     roles: {'super_admin'},
   ),
   _RoleNavItem(
-    label: 'Manajemen Komponen',
+    label: 'Component Management',
     route: '/super-admin/components',
     icon: Icons.category_outlined,
     section: 'platform',
     roles: {'super_admin'},
   ),
   _RoleNavItem(
-    label: 'Review Statistik',
+    label: 'Stats Review',
     route: '/super-admin/component-stats',
     icon: Icons.analytics_outlined,
     section: 'platform',
@@ -999,22 +1000,22 @@ _SidebarModeConfig _modeConfigFor(AppUser? user) {
   final hasJudge = capabilities.contains('judge');
   if (hasCommunityAdmin && hasJudge) {
     return const _SidebarModeConfig(
-      label: 'Player / Ketua / Juri',
+      label: 'Player / Lead / Judge',
       badge: 'MIX',
       color: HDTColors.info,
     );
   }
   if (hasCommunityAdmin) {
     return const _SidebarModeConfig(
-      label: 'Player / Ketua',
-      badge: 'KOM',
+      label: 'Player / Lead',
+      badge: 'COM',
       color: HDTColors.accentHover,
     );
   }
   if (hasJudge) {
     return const _SidebarModeConfig(
-      label: 'Player / Juri',
-      badge: 'JUR',
+      label: 'Player / Judge',
+      badge: 'JDG',
       color: HDTColors.info,
     );
   }
@@ -1029,18 +1030,18 @@ String _sectionLabel(String section) {
   switch (section) {
     case 'overview':
       return 'Overview';
-    case 'turnamen':
-      return 'Turnamen';
-    case 'koleksi':
-      return 'Koleksi';
-    case 'komunitas':
-      return 'Komunitas';
-    case 'akun':
-      return 'Akun';
-    case 'panel_juri':
-      return 'Panel Juri';
-    case 'panel_ketua':
-      return 'Panel Ketua';
+    case 'tournaments':
+      return 'Tournaments';
+    case 'collection':
+      return 'Collection';
+    case 'community':
+      return 'Community';
+    case 'account':
+      return 'Account';
+    case 'judge_panel':
+      return 'Judge Panel';
+    case 'lead_panel':
+      return 'Lead Panel';
     case 'platform':
       return 'Platform';
     default:
@@ -1050,9 +1051,9 @@ String _sectionLabel(String section) {
 
 Color _sectionAccent(String section) {
   switch (section) {
-    case 'panel_juri':
+    case 'judge_panel':
       return HDTColors.info;
-    case 'panel_ketua':
+    case 'lead_panel':
       return HDTColors.accentHover;
     case 'platform':
       return HDTColors.accentHover;
@@ -1062,16 +1063,16 @@ Color _sectionAccent(String section) {
 }
 
 bool _sectionHighlighted(String section) {
-  return section == 'panel_juri' ||
-      section == 'panel_ketua' ||
+  return section == 'judge_panel' ||
+      section == 'lead_panel' ||
       section == 'platform';
 }
 
 IconData _sectionIcon(String label) {
   switch (label.toLowerCase()) {
-    case 'panel juri':
+    case 'judge panel':
       return Icons.shield_outlined;
-    case 'panel ketua':
+    case 'lead panel':
       return Icons.admin_panel_settings_outlined;
     case 'platform':
       return Icons.fact_check_outlined;
@@ -1082,9 +1083,9 @@ IconData _sectionIcon(String label) {
 
 Color _navItemAccent(_RoleNavItem item, Color fallback) {
   switch (item.section) {
-    case 'panel_juri':
+    case 'judge_panel':
       return HDTColors.info;
-    case 'panel_ketua':
+    case 'lead_panel':
       return HDTColors.accentHover;
     case 'platform':
       return HDTColors.accentHover;
@@ -1124,21 +1125,21 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const actions = [
-      _QuickAction('Daftar Akun', '/signup', Icons.person_add_alt_1),
+      _QuickAction('Create Account', '/signup', Icons.person_add_alt_1),
       _QuickAction('Onboarding', '/onboarding', Icons.route_outlined),
-      _QuickAction('Buka Komunitas', '/communities/new', Icons.groups_outlined),
+      _QuickAction('Open Community', '/communities/new', Icons.groups_outlined),
       _QuickAction(
-          'Kelola Juri', '/community/judges', Icons.verified_user_outlined),
-      _QuickAction('Approval Komunitas', '/super-admin/community-approvals',
+          'Manage Judges', '/community/judges', Icons.verified_user_outlined),
+      _QuickAction('Community Approvals', '/super-admin/community-approvals',
           Icons.admin_panel_settings_outlined),
-      _QuickAction(
-          'Buat Turnamen', '/admin/tournaments/new', Icons.add_circle_outline),
+      _QuickAction('Create Tournament', '/admin/tournaments/new',
+          Icons.add_circle_outline),
       _QuickAction('Tournament Ops', '/admin/tournaments/ops',
           Icons.account_tree_outlined),
-      _QuickAction('Registrasi Event', '/tournaments/register',
+      _QuickAction('Event Registration', '/tournaments/register',
           Icons.confirmation_number_outlined),
       _QuickAction('QR Scanner', '/juri/scan', Icons.qr_code_scanner),
-      _QuickAction('Input Skor', '/juri/score', Icons.shield_outlined),
+      _QuickAction('Input Score', '/juri/score', Icons.shield_outlined),
     ];
 
     return Consumer(builder: (context, ref, _) {
@@ -1175,7 +1176,7 @@ class HomeScreen extends StatelessWidget {
             TextButton(
               onPressed: () =>
                   Navigator.pushNamed(context, '/admin/tournaments/new'),
-              child: const Text('BUAT EVENT'),
+              child: const Text('CREATE EVENT'),
             ),
           ],
         ),
@@ -1193,11 +1194,11 @@ class HomeScreen extends StatelessWidget {
                       style: HDTText.overline(color: HDTColors.accentHover)),
                   const SizedBox(height: HDTSpace.sm),
                   Text(
-                      'Komunitas, bracket, deck, QR, dan scoring dalam satu app.',
+                      'Communities, brackets, decks, QR, and scoring in one app.',
                       style: HDTText.display(size: 28)),
                   const SizedBox(height: HDTSpace.md),
                   Text(
-                    'Versi Flutter ini sekarang memakai Firebase project lama untuk auth, tournament, payment simulasi, QR, dan callable functions yang sudah tersedia.',
+                    'This Flutter version now uses the existing Firebase project for auth, tournaments, payment simulation, QR, and available callable functions.',
                     style: HDTText.body(
                         size: 13, color: HDTColors.text2, height: 1.5),
                   ),
@@ -1205,14 +1206,14 @@ class HomeScreen extends StatelessWidget {
                   profile.when(
                     data: (user) => Text(
                       user == null
-                          ? 'Belum login. Buat akun atau masuk untuk mengakses data Firebase.'
-                          : 'Login sebagai ${user.displayName.isEmpty ? user.email : user.displayName} (${user.role})',
+                          ? 'Not signed in. Create an account or sign in to access Firebase data.'
+                          : 'Signed in as ${user.displayName.isEmpty ? user.email : user.displayName} (${user.role})',
                       style: HDTText.mono(size: 11, color: HDTColors.text3),
                     ),
-                    loading: () => Text('Mengecek sesi Firebase...',
+                    loading: () => Text('Checking Firebase session...',
                         style: HDTText.mono(size: 11, color: HDTColors.text3)),
                     error: (_, __) => Text(
-                        'Sesi akun belum siap. Coba muat ulang halaman.',
+                        'The account session is not ready. Try refreshing the page.',
                         style: HDTText.mono(size: 11, color: HDTColors.danger)),
                   ),
                 ],

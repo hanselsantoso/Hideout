@@ -1,7 +1,7 @@
 # BeyTourney HIDEOUT
 
-Flutter Web app untuk Turney/BeyTourney: public landing, player dashboard,
-community tournament ops, judge console, dan super admin platform ops.
+Flutter Web app for Turney/BeyTourney: public landing, player dashboard,
+community tournament ops, judge console, and super admin platform ops.
 
 ## Live
 
@@ -11,15 +11,15 @@ community tournament ops, judge console, dan super admin platform ops.
 
 ## Demo Accounts
 
-Empat akun demo utama dipertahankan oleh script reset:
+The reset script preserves four main demo accounts:
 
 - `hideout.player@example.com`
 - `hideout.judge@example.com`
 - `hideout.community@example.com`
 - `hideout.super@example.com`
 
-Password demo tidak disimpan di repository. Set env berikut sebelum menjalankan
-script live:
+The demo password is not stored in the repository. Set the following env var
+before running live scripts:
 
 ```powershell
 $env:HIDEOUT_DEMO_PASSWORD="..."
@@ -35,20 +35,20 @@ flutter build web
 npm run test:rules
 ```
 
-Live smoke test memakai Chrome/Edge lokal:
+The live smoke test uses local Chrome/Edge:
 
 ```powershell
 node tooling/verify_demo_accounts.cjs
 npm run smoke:live
 ```
 
-`smoke:live` membuka route production, mengambil screenshot ke
-`C:\tmp\turney-live-smoke`, dan gagal jika login/register/dashboard guard masih
-render identik dengan landing.
+`smoke:live` opens production routes, captures screenshots to
+`C:\tmp\turney-live-smoke`, and fails if the login/register/dashboard guards
+still render identically to the landing page.
 
 ## Firebase Workflows
 
-Seed data pendukung:
+Seed supporting data:
 
 ```powershell
 node tooling/seed_firestore_client.cjs
@@ -60,7 +60,7 @@ Trial end-to-end live:
 node tooling/trial_end_to_end.cjs
 ```
 
-Reset data trial/prototype sambil menjaga 4 akun demo dan parts:
+Reset trial/prototype data while preserving the 4 demo accounts and parts:
 
 ```powershell
 node tooling/reset_firebase_trial_data.cjs
@@ -68,13 +68,13 @@ node tooling/reset_firebase_trial_data.cjs --execute-cli
 node tooling/reset_firebase_trial_data.cjs --execute-cli --delete-auth-users
 ```
 
-Gunakan `--execute-cli` untuk production cleanup karena Firebase CLI menjalankan
-delete recursive sampai subcollection. `--execute` dipakai hanya kalau rules masih
-mengizinkan REST client membaca seluruh tree.
+Use `--execute-cli` for production cleanup because Firebase CLI performs
+recursive deletes through subcollections. Use `--execute` only when rules still
+allow the REST client to read the entire tree.
 
-Tambahkan `--delete-auth-users` jika Firebase Auth user non-demo juga perlu
-dibersihkan. Mode ini mempertahankan empat email demo utama dan membutuhkan akun
-Firebase CLI yang punya izin `firebaseauth.users.delete`.
+Add `--delete-auth-users` if non-demo Firebase Auth users also need to be
+cleaned. This mode preserves the four main demo emails and requires a Firebase
+CLI account with `firebaseauth.users.delete` permission.
 
 Deploy:
 

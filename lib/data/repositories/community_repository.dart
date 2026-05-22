@@ -363,11 +363,11 @@ class CommunityRepository {
       application.leaderUserId,
     }..removeWhere((uid) => uid.trim().isEmpty);
     final title = status == 'approved'
-        ? 'Komunitas disetujui'
-        : 'Pengajuan komunitas ditolak';
+        ? 'Community approved'
+        : 'Community application rejected';
     final body = status == 'approved'
-        ? '${application.communityName} sudah aktif. Ketua komunitas dapat membuka dashboard komunitas.'
-        : '${application.communityName} belum disetujui. ${reason.isEmpty ? 'Silakan lengkapi data lalu ajukan ulang.' : reason}';
+        ? '${application.communityName} is now active. The community lead can open the community dashboard.'
+        : '${application.communityName} has not been approved. ${reason.isEmpty ? 'Please complete the data and resubmit.' : reason}';
     for (final uid in recipients) {
       await firestore.collection(FirestorePaths.notifications).add({
         'recipientId': uid,
@@ -452,10 +452,10 @@ class CommunityJudgeCandidate {
 
   String get roleLabel {
     if (roles.contains('community_admin') && roles.contains('judge')) {
-      return 'PLAYER / KETUA / JURI';
+      return 'PLAYER / LEAD / JUDGE';
     }
-    if (roles.contains('community_admin')) return 'PLAYER / KETUA';
-    if (roles.contains('judge')) return 'PLAYER / JURI';
+    if (roles.contains('community_admin')) return 'PLAYER / LEAD';
+    if (roles.contains('judge')) return 'PLAYER / JUDGE';
     return 'PLAYER';
   }
 

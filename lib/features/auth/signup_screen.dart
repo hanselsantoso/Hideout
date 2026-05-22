@@ -12,7 +12,7 @@ const _regions = [
   'Medan',
   'Bali',
   'Makassar',
-  'Lainnya',
+  'Other',
 ];
 
 class SignUpScreen extends ConsumerStatefulWidget {
@@ -53,9 +53,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const AuthHeader(
-            title: 'DAFTAR AKUN',
-            subtitle: 'Sudah punya akun?',
-            actionLabel: 'Masuk',
+            title: 'CREATE ACCOUNT',
+            subtitle: 'Already have an account?',
+            actionLabel: 'Sign in',
             actionRoute: '/signin',
           ),
           const SizedBox(height: HDTSpace.lg),
@@ -79,7 +79,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     return Column(
       children: [
         AuthField(
-          label: 'NAMA TAMPILAN',
+          label: 'DISPLAY NAME',
           controller: _name,
           hint: 'BILLY',
           error: _errors['displayName'],
@@ -88,7 +88,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         AuthField(
           label: 'EMAIL',
           controller: _email,
-          hint: 'kamu@email.com',
+          hint: 'you@email.com',
           keyboardType: TextInputType.emailAddress,
           error: _errors['email'],
         ),
@@ -96,7 +96,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         AuthField(
           label: 'PASSWORD',
           controller: _password,
-          hint: 'Min. 8 karakter',
+          hint: 'Min. 8 characters',
           obscure: !_showPassword,
           error: _errors['password'],
           suffix: IconButton(
@@ -112,9 +112,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         ),
         const SizedBox(height: HDTSpace.md),
         AuthField(
-          label: 'KONFIRMASI PASSWORD',
+          label: 'CONFIRM PASSWORD',
           controller: _confirm,
-          hint: 'Ulangi password',
+          hint: 'Repeat password',
           obscure: !_showPassword,
           error: _errors['confirm'],
         ),
@@ -125,7 +125,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
           child: ElevatedButton.icon(
             onPressed: _busy ? null : _continueToProfile,
             icon: const Icon(Icons.arrow_forward),
-            label: const Text('LANJUT'),
+            label: const Text('CONTINUE'),
           ),
         ),
       ],
@@ -145,7 +145,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Akun untuk',
+              Text('Account for',
                   style: HDTText.body(size: 12, color: HDTColors.text3)),
               Text(_name.text.trim().isEmpty ? 'PLAYER' : _name.text.trim(),
                   style: HDTText.display(size: 18)),
@@ -161,7 +161,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         DropdownButtonFormField<String>(
           initialValue: _region.isEmpty ? null : _region,
           decoration: InputDecoration(
-            hintText: 'Pilih region...',
+            hintText: 'Choose region...',
             errorText: _errors['region'],
           ),
           items: [
@@ -172,7 +172,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         ),
         const SizedBox(height: HDTSpace.xs),
         Text(
-          'Digunakan untuk regional leaderboard dan rekomendasi komunitas.',
+          'Used for regional leaderboards and community recommendations.',
           style: HDTText.body(size: 11, color: HDTColors.text3),
         ),
         const SizedBox(height: HDTSpace.lg),
@@ -189,7 +189,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
               Text(_playerId,
                   style: HDTText.mono(size: 14, color: HDTColors.accentHover)),
               const SizedBox(height: HDTSpace.xs),
-              Text('ID unik untuk bracket dan leaderboard.',
+              Text('Unique ID for brackets and leaderboards.',
                   style: HDTText.body(size: 11, color: HDTColors.text3)),
             ],
           ),
@@ -206,7 +206,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
               child: Padding(
                 padding: const EdgeInsets.only(top: 10),
                 child: Text(
-                  'Saya setuju dengan Terms of Service dan Privacy Policy HIDEOUT.',
+                  'I agree to the HIDEOUT Terms of Service and Privacy Policy.',
                   style: HDTText.body(size: 12, color: HDTColors.text2),
                 ),
               ),
@@ -227,7 +227,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 height: 44,
                 child: OutlinedButton(
                   onPressed: _busy ? null : () => setState(() => _step = 1),
-                  child: const Text('KEMBALI'),
+                  child: const Text('BACK'),
                 ),
               ),
             ),
@@ -238,7 +238,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 child: ElevatedButton.icon(
                   onPressed: _busy ? null : _submit,
                   icon: const Icon(Icons.arrow_forward),
-                  label: Text(_busy ? 'MEMBUAT...' : 'DAFTAR'),
+                  label: Text(_busy ? 'CREATING...' : 'REGISTER'),
                 ),
               ),
             ),
@@ -253,22 +253,22 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     final name = _name.text.trim();
     final email = _email.text.trim();
     if (name.isEmpty) {
-      next['displayName'] = 'Nama tampilan wajib diisi.';
+      next['displayName'] = 'Display name is required.';
     } else if (name.length < 3) {
-      next['displayName'] = 'Minimal 3 karakter.';
+      next['displayName'] = 'Minimum 3 characters.';
     }
     if (email.isEmpty) {
-      next['email'] = 'Email wajib diisi.';
+      next['email'] = 'Email is required.';
     } else if (!RegExp(r'\S+@\S+\.\S+').hasMatch(email)) {
-      next['email'] = 'Format email tidak valid.';
+      next['email'] = 'Invalid email format.';
     }
     if (_password.text.isEmpty) {
-      next['password'] = 'Password wajib diisi.';
+      next['password'] = 'Password is required.';
     } else if (_password.text.length < 8) {
-      next['password'] = 'Minimal 8 karakter.';
+      next['password'] = 'Minimum 8 characters.';
     }
     if (_password.text != _confirm.text) {
-      next['confirm'] = 'Password tidak cocok.';
+      next['confirm'] = 'Passwords do not match.';
     }
     setState(() {
       _errors
@@ -280,8 +280,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
   Future<void> _submit() async {
     final next = <String, String>{};
-    if (_region.isEmpty) next['region'] = 'Pilih region kamu.';
-    if (!_agree) next['terms'] = 'Kamu harus menyetujui syarat & ketentuan.';
+    if (_region.isEmpty) next['region'] = 'Choose your region.';
+    if (!_agree) next['terms'] = 'You must agree to the terms and conditions.';
     setState(() {
       _errors
         ..clear()
@@ -303,7 +303,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       if (!mounted) return;
       setState(() {
         _errors['api'] =
-            'Pendaftaran belum berhasil. Periksa data akun lalu coba lagi.';
+            'Registration failed. Check the account data and try again.';
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -400,7 +400,7 @@ class AuthHeader extends StatelessWidget {
             (_) => false,
           ),
           icon: const Icon(Icons.arrow_back, size: 16),
-          label: const Text('BATAL, KEMBALI KE HOME'),
+          label: const Text('CANCEL, BACK TO HOME'),
         ),
       ],
     );
@@ -415,14 +415,14 @@ class _StepIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _StepDot(active: step == 1, done: step > 1, label: 'AKUN', index: 1),
+        _StepDot(active: step == 1, done: step > 1, label: 'ACCOUNT', index: 1),
         Expanded(
           child: Container(
             height: 1,
             color: step > 1 ? HDTColors.accentDim : HDTColors.s2,
           ),
         ),
-        _StepDot(active: step == 2, done: false, label: 'PROFIL', index: 2),
+        _StepDot(active: step == 2, done: false, label: 'PROFILE', index: 2),
       ],
     );
   }

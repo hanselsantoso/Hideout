@@ -124,7 +124,7 @@ class _TopBar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('CHECK-IN', style: HDTText.display(size: 28)),
-                Text('QR pass kamu untuk hari turnamen',
+                Text('Your QR pass for tournament day',
                     style: HDTText.mono(size: 11, color: HDTColors.text3)),
               ],
             ),
@@ -314,7 +314,7 @@ class _TicketCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Tunjukkan QR ini di meja juri saat dipanggil',
+                    'Show this QR at the judge table when called',
                     style: HDTText.mono(size: 10, color: HDTColors.text3),
                   ),
                 ),
@@ -434,7 +434,7 @@ class _TicketDetails extends StatelessWidget {
                     style: HDTText.display(
                         size: 36, color: HDTColors.accentHover)),
                 const SizedBox(height: 2),
-                Text('Bracket diumumkan pukul 15:00',
+                Text('Bracket announced at 15:00',
                     style: HDTText.mono(size: 11, color: HDTColors.text3)),
               ],
             ),
@@ -461,7 +461,7 @@ class _TicketDetails extends StatelessWidget {
               const Expanded(
                 child: _Quick(
                   icon: Icons.verified_user_outlined,
-                  label: 'JURI',
+                  label: 'JUDGE',
                   value: 'VERIFIED',
                 ),
               ),
@@ -540,10 +540,10 @@ class _RulesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const rules = [
-      'Hadir minimal 30 menit sebelum match start. Telat lebih dari 5 menit = walkover.',
-      'Deck terkunci setelah check-in. Perubahan part wajib lapor juri.',
-      'Banned parts diumumkan di papan arena. Cek kembali sebelum mulai.',
-      'Sengketa diselesaikan oleh juri utama, keputusan final.',
+      'Arrive at least 30 minutes before match start. More than 5 minutes late = walkover.',
+      'Decks are locked after check-in. Part changes must be reported to a judge.',
+      'Banned parts are announced on the arena board. Check again before starting.',
+      'Disputes are resolved by the head judge, and the decision is final.',
     ];
 
     return Container(
@@ -632,22 +632,22 @@ _StatusMeta _statusMeta(String status) {
     'PENDING' => const _StatusMeta(
         'PENDING CHECK-IN',
         HDTColors.text3,
-        'Tunjukkan QR ini ke meja registrasi.',
+        'Show this QR at the registration desk.',
       ),
     'ON DECK' => const _StatusMeta(
         'ON DECK',
         HDTColors.warning,
-        'Bersiap. Match kamu berikutnya.',
+        'Get ready. Your next match is up.',
       ),
     'CALLED' => const _StatusMeta(
         'CALLED. GO TO ARENA',
         HDTColors.accent,
-        'Menuju arena sekarang juga.',
+        'Head to the arena now.',
       ),
     _ => const _StatusMeta(
         'CHECKED IN',
         HDTColors.success,
-        'Tetap di area arena. Tunggu panggilan.',
+        'Stay in the arena area. Wait for the call.',
       ),
   };
 }

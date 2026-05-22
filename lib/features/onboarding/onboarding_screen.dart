@@ -14,7 +14,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   int _index = 0;
   final _name = TextEditingController();
-  final Set<String> _roles = {'PEMAIN'};
+  final Set<String> _roles = {'PLAYER'};
   final Set<String> _interests = {};
   String _gear = '';
   Color _color = HDTColors.accent;
@@ -131,7 +131,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               color: Colors.white, size: 44),
         ),
         const SizedBox(height: HDTSpace.xl),
-        Text('SELAMAT DATANG',
+        Text('WELCOME',
             style: HDTText.overline(size: 11, color: HDTColors.accentHover)),
         const SizedBox(height: HDTSpace.sm),
         Text('READY TO ENTER\nTHE ARENA?',
@@ -141,7 +141,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 470),
           child: Text(
-            'HIDEOUT adalah rumah komunitas Beyblade X Indonesia: turnamen ranked, leaderboard nasional, dan komunitas lokal di seluruh kota. Kita setup profil kamu dalam 60 detik.',
+            'HIDEOUT is the home for Indonesia\'s Beyblade X community: ranked tournaments, national leaderboards, and local communities across the country. Let\'s set up your profile in 60 seconds.',
             textAlign: TextAlign.center,
             style: HDTText.body(color: HDTColors.text2, height: 1.6),
           ),
@@ -153,10 +153,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           alignment: WrapAlignment.center,
           children: [
             _WelcomeStat(
-                icon: Icons.emoji_events_outlined, label: '24 turnamen aktif'),
+                icon: Icons.emoji_events_outlined,
+                label: '24 active tournaments'),
             _WelcomeStat(icon: Icons.groups_outlined, label: '12K+ blader'),
             _WelcomeStat(
-                icon: Icons.location_on_outlined, label: 'Region dari signup'),
+                icon: Icons.location_on_outlined, label: 'Region from signup'),
           ],
         ),
       ],
@@ -165,37 +166,38 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _roleStep() {
     return _StepShell(
-      title: 'PILIH ROLE KAMU',
+      title: 'CHOOSE YOUR ROLE',
       subtitle:
-          'Boleh pilih lebih dari satu. Pengajuan juri dan ketua komunitas tetap menunggu approval.',
+          'You can choose more than one. Judge and community lead requests still wait for approval.',
       child: Column(
         children: [
           _RoleCard(
-            id: 'PEMAIN',
-            title: 'PEMAIN',
-            desc: 'Daftar turnamen, build deck, climb leaderboard.',
+            id: 'PLAYER',
+            title: 'PLAYER',
+            desc:
+                'Register for tournaments, build decks, climb the leaderboard.',
             icon: Icons.person_outline,
             color: HDTColors.accent,
-            active: _roles.contains('PEMAIN'),
-            onTap: () => _toggleRole('PEMAIN'),
+            active: _roles.contains('PLAYER'),
+            onTap: () => _toggleRole('PLAYER'),
           ),
           _RoleCard(
-            id: 'JURI',
-            title: 'JURI',
-            desc: 'Verifikasi match di arena, certified scoring.',
+            id: 'JUDGE',
+            title: 'JUDGE',
+            desc: 'Verify arena matches and handle certified scoring.',
             icon: Icons.verified_user_outlined,
             color: HDTColors.info,
-            active: _roles.contains('JURI'),
-            onTap: () => _toggleRole('JURI'),
+            active: _roles.contains('JUDGE'),
+            onTap: () => _toggleRole('JUDGE'),
           ),
           _RoleCard(
-            id: 'KETUA',
-            title: 'KETUA KOMUNITAS',
-            desc: 'Kelola roster komunitas dan host event lokal.',
+            id: 'LEAD',
+            title: 'COMMUNITY LEAD',
+            desc: 'Manage community rosters and host local events.',
             icon: Icons.workspace_premium_outlined,
             color: HDTColors.warning,
-            active: _roles.contains('KETUA'),
-            onTap: () => _toggleRole('KETUA'),
+            active: _roles.contains('LEAD'),
+            onTap: () => _toggleRole('LEAD'),
           ),
           if (_roles.isNotEmpty) ...[
             const SizedBox(height: HDTSpace.md),
@@ -205,7 +207,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 spacing: HDTSpace.sm,
                 runSpacing: HDTSpace.sm,
                 children: [
-                  Text('DIPILIH:', style: HDTText.overline(size: 9)),
+                  Text('SELECTED:', style: HDTText.overline(size: 9)),
                   for (final role in _roles)
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -229,7 +231,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _identityStep() {
     return _StepShell(
       title: 'IDENTITY',
-      subtitle: 'Nama yang muncul di leaderboard dan profil publik.',
+      subtitle: 'The name shown on leaderboards and your public profile.',
       child: Column(
         children: [
           Row(
@@ -263,7 +265,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
                     ),
                     const SizedBox(height: HDTSpace.xs),
-                    Text('3-16 karakter, huruf besar',
+                    Text('3-16 characters, uppercase letters',
                         style: HDTText.body(size: 11, color: HDTColors.text3)),
                   ],
                 ),
@@ -326,7 +328,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 const SizedBox(width: HDTSpace.sm),
                 Expanded(
                   child: Text(
-                    'HDT-ID kamu sudah dibuat saat signup dan akan dipakai untuk bracket, QR, dan leaderboard.',
+                    'Your HDT-ID was created during signup and will be used for brackets, QR, and leaderboards.',
                     style: HDTText.body(size: 11, color: HDTColors.text3),
                   ),
                 ),
@@ -342,7 +344,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return _StepShell(
       title: 'GEAR PREFERENCE',
       subtitle:
-          'Pilih playstyle yang paling cocok. Ini dipakai untuk rekomendasi deck starter.',
+          'Choose the playstyle that fits you best. This is used for starter deck recommendations.',
       child: Column(
         children: [
           _GearCard(
@@ -379,16 +381,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _interestsStep() {
     final interests = [
-      _Interest('tournaments', 'Turnamen', Icons.emoji_events_outlined),
+      _Interest('tournaments', 'Tournaments', Icons.emoji_events_outlined),
       _Interest('casual', 'Casual play', Icons.auto_awesome_outlined),
-      _Interest('community', 'Komunitas lokal', Icons.groups_outlined),
+      _Interest('community', 'Local communities', Icons.groups_outlined),
       _Interest('meta', 'Meta & strategy', Icons.track_changes_outlined),
       _Interest('collection', 'Parts collecting', Icons.card_giftcard_outlined),
       _Interest('streaming', 'Watch streams', Icons.photo_camera_outlined),
     ];
     return _StepShell(
       title: 'WHAT BRINGS YOU HERE?',
-      subtitle: 'Pilih semua yang relevan. Minimal satu.',
+      subtitle: 'Choose every relevant option. Minimum one.',
       child: Column(
         children: [
           LayoutBuilder(builder: (context, constraints) {
@@ -431,9 +433,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Notifikasi push', style: HDTText.body(size: 13)),
+                      Text('Push notifications', style: HDTText.body(size: 13)),
                       Text(
-                          'Match assignment, hasil verifikasi, schedule changes',
+                          'Match assignments, verification results, schedule changes',
                           style:
                               HDTText.body(size: 11, color: HDTColors.text3)),
                     ],
@@ -472,7 +474,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             textAlign: TextAlign.center, style: HDTText.display(size: 36)),
         const SizedBox(height: HDTSpace.sm),
         Text(
-          'Profile kamu siap. Kamu mendapat 100 ELO starter rating dan bisa mulai daftar turnamen.',
+          'Your profile is ready. You receive a 100 ELO starter rating and can start registering for tournaments.',
           textAlign: TextAlign.center,
           style: HDTText.body(color: HDTColors.text2),
         ),
@@ -502,7 +504,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(name, style: HDTText.display(size: 20)),
-                        Text('HDT-ID aktif dari signup',
+                        Text('HDT-ID active from signup',
                             style:
                                 HDTText.mono(size: 11, color: HDTColors.text3)),
                         Wrap(

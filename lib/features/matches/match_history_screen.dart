@@ -1,7 +1,7 @@
 // ============================================================
 // MATCH HISTORY SCREEN
-// Menampilkan riwayat match lengkap dengan:
-// - Filter tanggal (preset + kustom)
+// Shows complete match history with:
+// - Date filter (preset + custom)
 // - Filter hasil (WIN/LOSS)
 // - Statistik range
 // - Expandable row → deck vs deck + game-by-game
@@ -599,7 +599,7 @@ class MatchHistoryScreen extends ConsumerWidget {
             HDTEmptyState(
               icon: Icons.search_off,
               title: 'TIDAK ADA MATCH',
-              subtitle: 'Ubah filter atau rentang tanggal',
+              subtitle: 'Change filters or date range',
               action: OutlinedButton(
                 onPressed: notifier.reset,
                 child: const Text('RESET FILTER'),
@@ -671,7 +671,7 @@ class _FilterPanelState extends State<_FilterPanel> {
               Expanded(
                 child: HDTSearchField(
                   controller: _ctrl,
-                  placeholder: 'Cari lawan, turnamen, atau deck…',
+                  placeholder: 'Search opponents, tournaments, or decks...',
                   onChanged: n.setQuery,
                 ),
               ),

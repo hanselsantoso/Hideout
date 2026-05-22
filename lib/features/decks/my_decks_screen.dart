@@ -19,7 +19,7 @@ class MyDecksScreen extends ConsumerWidget {
           data: (data) => _LoadedDecks(catalog: data),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (_, __) => Center(
-            child: Text('Data deck gagal dibaca. Coba muat ulang halaman.',
+            child: Text('Deck data could not be read. Try refreshing the page.',
                 style: HDTText.body(color: HDTColors.danger)),
           ),
         ),
@@ -394,7 +394,7 @@ class _NewDeckCard extends StatelessWidget {
               const SizedBox(height: 14),
               Text('NEW DECK', style: HDTText.display(size: 20)),
               const SizedBox(height: 4),
-              Text('Build 3 kombo dari part BeyBrew',
+              Text('Build 3 combos from BeyBrew parts',
                   style: HDTText.body(size: 12, color: HDTColors.text3)),
             ],
           ),

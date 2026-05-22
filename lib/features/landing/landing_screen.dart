@@ -51,7 +51,7 @@ class LandingScreen extends StatelessWidget {
             child: _SectionShell(
               overline: 'FEATURED',
               title: 'COMMUNITIES',
-              actionLabel: 'BUKA KOMUNITAS BARU',
+              actionLabel: 'OPEN NEW COMMUNITY',
               actionRoute: '/communities',
               child: _CommunityGrid(),
             ),
@@ -233,7 +233,7 @@ class _HeroCopy extends StatelessWidget {
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
           child: Text(
-            'Komunitas Beyblade X Indonesia. ELO ranked. Bracket transparan. Setiap match dihitung, setiap part punya track record.',
+            'Indonesia Beyblade X community. Ranked ELO. Transparent brackets. Every match counts, every part has a track record.',
             style: HDTText.body(size: 16, color: HDTColors.text2, height: 1.6),
           ),
         ),
@@ -804,11 +804,11 @@ class _PillarsBand extends StatelessWidget {
   Widget build(BuildContext context) {
     const pillars = [
       _Pillar(Icons.local_fire_department_outlined, 'COMPETITIVE',
-          'Setiap match menghasilkan ELO. Setiap deck punya track record. Pemain di sini ingin menang.'),
+          'Every match produces ELO. Every deck has a track record. Players here want to win.'),
       _Pillar(Icons.groups_outlined, 'COMMUNITY-LED',
-          'Setiap komunitas pakai aturan, fee, dan juri sendiri. Platform memfasilitasi tanpa menyeragamkan.'),
+          'Every community uses its own rules, fees, and judges. The platform supports them without forcing one format.'),
       _Pillar(Icons.visibility_outlined, 'TRANSPARENT',
-          'Bracketing, hadiah, fee, dan hasil match terbuka. Tidak ada kotak hitam.'),
+          'Bracketing, prizes, fees, and match results are open. No black boxes.'),
     ];
     return Container(
       decoration: const BoxDecoration(
@@ -1154,7 +1154,7 @@ class _CtaBand extends StatelessWidget {
                         style: HDTText.display(size: 50)),
                     const SizedBox(height: HDTSpace.sm),
                     Text(
-                      'Buat akun, build deck pertamamu, dan masuk bracket minggu ini.',
+                      'Create an account, build your first deck, and enter this week\'s bracket.',
                       style: HDTText.body(color: HDTColors.text2),
                     ),
                   ],

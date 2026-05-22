@@ -52,7 +52,7 @@ class _JudgeScoreScreenState extends ConsumerState<JudgeScoreScreen> {
       _round--;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Input round terakhir dibatalkan.')),
+      const SnackBar(content: Text('Last round input was canceled.')),
     );
   }
 
@@ -67,7 +67,7 @@ class _JudgeScoreScreenState extends ConsumerState<JudgeScoreScreen> {
           children: [
             Text('${match.arena.toUpperCase()} - ${match.matchCode}',
                 style: HDTText.overline(size: 9)),
-            Text('INPUT SKOR JURI', style: HDTText.display(size: 20)),
+            Text('JUDGE SCORE INPUT', style: HDTText.display(size: 20)),
           ],
         ),
         actions: [
@@ -205,7 +205,7 @@ class _JudgeScoreScreenState extends ConsumerState<JudgeScoreScreen> {
       if (!mounted) return;
       setState(() {
         _error =
-            'Skor belum tersimpan. Periksa koneksi, lalu coba submit ulang.';
+            'Score was not saved. Check the connection, then submit again.';
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -294,7 +294,7 @@ class _JudgeScoreScreenState extends ConsumerState<JudgeScoreScreen> {
         ]),
         const SizedBox(height: HDTSpace.md),
         if (_rounds.isEmpty)
-          Text('Belum ada skor.', style: HDTText.body(color: HDTColors.text3)),
+          Text('No score yet.', style: HDTText.body(color: HDTColors.text3)),
         for (final log in _rounds.reversed)
           Container(
             padding: const EdgeInsets.symmetric(vertical: HDTSpace.sm),
@@ -513,8 +513,8 @@ class _SubmittedPanel extends StatelessWidget {
         const SizedBox(height: HDTSpace.sm),
         Text(
             persisted
-                ? '$winner menang $score. Battle log tersimpan: ${battleId ?? '-'}'
-                : '$winner menang $score. Mode preview aktif, hasil belum disimpan ke match live.',
+                ? '$winner won $score. Battle log saved: ${battleId ?? '-'}'
+                : '$winner won $score. Preview mode is active; the result was not saved to the live match.',
             textAlign: TextAlign.center,
             style: HDTText.body(color: HDTColors.text2, height: 1.5)),
         const SizedBox(height: HDTSpace.lg),

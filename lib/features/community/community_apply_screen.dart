@@ -20,7 +20,7 @@ const _regions = [
 
 const _communityTypes = [
   'Kompetitif',
-  'Kasual & Komunitas',
+  'Casual & Community',
   'Campuran',
   'Regional Club',
   'Sekolah / Kampus',
@@ -106,9 +106,9 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('HIDEOUT - PENDAFTARAN KOMUNITAS',
+            Text('HIDEOUT - COMMUNITY REGISTRATION',
                 style: HDTText.overline(size: 9)),
-            Text('BUKA KOMUNITAS BARU', style: HDTText.display(size: 18)),
+            Text('OPEN NEW COMMUNITY', style: HDTText.display(size: 18)),
           ],
         ),
         actions: [
@@ -182,12 +182,12 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
   Widget _identityStep() {
     return _StepSection(
       step: 'LANGKAH 1',
-      title: 'IDENTITAS KOMUNITAS',
+      title: 'COMMUNITY IDENTITY',
       subtitle:
-          'Isi informasi dasar komunitas. Nama dan tag akan tampil di bracket, leaderboard, dan halaman publik.',
+          'Fill in the basic community information. Name and tag will appear in brackets, leaderboards, and public pages.',
       children: [
         _Field(
-          label: 'NAMA KOMUNITAS',
+          label: 'COMMUNITY NAME',
           controller: _communityName,
           hint: 'contoh: JKT WOLVES',
           maxLength: 40,
@@ -210,13 +210,13 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
           },
         ),
         _SelectField(
-          label: 'TIPE KOMUNITAS',
+          label: 'COMMUNITY TYPE',
           value: _type,
           options: _communityTypes,
           onChanged: (value) => setState(() => _type = value),
         ),
         _SelectField(
-          label: 'REGION KOMUNITAS',
+          label: 'COMMUNITY REGION',
           value: _region,
           options: _regions,
           onChanged: (value) => setState(() => _region = value),
@@ -225,14 +225,15 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
         _Field(
           label: 'WEBSITE / SOSMED',
           controller: _website,
-          hint: 'instagram.com/komunitas',
+          hint: 'instagram.com/community',
           icon: Icons.language,
         ),
         _Wide(
           child: _Field(
-            label: 'DESKRIPSI KOMUNITAS',
+            label: 'COMMUNITY DESCRIPTION',
             controller: _description,
-            hint: 'Ceritakan visi, kegiatan rutin, target anggota, dan arena.',
+            hint:
+                'Describe the vision, recurring activities, target members, and arena.',
             minLines: 4,
             maxLines: 6,
             maxLength: 500,
@@ -240,7 +241,7 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
         ),
         _Wide(
           child: _UploadMock(
-            label: 'LOGO KOMUNITAS',
+            label: 'COMMUNITY LOGO',
             hint: 'PNG / JPG, maks 2MB, min 200x200px',
             uploaded: _logoUploaded,
             optional: true,
@@ -252,7 +253,7 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
             icon: Icons.info_outline,
             color: HDTColors.accentHover,
             text:
-                'Data komunitas dapat diubah setelah disetujui melalui Community Settings. Nama dan tag sebaiknya dianggap permanen.',
+                'Community data can be changed after approval through Community Settings. Name and tag should be treated as permanent.',
           ),
         ),
       ],
@@ -262,16 +263,16 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
   Widget _leaderStep() {
     return _StepSection(
       step: 'LANGKAH 2',
-      title: 'PROFIL KETUA',
+      title: 'LEAD PROFILE',
       subtitle:
-          'Ketua akan menjadi Admin Komunitas pertama dan bertanggung jawab atas aktivitas komunitas di platform.',
+          'The lead will become the first Community Admin and be responsible for community activity on the platform.',
       children: [
         _Field(label: 'NAMA LENGKAP', controller: _leaderName),
         _Field(
           label: 'EMAIL',
           controller: _leaderEmail,
           keyboardType: TextInputType.emailAddress,
-          hint: 'ketua@email.com',
+          hint: 'lead@email.com',
         ),
         _Field(
           label: 'NOMOR HP / WHATSAPP',
@@ -287,20 +288,20 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
         ),
         _Wide(
           child: _Field(
-            label: 'USER KETUA / HIDEOUT ID',
+            label: 'LEAD USER / HIDEOUT ID',
             controller: _leaderUserId,
-            hint: 'Kosongkan jika ketua adalah akun yang sedang login',
+            hint: 'Leave empty if the lead is the currently signed-in account',
             icon: Icons.badge_outlined,
           ),
         ),
         _UploadMock(
-          label: 'KTP / KARTU IDENTITAS',
+          label: 'KTP / KARTU IDENTITY',
           hint: 'JPG / PNG, maks 5MB',
           uploaded: _idUploaded,
           onTap: () => setState(() => _idUploaded = true),
         ),
         _UploadMock(
-          label: 'SURAT KETERANGAN KOMUNITAS',
+          label: 'COMMUNITY CERTIFICATE',
           hint: 'Opsional, PDF / JPG',
           uploaded: _letterUploaded,
           optional: true,
@@ -311,7 +312,7 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
             icon: Icons.shield_outlined,
             color: HDTColors.warning,
             text:
-                'KTP digunakan hanya untuk verifikasi internal HIDEOUT dan tidak ditampilkan ke publik.',
+                'ID cards are used only for internal HIDEOUT verification and are not shown publicly.',
           ),
         ),
       ],
@@ -321,16 +322,16 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
   Widget _bankStep() {
     return _StepSection(
       step: 'LANGKAH 3',
-      title: 'INFORMASI REKENING',
+      title: 'INFORMASI BANK ACCOUNT',
       subtitle:
-          'Rekening komunitas untuk menerima dana pendaftaran setelah turnamen selesai.',
+          'Community bank account for receiving registration funds after the tournament finishes.',
       children: [
         const _Wide(
           child: _Notice(
             icon: Icons.credit_card,
             color: HDTColors.info,
             text:
-                'Pembayaran peserta nanti diproses via Midtrans. Untuk MVP web ini payment masih dianggap lunas otomatis.',
+                'Participant payments will later be processed via Midtrans. For this web MVP, payments are still treated as automatically paid.',
           ),
         ),
         _SelectField(
@@ -340,14 +341,14 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
           onChanged: (value) => setState(() => _bank = value),
         ),
         _Field(
-          label: 'NOMOR REKENING',
+          label: 'NOMOR BANK ACCOUNT',
           controller: _bankNumber,
           icon: Icons.tag,
           keyboardType: TextInputType.number,
         ),
         _Wide(
           child: _Field(
-            label: 'NAMA PEMEGANG REKENING',
+            label: 'NAMA PEMEGANG BANK ACCOUNT',
             controller: _bankHolder,
             textCapitalization: TextCapitalization.characters,
           ),
@@ -365,7 +366,7 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
             value: _agreeBank,
             onChanged: (value) => setState(() => _agreeBank = value),
             text:
-                'Saya menyatakan rekening ini benar dan dapat digunakan untuk withdraw dana komunitas.',
+                'I confirm this bank account is correct and can be used to withdraw community funds.',
           ),
         ),
       ],
@@ -377,7 +378,7 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
       step: 'LANGKAH 4',
       title: 'REVIEW PENGAJUAN',
       subtitle:
-          'Periksa kembali data sebelum dikirim ke super admin. Proses review biasanya 3-5 hari kerja.',
+          'Review the data before sending it to super admin. The review process usually takes 3-5 business days.',
       children: [
         _Wide(
           child: Container(
@@ -385,16 +386,16 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
             decoration: hdtCard(),
             child: Column(
               children: [
-                _ReviewRow('Komunitas', _communityName.text),
+                _ReviewRow('Community', _communityName.text),
                 _ReviewRow('Tag', _tag.text),
-                _ReviewRow('Tipe', _type),
+                _ReviewRow('Type', _type),
                 _ReviewRow('Region', _region),
                 _ReviewRow('Kota', _city.text),
-                _ReviewRow('Ketua', _leaderName.text),
+                _ReviewRow('Lead', _leaderName.text),
                 _ReviewRow('Email', _leaderEmail.text),
-                _ReviewRow('Rekening', '${_bankHolder.text} - $_bank'),
+                _ReviewRow('Bank account', '${_bankHolder.text} - $_bank'),
                 _ReviewRow(
-                    'Dokumen', _idUploaded ? 'KTP uploaded' : 'Belum lengkap'),
+                    'Dokumen', _idUploaded ? 'KTP uploaded' : 'Incomplete'),
               ],
             ),
           ),
@@ -404,7 +405,7 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
             value: _agreeFinal,
             onChanged: (value) => setState(() => _agreeFinal = value),
             text:
-                'Saya menyatakan seluruh informasi benar dan bersedia mengikuti aturan komunitas HIDEOUT.',
+                'I confirm all information is correct and agree to follow HIDEOUT community rules.',
           ),
         ),
       ],
@@ -439,7 +440,7 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
                     style: HDTText.display(size: 40).copyWith(height: 1)),
                 const SizedBox(height: HDTSpace.md),
                 Text(
-                  'Pengajuan ${_communityName.text.isEmpty ? 'komunitas baru' : _communityName.text} sedang dalam review super admin. Hasil review akan dikirim setelah verifikasi data.',
+                  'The ${_communityName.text.isEmpty ? 'new community' : _communityName.text} application is under super admin review. Review results will be sent after data verification.',
                   textAlign: TextAlign.center,
                   style: HDTText.body(color: HDTColors.text2, height: 1.6),
                 ),
@@ -449,10 +450,10 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
                   decoration: hdtCard(),
                   child: const Column(
                     children: [
-                      _NextStep('01', 'Konfirmasi pengajuan tersimpan'),
-                      _NextStep('02', 'Super admin meninjau komunitas'),
-                      _NextStep('03', 'Ketua mendapat role admin komunitas'),
-                      _NextStep('04', 'Komunitas bisa membuat tournament'),
+                      _NextStep('01', 'Application confirmation saved'),
+                      _NextStep('02', 'Super admin reviews the community'),
+                      _NextStep('03', 'Lead receives the community admin role'),
+                      _NextStep('04', 'Community can create tournaments'),
                     ],
                   ),
                 ),
@@ -507,15 +508,15 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
     String? message;
     if (_step == 0) {
       if (_communityName.text.trim().length < 3) {
-        message = 'Nama komunitas minimal 3 karakter.';
+        message = 'Community name must be at least 3 characters.';
       } else if (_tag.text.trim().length < 2) {
-        message = 'Tag komunitas minimal 2 karakter.';
+        message = 'Community tag must be at least 2 characters.';
       } else if (_type.isEmpty ||
           _region.isEmpty ||
           _city.text.trim().isEmpty) {
-        message = 'Lengkapi tipe, region, dan kota komunitas.';
+        message = 'Complete the community type, region, and city.';
       } else if (_description.text.trim().length < 30) {
-        message = 'Deskripsi komunitas minimal 30 karakter.';
+        message = 'Community description must be at least 30 characters.';
       }
     }
     if (_step == 1) {
@@ -523,22 +524,23 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
           _leaderEmail.text.trim().isEmpty ||
           _leaderPhone.text.trim().length < 10 ||
           _leaderInstagram.text.trim().isEmpty) {
-        message = 'Lengkapi data ketua komunitas.';
+        message = 'Complete the community lead data.';
       } else if (!_idUploaded) {
-        message = 'Upload KTP / kartu identitas ketua terlebih dahulu.';
+        message = 'Upload the lead ID card first.';
       }
     }
     if (_step == 2) {
       if (_bank.isEmpty ||
           _bankNumber.text.trim().length < 8 ||
           _bankHolder.text.trim().isEmpty) {
-        message = 'Lengkapi data rekening komunitas.';
+        message = 'Complete the community bank account data.';
       } else if (!_agreeBank) {
-        message = 'Setujui pernyataan rekening terlebih dahulu.';
+        message = 'Agree to the bank account statement first.';
       }
     }
     if (_step == 3 && !_agreeFinal) {
-      message = 'Setujui pernyataan final sebelum mengirim pengajuan.';
+      message =
+          'Agree to the final statement before submitting the application.';
     }
 
     setState(() => _error = message);
@@ -605,8 +607,7 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error =
-            'Pengajuan belum bisa dikirim. Coba ulangi beberapa saat lagi.';
+        _error = 'Application could not be submitted. Try again in a moment.';
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -617,7 +618,7 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
 class _StepBar extends StatelessWidget {
   const _StepBar({required this.step});
   final int step;
-  static const labels = ['IDENTITAS', 'KETUA', 'REKENING', 'REVIEW'];
+  static const labels = ['IDENTITY', 'LEAD', 'BANK ACCOUNT', 'REVIEW'];
 
   @override
   Widget build(BuildContext context) {
@@ -808,7 +809,7 @@ class _SelectField extends StatelessWidget {
           initialValue: value.isEmpty ? null : value,
           dropdownColor: HDTColors.s1,
           icon: const Icon(Icons.keyboard_arrow_down),
-          hint: Text('Pilih...', style: HDTText.body(color: HDTColors.text3)),
+          hint: Text('Choose...', style: HDTText.body(color: HDTColors.text3)),
           items: [
             for (final option in options)
               DropdownMenuItem(value: option, child: Text(option)),
@@ -873,7 +874,7 @@ class _UploadMock extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(uploaded ? 'File terupload' : 'Klik untuk upload',
+                      Text(uploaded ? 'File uploaded' : 'Click to upload',
                           style: HDTText.body(
                               size: 12,
                               color: uploaded

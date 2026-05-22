@@ -104,6 +104,7 @@ class BeyPart {
     if (value == null || value.isEmpty || _isNetworkImage(value)) return null;
     return 'assets/beybrew/parts/$value';
   }
+
   bool get isIntegrated =>
       integratedRatchet != null ||
       name.toLowerCase().contains('integrated') ||
@@ -478,27 +479,29 @@ List<String> validateDeck(
         combo.ratchetId == null ? null : catalog.find(combo.ratchetId!);
     final cx = blade?.isCx ?? false;
 
-    if (blade == null) issues.add('Kombo ${i + 1}: Blade belum dipilih.');
-    if (bit == null) issues.add('Kombo ${i + 1}: Bit belum dipilih.');
-    if (ratchet == null) issues.add('Kombo ${i + 1}: Ratchet belum dipilih.');
+    if (blade == null)
+      issues.add('Combo ${i + 1}: Blade has not been selected.');
+    if (bit == null) issues.add('Combo ${i + 1}: Bit has not been selected.');
+    if (ratchet == null)
+      issues.add('Combo ${i + 1}: Ratchet has not been selected.');
     if (cx && combo.assistBladeId == null) {
-      issues.add('Kombo ${i + 1}: CX wajib memilih Assist Blade.');
+      issues.add('Combo ${i + 1}: CX must choose an Assist Blade.');
     }
     if (cx && combo.lockChipId == null) {
-      issues.add('Kombo ${i + 1}: CX wajib memilih Lock Chip.');
+      issues.add('Combo ${i + 1}: CX must choose a Lock Chip.');
     }
     if (!cx && (combo.assistBladeId != null || combo.lockChipId != null)) {
-      issues.add('Kombo ${i + 1}: Assist/Lock hanya aktif untuk Blade CX.');
+      issues.add('Combo ${i + 1}: Assist/Lock is only active for CX Blade.');
     }
     if (bit != null &&
         (bit.name == 'Turbo' || bit.name == 'Operate') &&
         !(ratchet?.name.startsWith(bit.name) ?? false)) {
-      issues.add('Kombo ${i + 1}: ${bit.name} memakai ratchet integrated.');
+      issues.add('Combo ${i + 1}: ${bit.name} uses an integrated ratchet.');
     }
     if (blade != null &&
         blade.integratedRatchet != null &&
         ratchet?.name != blade.integratedRatchet) {
-      issues.add('Kombo ${i + 1}: ${blade.name} memakai ratchet integrated.');
+      issues.add('Combo ${i + 1}: ${blade.name} uses an integrated ratchet.');
     }
 
     for (final id in combo.selectedIds()) {
@@ -509,7 +512,7 @@ List<String> validateDeck(
   for (final entry in seen.entries.where((entry) => entry.value > 1)) {
     final part = catalog.find(entry.key);
     issues.add(
-        'Duplicate part: ${part?.name ?? entry.key} dipakai lebih dari sekali.');
+        'Duplicate part: ${part?.name ?? entry.key} is used more than once.');
   }
   return issues;
 }

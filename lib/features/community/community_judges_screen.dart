@@ -39,7 +39,7 @@ class _CommunityJudgesScreenState extends ConsumerState<CommunityJudgesScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('COMMUNITY ADMIN', style: HDTText.overline(size: 9)),
-            Text('JURI & MEMBERS', style: HDTText.display(size: 20)),
+            Text('JUDGES & MEMBERS', style: HDTText.display(size: 20)),
           ],
         ),
         actions: [
@@ -55,7 +55,7 @@ class _CommunityJudgesScreenState extends ConsumerState<CommunityJudgesScreen> {
       body: profile.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => const _PermissionNotice(
-          text: 'Belum bisa membaca sesi admin. Coba muat ulang halaman.',
+          text: 'Admin session could not be read. Try refreshing the page.',
         ),
         data: (user) {
           if (user == null) {
@@ -66,7 +66,7 @@ class _CommunityJudgesScreenState extends ConsumerState<CommunityJudgesScreen> {
           if (!user.isCommunityAdminCompatible) {
             return _PermissionNotice(
               text:
-                  'Role akun ini ${user.role}. Pengaturan juri hanya untuk admin komunitas atau admin platform.',
+                  'This account role is ${user.role}. Judge settings are only for community admins or platform admins.',
             );
           }
           return _content(user);
@@ -90,7 +90,7 @@ class _CommunityJudgesScreenState extends ConsumerState<CommunityJudgesScreen> {
           onChanged: (_) => setState(() {}),
           decoration: const InputDecoration(
             prefixIcon: Icon(Icons.search),
-            labelText: 'Cari nama, email, region, atau HDT id',
+            labelText: 'Search name, email, region, or HDT ID',
           ),
         ),
         if (_error != null) ...[
@@ -102,7 +102,8 @@ class _CommunityJudgesScreenState extends ConsumerState<CommunityJudgesScreen> {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (_, __) => const _Notice(
             color: HDTColors.warning,
-            text: 'Belum bisa membaca kandidat juri. Coba muat ulang halaman.',
+            text:
+                'Judge candidates could not be read. Try refreshing the page.',
           ),
           data: (items) {
             final filtered = _filter(items);
@@ -163,7 +164,7 @@ class _CommunityJudgesScreenState extends ConsumerState<CommunityJudgesScreen> {
             targetUid: candidate.uid,
             assignedBy: adminUid,
           ),
-      '${candidate.displayName} sekarang menjadi juri.',
+      '${candidate.displayName} is now a judge.',
     );
   }
 
@@ -177,7 +178,7 @@ class _CommunityJudgesScreenState extends ConsumerState<CommunityJudgesScreen> {
             targetUid: candidate.uid,
             revokedBy: adminUid,
           ),
-      '${candidate.displayName} dikembalikan menjadi pemain.',
+      '${candidate.displayName} was reverted to player.',
     );
   }
 
@@ -199,7 +200,7 @@ class _CommunityJudgesScreenState extends ConsumerState<CommunityJudgesScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Belum bisa mengubah role juri. Coba ulangi.';
+        _error = 'Judge role could not be changed. Try again.';
       });
     } finally {
       if (mounted) {
@@ -240,9 +241,9 @@ class _HeaderCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('ASSIGN JURI', style: HDTText.display(size: 26)),
+                Text('ASSIGN JUDGES', style: HDTText.display(size: 26)),
                 Text(
-                  'Pilih pemain aktif untuk menjadi juri. Setelah role berubah, nama mereka muncul di wizard tournament bagian arena.',
+                  'Choose active players to become judges. After the role changes, their names appear in the tournament wizard arena step.',
                   style: HDTText.body(size: 12, color: HDTColors.text2),
                 ),
               ],
@@ -252,7 +253,7 @@ class _HeaderCard extends StatelessWidget {
           ElevatedButton.icon(
             onPressed: onCreateTournament,
             icon: const Icon(Icons.add_circle_outline, size: 16),
-            label: const Text('BUAT TOURNEY'),
+            label: const Text('CREATE TOURNEY'),
           ),
         ],
       ),
@@ -349,7 +350,7 @@ class _CandidateCard extends StatelessWidget {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.person_remove_outlined, size: 16),
-                    label: Text(busy ? 'UPDATING...' : 'REVOKE JURI'),
+                    label: Text(busy ? 'UPDATING...' : 'REVOKE JUDGE'),
                   )
                 : ElevatedButton.icon(
                     onPressed: busy ? null : onAssign,
@@ -359,7 +360,7 @@ class _CandidateCard extends StatelessWidget {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.gavel_outlined, size: 16),
-                    label: Text(busy ? 'UPDATING...' : 'ASSIGN AS JURI'),
+                    label: Text(busy ? 'UPDATING...' : 'ASSIGN AS JUDGE'),
                   ),
           ),
         ],
@@ -446,7 +447,7 @@ class _EmptyState extends StatelessWidget {
           Text('TIDAK ADA KANDIDAT', style: HDTText.display(size: 22)),
           const SizedBox(height: HDTSpace.xs),
           Text(
-            'Belum ada player aktif yang cocok dengan pencarian.',
+            'No active players match the search.',
             textAlign: TextAlign.center,
             style: HDTText.body(size: 12, color: HDTColors.text2),
           ),
@@ -466,7 +467,7 @@ class _LoginRequired extends StatelessWidget {
     return Center(
       child: ElevatedButton(
         onPressed: onLogin,
-        child: const Text('LOGIN ADMIN KOMUNITAS'),
+        child: const Text('COMMUNITY ADMIN LOGIN'),
       ),
     );
   }

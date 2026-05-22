@@ -15,13 +15,13 @@ const _demoAccounts = <_DemoAccount>[
     color: HDTColors.accentHover,
   ),
   _DemoAccount(
-    role: 'JURI',
+    role: 'JUDGE',
     email: 'hideout.judge@example.com',
     icon: Icons.shield_outlined,
     color: HDTColors.info,
   ),
   _DemoAccount(
-    role: 'KETUA KOMUNITAS',
+    role: 'COMMUNITY LEAD',
     email: 'hideout.community@example.com',
     icon: Icons.groups_outlined,
     color: HDTColors.success,
@@ -62,9 +62,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const AuthHeader(
-            title: 'MASUK KE ARENA',
-            subtitle: 'Belum punya akun?',
-            actionLabel: 'Daftar sekarang',
+            title: 'ENTER THE ARENA',
+            subtitle: 'No account yet?',
+            actionLabel: 'Register now',
             actionRoute: '/signup',
           ),
           const SizedBox(height: HDTSpace.xl),
@@ -80,7 +80,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                 AuthField(
                   label: 'EMAIL',
                   controller: _email,
-                  hint: 'kamu@email.com',
+                  hint: 'you@email.com',
                   keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: HDTSpace.md),
@@ -108,7 +108,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   child: ElevatedButton.icon(
                     onPressed: _busy ? null : _submit,
                     icon: const Icon(Icons.arrow_forward),
-                    label: Text(_busy ? 'AUTHENTICATING...' : 'MASUK'),
+                    label: Text(_busy ? 'AUTHENTICATING...' : 'SIGN IN'),
                   ),
                 ),
                 const SizedBox(height: HDTSpace.lg),
@@ -125,7 +125,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
               Expanded(child: hdtDivider()),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: HDTSpace.md),
-                child: Text('ATAU', style: HDTText.overline(size: 10)),
+                child: Text('OR', style: HDTText.overline(size: 10)),
               ),
               Expanded(child: hdtDivider()),
             ],
@@ -137,12 +137,12 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
             child: OutlinedButton(
               onPressed: () =>
                   Navigator.pushReplacementNamed(context, '/signup'),
-              child: const Text('BUAT AKUN BARU'),
+              child: const Text('CREATE NEW ACCOUNT'),
             ),
           ),
           const SizedBox(height: HDTSpace.lg),
           Text(
-            'Dengan masuk, kamu setuju dengan Terms of Service dan Privacy Policy HIDEOUT.',
+            'By signing in, you agree to the HIDEOUT Terms of Service and Privacy Policy.',
             textAlign: TextAlign.center,
             style: HDTText.body(size: 11, color: HDTColors.text3),
           ),
@@ -153,7 +153,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
   Future<void> _submit() async {
     if (_email.text.trim().isEmpty || _password.text.isEmpty) {
-      setState(() => _error = 'Email dan password wajib diisi.');
+      setState(() => _error = 'Email and password are required.');
       return;
     }
     setState(() {
@@ -174,7 +174,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Login belum berhasil. Periksa email dan password kamu.';
+        _error = 'Sign-in failed. Check your email and password.';
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -220,7 +220,7 @@ class _DemoLoginPanel extends StatelessWidget {
           ),
           const SizedBox(height: HDTSpace.xs),
           Text(
-            'Pilih role untuk masuk memakai akun demo.',
+            'Choose a role to sign in with a demo account.',
             style: HDTText.body(size: 11, color: HDTColors.text3),
           ),
           const SizedBox(height: HDTSpace.md),

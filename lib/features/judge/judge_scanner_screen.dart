@@ -47,7 +47,7 @@ class _JudgeScannerScreenState extends ConsumerState<JudgeScannerScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('JURI CONSOLE', style: HDTText.overline(size: 9)),
+            Text('JUDGE CONSOLE', style: HDTText.overline(size: 9)),
             Text(_matchVerify ? 'MATCH DECK CHECK' : 'QR CHECK-IN',
                 style: HDTText.display(size: 20)),
           ],
@@ -222,7 +222,7 @@ class _JudgeScannerScreenState extends ConsumerState<JudgeScannerScreen> {
           _registration = null;
           _scanned = false;
           _error =
-              'Tiket tidak ditemukan di data live. Pastikan ID registrasi benar atau scan QR peserta yang sudah terdaftar.';
+              'Ticket not found in live data. Make sure the registration ID is correct or scan the QR of a registered participant.';
         });
         return;
       }
@@ -236,7 +236,7 @@ class _JudgeScannerScreenState extends ConsumerState<JudgeScannerScreen> {
         _registration = null;
         _scanned = false;
         _error =
-            'Tiket belum bisa dibaca dari Firebase. Periksa koneksi lalu coba scan ulang.';
+            'Ticket could not be read from Firebase. Check the connection and scan again.';
       });
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -267,7 +267,7 @@ class _JudgeScannerScreenState extends ConsumerState<JudgeScannerScreen> {
         SnackBar(
           content: Text(_matchVerify
               ? (allOk ? 'Deck verified.' : 'Deck rejected.')
-              : (allOk ? 'Peserta checked-in.' : 'Check-in rejected.')),
+              : (allOk ? 'Participant checked in.' : 'Check-in rejected.')),
         ),
       );
       _reset();
@@ -275,7 +275,7 @@ class _JudgeScannerScreenState extends ConsumerState<JudgeScannerScreen> {
       if (!mounted) return;
       setState(() {
         _error =
-            'Aksi juri belum tersimpan. Periksa koneksi atau coba ulang beberapa saat lagi.';
+            'Judge action was not saved. Check the connection or try again in a moment.';
       });
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -326,8 +326,8 @@ class _ScannerPanel extends StatelessWidget {
         const SizedBox(height: HDTSpace.lg),
         Text(
           matchVerify
-              ? 'Saat pemain dipanggil, scan QR ticket untuk mencocokkan deck.'
-              : 'Scan QR peserta saat hadir di lokasi untuk aktivasi check-in.',
+              ? 'When a player is called, scan the QR ticket to match the deck.'
+              : 'Scan participant QR on arrival to activate check-in.',
           textAlign: TextAlign.center,
           style: HDTText.body(color: HDTColors.text2, height: 1.5),
         ),
@@ -448,7 +448,7 @@ class _QueuePanel extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('ARENA 02 QUEUE', style: HDTText.display(size: 24)),
         const SizedBox(height: HDTSpace.sm),
-        Text('Panggilan berikutnya untuk diverifikasi juri.',
+        Text('Next calls for judge verification.',
             style: HDTText.body(color: HDTColors.text2)),
         const SizedBox(height: HDTSpace.lg),
         const _QueueRow('M-018', 'HANSEL', 'MARDIKA', 'READY'),
@@ -531,7 +531,7 @@ class _ResultPanel extends StatelessWidget {
         Text('REGISTERED DECK', style: HDTText.overline(size: 10)),
         const SizedBox(height: HDTSpace.sm),
         if (deck == null) ...[
-          _DeckLine(data.deckName, 'Snapshot deck belum tersedia'),
+          _DeckLine(data.deckName, 'Deck snapshot is not available yet'),
         ] else ...[
           _DeckHeader(deck: deck),
           const SizedBox(height: HDTSpace.sm),
@@ -543,19 +543,19 @@ class _ResultPanel extends StatelessWidget {
           Text('DECK VERIFICATION', style: HDTText.overline(size: 10)),
           const SizedBox(height: HDTSpace.sm),
           _VerifyToggle(
-              label: 'QR deck cocok dengan tiket pemain',
+              label: 'Deck QR matches the player ticket',
               value: deckMatches,
               onChanged: onDeckChanged),
           _VerifyToggle(
-              label: 'Blade sesuai daftar registrasi',
+              label: 'Blade matches registration list',
               value: bladeOk,
               onChanged: onBladeChanged),
           _VerifyToggle(
-              label: 'Ratchet sesuai daftar registrasi',
+              label: 'Ratchet matches registration list',
               value: ratchetOk,
               onChanged: onRatchetChanged),
           _VerifyToggle(
-              label: 'Bit sesuai daftar registrasi',
+              label: 'Bit matches registration list',
               value: bitOk,
               onChanged: onBitChanged),
         ],

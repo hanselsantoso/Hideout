@@ -1,6 +1,6 @@
 // ============================================================
 // HIDEOUT SHARED WIDGETS
-// Semua reusable widget kecil yang dipakai di seluruh app.
+// Small reusable widgets used across the app.
 // Import: import 'package:your_app/core/widgets/hdt_widgets.dart';
 // ============================================================
 
@@ -48,7 +48,7 @@ class HDTPagination extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
-          '$from–$to dari $total $label',
+          '$from-$to of $total $label',
           style: HDTText.mono(size: 11, color: HDTColors.text3),
         ),
         SingleChildScrollView(
@@ -372,7 +372,7 @@ class HDTSearchField extends StatelessWidget {
   const HDTSearchField({
     super.key,
     required this.controller,
-    this.placeholder = 'Cari…',
+    this.placeholder = 'Search...',
     this.onChanged,
   });
 
@@ -616,7 +616,7 @@ class HDTCardContainer extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════
-// HDTDateRangeBar  — Date range filter dengan presets
+// HDTDateRangeBar - Date range filter with presets.
 // ════════════════════════════════════════════════════════════
 enum HDTDatePreset {
   all,
@@ -748,7 +748,7 @@ class HDTDateRangeBar extends StatelessWidget {
                   Text(
                     customRange != null
                         ? '${_fmtDate(customRange!.start)}  →  ${_fmtDate(customRange!.end)}'
-                        : 'Pilih rentang tanggal kustom…',
+                        : 'Choose a custom date range...',
                     style: HDTText.mono(
                       size: 11,
                       color: customRange != null
@@ -792,7 +792,7 @@ class HDTDateRangeBar extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════
-// HDTResultFormStrip  — Deretan kotak hijau/merah form strip
+// HDTResultFormStrip - Green/red form strip boxes.
 // ════════════════════════════════════════════════════════════
 class HDTResultFormStrip extends StatelessWidget {
   final List<String> results; // 'WIN' | 'LOSS' | 'DRAW'

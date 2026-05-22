@@ -293,7 +293,7 @@ class TournamentRepository {
         .toList();
     if (liveArenas.isEmpty) {
       throw StateError(
-          'Pilih minimal 1 akun juri live sebelum generate match.');
+          'Select at least 1 live judge account before generating matches.');
     }
 
     final tournamentSnap =
@@ -335,7 +335,7 @@ class TournamentRepository {
 
     if (registrations.length < 2) {
       throw StateError(
-        'Butuh minimal 2 peserta dengan payment paid dan status active.',
+        'At least 2 participants with paid payment and active status are required.',
       );
     }
 
@@ -543,7 +543,7 @@ class TournamentRepository {
     required List<TournamentGroupDraft> groups,
   }) async {
     if (groups.isEmpty) {
-      throw StateError('Buat minimal 1 group sebelum menyimpan setup.');
+      throw StateError('Create at least 1 group before saving setup.');
     }
     await firestore.doc(FirestorePaths.tournamentDoc(tournamentId)).set(
       {
@@ -588,7 +588,7 @@ class TournamentRepository {
 
     if (registrations.length < 2) {
       throw StateError(
-        'Butuh minimal 2 peserta dengan payment paid dan status active.',
+        'At least 2 participants with paid payment and active status are required.',
       );
     }
 
@@ -740,7 +740,7 @@ class TournamentRepository {
         .where((arena) => arena.judgeIds.isNotEmpty)
         .toList();
     if (liveArenas.isEmpty) {
-      throw StateError('Pilih minimal 1 akun juri live.');
+      throw StateError('Select at least 1 live judge account.');
     }
 
     final roundsSnap = await firestore
@@ -770,7 +770,8 @@ class TournamentRepository {
     }
 
     if (topCut.length < 2) {
-      throw StateError('Top cut belum siap. Selesaikan standing round robin.');
+      throw StateError(
+          'Top cut is not ready yet. Complete the round robin standings.');
     }
 
     topCut.sort((a, b) {
@@ -1831,17 +1832,17 @@ class TournamentRepository {
     } catch (_) {
       await firestore
           .doc(FirestorePaths.tournamentRegistrationDoc(
-            tournamentId,
-            registrationId,
-          ))
+        tournamentId,
+        registrationId,
+      ))
           .set({
-            'paymentStatus': 'paid',
-            'registrationStatus': 'active',
-            'paymentId': 'AUTO-$registrationId',
-            'paidAt': FieldValue.serverTimestamp(),
-            'activatedAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
+        'paymentStatus': 'paid',
+        'registrationStatus': 'active',
+        'paymentId': 'AUTO-$registrationId',
+        'paidAt': FieldValue.serverTimestamp(),
+        'activatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     }
   }
 

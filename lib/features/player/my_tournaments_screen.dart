@@ -255,7 +255,7 @@ class _MyTournamentsScreenState extends ConsumerState<MyTournamentsScreen> {
         filter: _filter,
         tournaments: const [],
         notice:
-            'Turnamen kamu belum bisa dibaca dari Firebase. Refresh atau coba lagi setelah koneksi stabil.',
+            'Your tournaments could not be read from Firebase. Refresh or try again after the connection is stable.',
         onFilterChanged: (value) => setState(() => _filter = value),
       ),
       data: (items) => _MyTournamentsView(
@@ -344,7 +344,7 @@ class _MyTournamentsView extends StatelessWidget {
                         children: [
                           Expanded(
                             child: _StatCard(
-                              label: 'TOTAL TURNAMEN',
+                              label: 'TOTAL TOURNAMENTS',
                               value: '$completed',
                             ),
                           ),
@@ -397,9 +397,9 @@ class _MyTournamentsView extends StatelessWidget {
                       if (filtered.isEmpty)
                         const HDTEmptyState(
                           icon: Icons.emoji_events_outlined,
-                          title: 'BELUM ADA TURNAMEN',
+                          title: 'NO TOURNAMENTS YET',
                           subtitle:
-                              'Daftar tournament terlebih dahulu, atau ubah filter kalau event kamu sudah ada.',
+                              'Register for a tournament first, or change the filter if your event is already listed.',
                         ),
                     ],
                   ),
@@ -449,7 +449,7 @@ class _Header extends StatelessWidget {
           const Icon(Icons.chevron_right, size: 12, color: HDTColors.text3),
           const SizedBox(width: 8),
           Expanded(
-            child: Text('TURNAMENKU',
+            child: Text('MY TOURNAMENTS',
                 style: HDTText.overline(size: 10, color: HDTColors.text)),
           ),
           ElevatedButton.icon(
@@ -483,10 +483,10 @@ class _TitleBar extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('TURNAMEN SAYA', style: HDTText.display(size: 34)),
+            Text('MY TOURNAMENTS', style: HDTText.display(size: 34)),
             const SizedBox(height: 4),
             Text(
-              'Riwayat, tiket, QR check-in, dan deck yang sudah dikunci.',
+              'History, tickets, QR check-in, and locked decks.',
               style: HDTText.body(size: 13, color: HDTColors.text3),
             ),
           ],
@@ -494,7 +494,7 @@ class _TitleBar extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: onFind,
           icon: const Icon(Icons.emoji_events_outlined, size: 14),
-          label: const Text('CARI TURNAMEN'),
+          label: const Text('SEARCH TOURNAMENTS'),
         ),
       ],
     );
@@ -616,7 +616,7 @@ class _TournamentRow extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Deck: ${tournament.deck} . ${tournament.registered}/${tournament.capacity} peserta',
+                'Deck: ${tournament.deck} . ${tournament.registered}/${tournament.capacity} players',
                 style: HDTText.mono(size: 11, color: HDTColors.text3),
               ),
               if (tournament.result != null) ...[
@@ -634,7 +634,7 @@ class _TournamentRow extends StatelessWidget {
                             : HDTColors.danger,
                       ),
                     ),
-                    Text('Hasil: ${tournament.result}',
+                    Text('Result: ${tournament.result}',
                         style: HDTText.body(size: 12, color: HDTColors.text3)),
                     if (tournament.prize != null)
                       Text('Prize: ${tournament.prize}',
@@ -810,14 +810,14 @@ String _shortDate(DateTime date) {
     'Feb',
     'Mar',
     'Apr',
-    'Mei',
+    'May',
     'Jun',
     'Jul',
-    'Agu',
+    'Aug',
     'Sep',
-    'Okt',
+    'Oct',
     'Nov',
-    'Des',
+    'Dec',
   ];
   return '${date.day} ${months[date.month - 1]} ${date.year}';
 }

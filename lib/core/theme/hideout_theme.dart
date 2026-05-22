@@ -1,6 +1,6 @@
 // ============================================================
 // HIDEOUT THEME
-// Gunakan di MaterialApp: theme: HDTTheme.dark
+// Use in MaterialApp: theme: HDTTheme.dark
 // ============================================================
 
 import 'package:flutter/material.dart';

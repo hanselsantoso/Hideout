@@ -69,7 +69,7 @@ class CommunityAdminScreen extends ConsumerWidget {
         child: profile.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (_, __) => const _AdminNotice(
-            text: 'Belum bisa membaca sesi admin. Silakan refresh halaman.',
+            text: 'Admin session could not be read. Please refresh the page.',
           ),
           data: (user) {
             if (user == null) {
@@ -80,7 +80,7 @@ class CommunityAdminScreen extends ConsumerWidget {
             if (!user.isCommunityAdminCompatible) {
               return _AdminNotice(
                 text:
-                    'Role akun ini ${user.role}. Menu ini hanya untuk admin komunitas atau super admin.',
+                    'This account role is ${user.role}. This menu is only for community admins or super admins.',
               );
             }
             return ListView(
@@ -139,32 +139,31 @@ const _adminMenu = [
   _AdminMenuItem(
     title: 'Tournament Ops',
     subtitle:
-        'Control room untuk roster, setup grup fleksibel, auto fill pemain, assign juri, dan generate match.',
+        'Control room for rosters, flexible group setup, player auto-fill, judge assignments, and match generation.',
     route: '/admin/tournaments/ops',
     icon: Icons.account_tree_outlined,
     color: HDTColors.accent,
     primary: true,
   ),
   _AdminMenuItem(
-    title: 'Buat Turnamen',
+    title: 'Create Tournament',
     subtitle:
-        'Buka trial dari nol: nama event, rules, pricing, arena, jadwal, dan stage awal.',
+        'Start a trial from scratch: event name, rules, pricing, arenas, schedule, and initial stage.',
     route: '/admin/tournaments/new',
     icon: Icons.add_circle_outline,
     color: HDTColors.success,
   ),
   _AdminMenuItem(
-    title: 'Manage Juri',
-    subtitle:
-        'Assign atau revoke role juri dari pemain komunitas yang sudah diverifikasi.',
+    title: 'Manage Judges',
+    subtitle: 'Assign or revoke judge roles from verified community players.',
     route: '/community/judges',
     icon: Icons.verified_user_outlined,
     color: HDTColors.info,
   ),
   _AdminMenuItem(
-    title: 'Registrasi Komunitas',
+    title: 'Community Registration',
     subtitle:
-        'Buat atau lengkapi profil komunitas sebelum diajukan ke super admin.',
+        'Create or complete a community profile before submitting it to super admin.',
     route: '/communities/new',
     icon: Icons.groups_outlined,
     color: HDTColors.warning,
@@ -366,7 +365,7 @@ class _AdminHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: HDTSpace.sm),
                 Text(
-                  'Halo ${name.toUpperCase()}. Semua operasional komunitas ada di sini: event, group stage, juri, bracket, rules, dan live info pemain.',
+                  'Hello ${name.toUpperCase()}. All community operations live here: events, group stages, judges, brackets, rules, and live player info.',
                   style: HDTText.body(
                     size: 13,
                     color: HDTColors.text2,
@@ -493,14 +492,14 @@ class _CommunityAdminGuidePanel extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('PANDUAN AWAL KETUA KOMUNITAS',
+                Text('COMMUNITY LEAD START GUIDE',
                     style: HDTText.overline(size: 10, color: HDTColors.info)),
                 const SizedBox(height: HDTSpace.sm),
-                Text('Trial dimulai dari membuat turnamen baru',
+                Text('Trial starts by creating a new tournament',
                     style: HDTText.display(size: 26)),
                 const SizedBox(height: HDTSpace.sm),
                 Text(
-                  'Urutan kerja yang disarankan: buat turnamen, buka pendaftaran, tunggu pemain daftar dan bayar, atur grup lewat drag-and-drop, assign juri, lalu generate match. Bracket besar disimpan dulu sampai data live siap.',
+                  'Recommended workflow: create a tournament, open registration, wait for players to register and pay, arrange groups with drag-and-drop, assign judges, then generate matches. The full bracket stays parked until live data is ready.',
                   style: HDTText.body(
                     size: 13,
                     color: HDTColors.text2,
@@ -518,7 +517,7 @@ class _CommunityAdminGuidePanel extends StatelessWidget {
                 onPressed: () =>
                     Navigator.pushNamed(context, '/admin/tournaments/new'),
                 icon: const Icon(Icons.add_circle_outline, size: 16),
-                label: const Text('BUAT TURNAMEN'),
+                label: const Text('CREATE TOURNAMENT'),
               ),
               ElevatedButton.icon(
                 onPressed: () =>
@@ -548,7 +547,7 @@ class _OperationalNotes extends StatelessWidget {
           Text('OPERATING PRINCIPLE', style: HDTText.overline(size: 10)),
           const SizedBox(height: HDTSpace.sm),
           Text(
-            'Admin mengatur stage dan rules. Pemain melihat standings, bracket, hasil, arena, dan giliran berikutnya secara transparan dari halaman tournament.',
+            'Admins configure stages and rules. Players transparently see standings, brackets, results, arenas, and next calls from the tournament page.',
             style: HDTText.body(size: 13, color: HDTColors.text2, height: 1.5),
           ),
         ],
@@ -589,11 +588,11 @@ class _FinancePolicyPanel extends ConsumerWidget {
                     style:
                         HDTText.overline(size: 10, color: HDTColors.success)),
                 const SizedBox(height: HDTSpace.sm),
-                Text('Withdraw komunitas diproses otomatis',
+                Text('Community withdrawals are processed automatically',
                     style: HDTText.display(size: 26)),
                 const SizedBox(height: HDTSpace.sm),
                 Text(
-                  'Dana pendaftaran tetap menjadi hak komunitas. Ketua komunitas mengajukan payout dari halaman ini, lalu sistem menandainya masuk proses tanpa approval manual di super admin.',
+                  'Registration funds remain owned by the community. The community lead requests payout from this page, then the system marks it as processing without manual super admin approval.',
                   style: HDTText.body(
                       size: 13, color: HDTColors.text2, height: 1.5),
                 ),
@@ -610,24 +609,25 @@ class _FinancePolicyPanel extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('TURNAMEN KOMUNITAS', style: HDTText.overline(size: 10)),
+                Text('COMMUNITY TOURNAMENTS',
+                    style: HDTText.overline(size: 10)),
                 const SizedBox(height: HDTSpace.sm),
                 tournaments.when(
                   loading: () => const _FinanceInlineNotice(
                     icon: Icons.hourglass_empty,
-                    text: 'Memuat turnamen komunitas...',
+                    text: 'Loading community tournaments...',
                   ),
                   error: (_, __) => const _FinanceInlineNotice(
                     icon: Icons.info_outline,
                     text:
-                        'Turnamen komunitas belum terbaca. Coba refresh halaman.',
+                        'Community tournaments could not be read. Try refreshing the page.',
                   ),
                   data: (rows) {
                     if (rows.isEmpty) {
                       return const _FinanceInlineNotice(
                         icon: Icons.event_busy_outlined,
                         text:
-                            'Belum ada turnamen yang terhubung ke akun ketua komunitas ini.',
+                            'No tournaments are connected to this community lead account yet.',
                       );
                     }
                     return Column(
@@ -650,19 +650,19 @@ class _FinancePolicyPanel extends ConsumerWidget {
                 withdrawals.when(
                   loading: () => const _FinanceInlineNotice(
                     icon: Icons.hourglass_empty,
-                    text: 'Memuat riwayat withdraw...',
+                    text: 'Loading withdrawal history...',
                   ),
                   error: (_, __) => const _FinanceInlineNotice(
                     icon: Icons.info_outline,
                     text:
-                        'Riwayat withdraw belum terbaca. Coba refresh halaman.',
+                        'Withdrawal history could not be read. Try refreshing the page.',
                   ),
                   data: (rows) {
                     if (rows.isEmpty) {
                       return const _FinanceInlineNotice(
                         icon: Icons.account_balance_wallet_outlined,
                         text:
-                            'Belum ada withdraw. Gunakan tombol di turnamen yang sudah memiliki dana pendaftaran.',
+                            'No withdrawals yet. Use the button on tournaments that already have registration funds.',
                       );
                     }
                     return Column(
@@ -715,7 +715,7 @@ class _FinanceTournamentRow extends StatelessWidget {
         ? 'DIPROSES'
         : item.hasPayout
             ? 'WITHDRAW'
-            : 'BELUM ADA DANA';
+            : 'NO FUNDS YET';
     return Container(
       margin: const EdgeInsets.only(bottom: HDTSpace.sm),
       padding: const EdgeInsets.all(HDTSpace.md),
@@ -747,7 +747,7 @@ class _FinanceTournamentRow extends StatelessWidget {
                 Text(item.name, style: HDTText.display(size: 15)),
                 const SizedBox(height: 4),
                 Text(
-                  '${item.currentParticipantCount}/${item.maxParticipants} pemain - ${item.status}',
+                  '${item.currentParticipantCount}/${item.maxParticipants} players - ${item.status}',
                   style: HDTText.body(size: 12, color: HDTColors.text2),
                 ),
               ],
@@ -906,7 +906,7 @@ class _WithdrawDialogState extends ConsumerState<_WithdrawDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Withdraw dibuat dari halaman ketua komunitas dan langsung masuk proses payout. Fee payment dan withdraw sudah ditagihkan ke user saat checkout.',
+                'Withdrawals are created from the community lead page and immediately enter payout processing. Payment and withdrawal fees are charged to users at checkout.',
                 style: HDTText.body(size: 12, color: HDTColors.text2),
               ),
               const SizedBox(height: HDTSpace.md),
@@ -922,7 +922,7 @@ class _WithdrawDialogState extends ConsumerState<_WithdrawDialog> {
                 controller: _amount,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  labelText: 'Nominal withdraw net',
+                  labelText: 'Net withdrawal amount',
                   prefixIcon: Icon(Icons.payments_outlined),
                 ),
               ),
@@ -939,7 +939,8 @@ class _WithdrawDialogState extends ConsumerState<_WithdrawDialog> {
               const SizedBox(height: HDTSpace.md),
               TextField(
                 controller: _accountName,
-                decoration: const InputDecoration(labelText: 'Nama rekening'),
+                decoration:
+                    const InputDecoration(labelText: 'Account holder name'),
               ),
               if (_message != null) ...[
                 const SizedBox(height: HDTSpace.md),
@@ -971,12 +972,12 @@ class _WithdrawDialogState extends ConsumerState<_WithdrawDialog> {
 
   Future<void> _submit() async {
     if (_tournamentId.text.trim().isEmpty) {
-      setState(() => _message = 'Isi Tournament ID terlebih dahulu.');
+      setState(() => _message = 'Enter the Tournament ID first.');
       return;
     }
     final amount = int.tryParse(_amount.text) ?? 0;
     if (amount <= 0) {
-      setState(() => _message = 'Nominal withdraw harus lebih dari 0.');
+      setState(() => _message = 'Withdrawal amount must be greater than 0.');
       return;
     }
     setState(() {
@@ -996,11 +997,12 @@ class _WithdrawDialogState extends ConsumerState<_WithdrawDialog> {
             accountName: _accountName.text,
           );
       if (!mounted) return;
-      setState(() => _message = 'Withdraw otomatis masuk proses: $id');
+      setState(
+          () => _message = 'Withdrawal automatically entered processing: $id');
     } catch (_) {
       if (!mounted) return;
       setState(() =>
-          _message = 'Withdraw belum terkirim. Periksa data dan coba ulangi.');
+          _message = 'Withdrawal was not sent. Check the data and try again.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -1017,7 +1019,7 @@ class _LoginRequired extends StatelessWidget {
     return Center(
       child: ElevatedButton(
         onPressed: onLogin,
-        child: const Text('LOGIN ADMIN KOMUNITAS'),
+        child: const Text('COMMUNITY ADMIN LOGIN'),
       ),
     );
   }

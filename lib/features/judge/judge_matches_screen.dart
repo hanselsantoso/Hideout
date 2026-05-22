@@ -20,7 +20,7 @@ class JudgeMatchesScreen extends ConsumerWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('JURI CONSOLE', style: HDTText.overline(size: 9)),
+            Text('JUDGE CONSOLE', style: HDTText.overline(size: 9)),
             Text('MATCH ASSIGNMENTS', style: HDTText.display(size: 20)),
           ],
         ),
@@ -81,7 +81,7 @@ class JudgeMatchesScreen extends ConsumerWidget {
               SizedBox(height: HDTSpace.md),
               _Notice(
                 text:
-                    'Assignment juri belum bisa dibaca. Refresh setelah ketua komunitas assign match live.',
+                    'Judge assignments could not be read. Refresh after the community lead assigns live matches.',
                 color: HDTColors.warning,
               ),
               SizedBox(height: HDTSpace.lg),
@@ -109,7 +109,7 @@ class _JudgeSchedulePanel extends StatelessWidget {
       for (final match in matches.take(4))
         _JudgeScheduleRow(
           title: match.matchCode,
-          time: match.completed ? 'Selesai' : 'Hari H . Live queue',
+          time: match.completed ? 'Completed' : 'Event day . Live queue',
           arena: match.arena,
           status: match.status.toUpperCase(),
         ),
@@ -142,9 +142,9 @@ class _JudgeSchedulePanel extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('JADWAL JURI', style: HDTText.display(size: 22)),
+                    Text('JUDGE SCHEDULE', style: HDTText.display(size: 22)),
                     Text(
-                      'Turnamen dan arena yang assigned ke akun juri ini.',
+                      'Tournaments and arenas assigned to this judge account.',
                       style: HDTText.body(size: 12, color: HDTColors.text2),
                     ),
                   ],
@@ -155,7 +155,7 @@ class _JudgeSchedulePanel extends StatelessWidget {
           const SizedBox(height: HDTSpace.md),
           if (rows.isEmpty)
             Text(
-              'Belum ada match live untuk akun ini.',
+              'No live matches for this account yet.',
               style: HDTText.body(size: 12, color: HDTColors.text3),
             )
           else
@@ -255,8 +255,8 @@ class _HeroSummary extends StatelessWidget {
                     style: HDTText.display(size: 26)),
                 Text(
                   hasAssignments
-                      ? 'Match yang assigned ke akun juri login.'
-                      : 'Belum ada assignment live. Tunggu ketua komunitas generate match.',
+                      ? 'Matches assigned to the signed-in judge account.'
+                      : 'No live assignments yet. Wait for the community lead to generate matches.',
                   style: HDTText.body(size: 12, color: HDTColors.text2),
                 ),
               ],
@@ -297,14 +297,14 @@ class _JudgeGuidePanel extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('PANDUAN AWAL JURI',
+                Text('JUDGE START GUIDE',
                     style: HDTText.overline(size: 10, color: HDTColors.info)),
                 const SizedBox(height: HDTSpace.sm),
-                Text('Kerjakan match live yang di-assign',
+                Text('Work on assigned live matches',
                     style: HDTText.display(size: 24)),
                 const SizedBox(height: HDTSpace.sm),
                 Text(
-                  'Panggil peserta sesuai arena, scan QR deck sisi A dan B, bandingkan deck dengan data registrasi, tolak jika tidak sama, lalu input skor setelah match selesai.',
+                  'Call participants by arena, scan side A and B deck QR, compare decks with registration data, reject mismatches, then input scores after the match finishes.',
                   style: HDTText.body(
                     size: 13,
                     color: HDTColors.text2,
@@ -337,13 +337,13 @@ class _NoJudgeAssignmentsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('BELUM ADA ASSIGNMENT', style: HDTText.overline(size: 10)),
+          Text('NO ASSIGNMENTS YET', style: HDTText.overline(size: 10)),
           const SizedBox(height: HDTSpace.sm),
-          Text('Match juri akan muncul setelah generate',
+          Text('Judge matches appear after generation',
               style: HDTText.display(size: 25)),
           const SizedBox(height: HDTSpace.sm),
           Text(
-            'Ketua komunitas perlu memilih akun juri ini di Tournament Ops dan generate match dari roster paid active. Halaman ini tidak lagi menampilkan match contoh agar trial data tetap bersih.',
+            'The community lead must select this judge account in Tournament Ops and generate matches from the paid active roster. This page no longer shows sample matches so trial data stays clean.',
             style: HDTText.body(size: 13, color: HDTColors.text2, height: 1.5),
           ),
         ],

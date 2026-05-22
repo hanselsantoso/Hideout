@@ -156,7 +156,7 @@ class _Header extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: () => Navigator.pushNamed(context, '/community/admin'),
               icon: const Icon(Icons.admin_panel_settings_outlined, size: 16),
-              label: const Text('ADMIN KOMUNITAS'),
+              label: const Text('COMMUNITY ADMIN'),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(174, 42),
               ),

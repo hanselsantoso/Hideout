@@ -96,13 +96,13 @@ class NotifItem {
       );
 }
 
-// ─── Seed Data ───────────────────────────────────────────────
+// Seed data
 List<NotifItem> _seedNotifs() => [
       NotifItem(
           id: 'n1',
-          title: 'BJX Cup #4 — Bracket diumumkan',
-          body: 'Match pertama kamu vs RAYHAN di Arena 02, jam 14:30.',
-          ts: '2 menit lalu',
+          title: 'BJX Cup #4 - Bracket announced',
+          body: 'Your first match vs RAYHAN is at Arena 02, 14:30.',
+          ts: '2 minutes ago',
           type: NotifType.tournament,
           read: false,
           pinned: true,
@@ -111,9 +111,10 @@ List<NotifItem> _seedNotifs() => [
           ctaLabel: 'VIEW BRACKET'),
       NotifItem(
           id: 'n2',
-          title: 'Match dimulai dalam 30 menit',
-          body: 'Pastikan deck sudah dikunci. Cek QR pass di profil.',
-          ts: '12 menit lalu',
+          title: 'Match starts in 30 minutes',
+          body:
+              'Make sure your deck is locked. Check the QR pass in your profile.',
+          ts: '12 minutes ago',
           type: NotifType.match,
           read: false,
           actorName: 'Arena 02',
@@ -122,17 +123,17 @@ List<NotifItem> _seedNotifs() => [
       NotifItem(
           id: 'n3',
           title: 'Trophy unlocked: 5-Match Streak',
-          body: 'Kamu menang 5 match berturut-turut. Keep grinding!',
-          ts: '1 jam lalu',
+          body: 'You won 5 matches in a row. Keep grinding!',
+          ts: '1 hour ago',
           type: NotifType.trophy,
           read: false,
           actorName: 'HIDEOUT',
           actorColor: HDTColors.warning),
       NotifItem(
           id: 'n4',
-          title: 'KAEDE menantang kamu',
-          body: '"Sparring sabtu jam 16:00 di Senayan?"',
-          ts: '3 jam lalu',
+          title: 'KAEDE challenged you',
+          body: '"Sparring Saturday at 16:00 in Senayan?"',
+          ts: '3 hours ago',
           type: NotifType.community,
           read: true,
           actorName: 'KAEDE',
@@ -140,9 +141,9 @@ List<NotifItem> _seedNotifs() => [
           ctaLabel: 'REPLY'),
       NotifItem(
           id: 'n5',
-          title: 'Update aturan tournament',
-          body: 'BJX Cup #4 melarang Cobalt Dragoon. Cek deck kamu.',
-          ts: '5 jam lalu',
+          title: 'Tournament rules update',
+          body: 'BJX Cup #4 bans Cobalt Dragoon. Check your deck.',
+          ts: '5 hours ago',
           type: NotifType.system,
           read: true,
           actorName: 'Admin',
@@ -150,18 +151,18 @@ List<NotifItem> _seedNotifs() => [
           ctaLabel: 'VIEW RULES'),
       NotifItem(
           id: 'n6',
-          title: 'Match result terverifikasi',
-          body: 'Kemenangan vs NADIA (3–2) telah dihitung. ELO +12.',
-          ts: '1 hari lalu',
+          title: 'Match result verified',
+          body: 'Win vs NADIA (3-2) has been counted. ELO +12.',
+          ts: '1 day ago',
           type: NotifType.match,
           read: true,
-          actorName: 'Juri',
+          actorName: 'Judge',
           actorColor: HDTColors.success),
       NotifItem(
           id: 'n7',
-          title: 'Senayan Spinners — event baru',
-          body: '"Weekly Ranked #19" dijadwalkan Sabtu, 64 slot.',
-          ts: '1 hari lalu',
+          title: 'Senayan Spinners - new event',
+          body: '"Weekly Ranked #19" is scheduled for Saturday, 64 slots.',
+          ts: '1 day ago',
           type: NotifType.community,
           read: true,
           actorName: 'SS',
@@ -169,18 +170,18 @@ List<NotifItem> _seedNotifs() => [
           ctaLabel: 'OPEN CLUB'),
       NotifItem(
           id: 'n8',
-          title: 'Naik ke Tier A · Region JKT',
-          body: 'ELO kamu menembus 2900. Lanjut ke Tier S butuh 3000+.',
-          ts: '2 hari lalu',
+          title: 'Promoted to Tier A - Region JKT',
+          body: 'Your ELO crossed 2900. Tier S requires 3000+.',
+          ts: '2 days ago',
           type: NotifType.trophy,
           read: true,
           actorName: 'HIDEOUT',
           actorColor: HDTColors.warning),
       NotifItem(
           id: 'n9',
-          title: 'Pendaftaran HIDEOUT Cup #5 dibuka',
-          body: 'Slot terbatas 128. Buka registrasi sekarang.',
-          ts: '3 hari lalu',
+          title: 'HIDEOUT Cup #5 registration opened',
+          body: '128 limited slots. Open registration now.',
+          ts: '3 days ago',
           type: NotifType.tournament,
           read: false,
           actorName: 'HIDEOUT',
@@ -188,16 +189,16 @@ List<NotifItem> _seedNotifs() => [
           ctaLabel: 'REGISTER'),
       NotifItem(
           id: 'n10',
-          title: 'Profil kamu dilihat 24× minggu ini',
-          body: 'Trafik profil naik 3× dibanding minggu lalu.',
-          ts: '4 hari lalu',
+          title: 'Your profile was viewed 24x this week',
+          body: 'Profile traffic is up 3x compared with last week.',
+          ts: '4 days ago',
           type: NotifType.system,
           read: true,
           actorName: 'Stats',
           actorColor: HDTColors.info),
     ];
 
-// ─── State & Notifier ────────────────────────────────────────
+// State & notifier
 class NotificationState {
   final List<NotifItem> items;
   final String
@@ -264,7 +265,7 @@ class NotificationsScreen extends ConsumerWidget {
   static const _perPage = 6;
   static const _filterTabs = [
     ('ALL', 'SEMUA'),
-    ('UNREAD', 'BELUM DIBACA'),
+    ('UNREAD', 'UNREAD'),
     ('MATCH', 'MATCH'),
     ('TOURNAMENT', 'TOURNAMENT'),
     ('TROPHY', 'TROPHY'),
@@ -344,7 +345,7 @@ class NotificationsScreen extends ConsumerWidget {
               ? HDTEmptyState(
                   icon: Icons.notifications_none,
                   title: 'ALL CAUGHT UP',
-                  subtitle: 'Tidak ada notifikasi di filter ini.')
+                  subtitle: 'No notifications in this filter.')
               : ListView(
                   padding: const EdgeInsets.all(HDTSpace.lg),
                   children: [

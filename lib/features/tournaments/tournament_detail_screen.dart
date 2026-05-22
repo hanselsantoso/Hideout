@@ -330,7 +330,7 @@ class _WinnerAnnouncementPanel extends StatelessWidget {
                     style: HDTText.display(size: 30)),
                 const SizedBox(height: HDTSpace.sm),
                 Text(
-                  'Pemenang stage 2 sudah terkunci dari grand final. Deck yang tampil di sini adalah deck terverifikasi dari QR dan match record terakhir.',
+                  'The stage 2 winner is locked from the grand final. Decks shown here are verified from QR checks and the latest match record.',
                   style: HDTText.body(
                       size: 13, color: HDTColors.text2, height: 1.45),
                 ),
@@ -658,7 +658,7 @@ class _AboutAndSchedule extends StatelessWidget {
         _Panel(
           title: 'ABOUT THE TOURNAMENT',
           child: Text(
-            'Welcome to the third installment of the Hideout Championship Cup. Event ini memakai format kompetitif dengan verifikasi deck sebelum match pertama. Admin komunitas dapat mengatur bracket, regulasi komponen, dan stage sesuai kebutuhan event.',
+            'Welcome to the third installment of the Hideout Championship Cup. This event uses a competitive format with deck verification before the first match. Community admins can configure brackets, component regulations, and stages based on event needs.',
             style:
                 TextStyle(color: HDTColors.text2, height: 1.55, fontSize: 14),
           ),
@@ -1724,8 +1724,8 @@ class _ActionPanel extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             canRegister
-                ? 'Pilih deck, pastikan komponen valid, lalu lanjutkan checkout. Untuk MVP pembayaran dianggap lunas.'
-                : 'Tournament sedang berjalan atau belum dibuka. Kamu tetap bisa melihat bracket dan jadwal event.',
+                ? 'Choose a deck, confirm the components are valid, then continue to checkout. For the MVP, payment is considered paid.'
+                : 'The tournament is already running or not open yet. You can still view the bracket and event schedule.',
             style: HDTText.body(size: 13, color: HDTColors.text2, height: 1.5),
           ),
           const SizedBox(height: 20),
@@ -1744,7 +1744,7 @@ class _ActionPanel extends StatelessWidget {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text(
-                      'Live bracket, group standings, rules, dan next call tersedia di halaman ini.',
+                      'Live brackets, group standings, rules, and next call are available on this page.',
                     ),
                   ),
                 );

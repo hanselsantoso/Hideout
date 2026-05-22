@@ -41,7 +41,7 @@ class PublicCommunitiesScreen extends StatelessWidget {
                         Text('COMMUNITIES', style: HDTText.display(size: 48)),
                         const SizedBox(height: HDTSpace.sm),
                         Text(
-                          'Temukan komunitas Beyblade aktif, lihat region, status, dan mulai pengajuan komunitas baru tanpa keluar dari halaman publik.',
+                          'Find active Beyblade communities, review region and status, and start a new community application without leaving the public page.',
                           style: HDTText.body(
                             size: 14,
                             color: HDTColors.text2,
@@ -55,7 +55,7 @@ class PublicCommunitiesScreen extends StatelessWidget {
                   ElevatedButton.icon(
                     onPressed: () => Navigator.pushNamed(context, '/signup'),
                     icon: const Icon(Icons.add),
-                    label: const Text('BUKA KOMUNITAS'),
+                    label: const Text('OPEN COMMUNITY'),
                   ),
                 ],
               ),
@@ -74,7 +74,8 @@ class PublicCommunitiesScreen extends StatelessWidget {
                     runSpacing: HDTSpace.md,
                     children: [
                       for (final row in rows)
-                        SizedBox(width: width, child: _CommunityPublicCard(row)),
+                        SizedBox(
+                            width: width, child: _CommunityPublicCard(row)),
                     ],
                   );
                 },

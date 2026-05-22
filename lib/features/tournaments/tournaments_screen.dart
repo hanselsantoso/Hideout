@@ -349,20 +349,20 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
             backend.when(
               data: (_) => _SourceHint(
                 text: backendEntries.isEmpty
-                    ? 'Demo tournament aktif karena Firebase belum memiliki event live.'
-                    : '${backendEntries.length} tournament Firebase dimuat.',
+                    ? 'Demo tournaments are active because Firebase has no live events yet.'
+                    : '${backendEntries.length} Firebase tournaments loaded.',
               ),
               loading: () => const _SourceHint(
-                  text: 'Mengambil tournament terbaru dari Firebase...'),
+                  text: 'Fetching the latest tournaments from Firebase...'),
               error: (_, __) => const _SourceHint(
-                  text: 'Firebase belum tersedia. Menampilkan data demo.'),
+                  text: 'Firebase is not available. Showing demo data.'),
             ),
             const SizedBox(height: 14),
             if (paginated.isEmpty)
               const HDTEmptyState(
                 icon: Icons.emoji_events_outlined,
                 title: 'NO TOURNAMENTS FOUND',
-                subtitle: 'Coba ubah filter atau reset pencarian.',
+                subtitle: 'Try changing filters or resetting search.',
               )
             else
               LayoutBuilder(
@@ -392,7 +392,7 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
               total: filtered.length,
               page: state.page,
               perPage: _perPage,
-              label: 'turnamen',
+              label: 'tournaments',
               onPage: notifier.setPage,
             ),
           ],
@@ -460,7 +460,7 @@ class _PageHeader extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '$filtered turnamen ditemukan dari $total total.',
+              '$filtered tournaments found out of $total total.',
               style: HDTText.body(size: 13, color: HDTColors.text3),
             ),
           ],
@@ -514,7 +514,7 @@ class _FilterPanel extends StatelessWidget {
                   flex: narrow ? 0 : 1,
                   child: HDTSearchField(
                     controller: controller,
-                    placeholder: 'Cari turnamen atau komunitas...',
+                    placeholder: 'Search tournaments or communities...',
                     onChanged: onQuery,
                   ),
                 ),
@@ -621,8 +621,8 @@ class _SelectBox extends StatelessWidget {
   }
 
   String _label(String value) {
-    if (value == 'ALL') return 'Semua';
-    if (value == 'All Cities') return 'Semua Kota';
+    if (value == 'ALL') return 'All';
+    if (value == 'All Cities') return 'All Cities';
     return value;
   }
 }
@@ -714,7 +714,7 @@ class _TournamentCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    '${tournament.registered} / ${tournament.capacity} peserta',
+                    '${tournament.registered} / ${tournament.capacity} players',
                     style: HDTText.body(size: 11, color: HDTColors.text3),
                   ),
                 ),
@@ -752,7 +752,7 @@ class _TournamentCard extends StatelessWidget {
                       '/tournaments/register',
                       arguments: tournament.toRouteArgs(),
                     ),
-                    child: const Text('DAFTAR'),
+                    child: const Text('REGISTER'),
                   )
                 else
                   Row(

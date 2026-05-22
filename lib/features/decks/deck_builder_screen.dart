@@ -247,14 +247,14 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     if (_saving) return;
     if (issues.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Deck belum valid: ${issues.first}')),
+        SnackBar(content: Text('Deck is not valid yet: ${issues.first}')),
       );
       return;
     }
     final user = ref.read(authStateProvider).valueOrNull;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Masuk dulu untuk menyimpan deck.')),
+        const SnackBar(content: Text('Sign in first to save a deck.')),
       );
       Navigator.pushNamed(context, '/signin');
       return;
@@ -270,14 +270,14 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Deck tersimpan ke Firebase: $deckId')),
+        SnackBar(content: Text('Deck saved to Firebase: $deckId')),
       );
       Navigator.pushReplacementNamed(context, '/me/decks');
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Deck gagal disimpan. Coba ulangi beberapa saat lagi.'),
+          content: Text('Deck could not be saved. Try again in a moment.'),
         ),
       );
     } finally {
@@ -315,7 +315,7 @@ class _MobilePickerHint extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: onOpen,
       icon: const Icon(Icons.tune, size: 15),
-      label: Text('Pilih ${slot.label} dengan search & filter'),
+      label: Text('Choose ${slot.label} with search & filter'),
     );
   }
 }
@@ -346,15 +346,15 @@ class _TopBar extends StatelessWidget {
           decoration: InputDecoration(
             border: InputBorder.none,
             hintText: 'Deck name',
-            hintStyle:
-                HDTText.display(size: compact ? 20 : 24, color: HDTColors.text3),
+            hintStyle: HDTText.display(
+                size: compact ? 20 : 24, color: HDTColors.text3),
           ),
         );
         final status = Container(
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
           decoration: BoxDecoration(
-            color:
-                (valid ? HDTColors.success : HDTColors.warning).withValues(alpha: .14),
+            color: (valid ? HDTColors.success : HDTColors.warning)
+                .withValues(alpha: .14),
             borderRadius: HDTR.sm,
             border: Border.all(
               color: valid ? HDTColors.success : HDTColors.warning,
@@ -719,7 +719,7 @@ class _SlotTile extends StatelessWidget {
                       style: HDTText.overline(size: 8)),
                   const SizedBox(height: 3),
                   Text(
-                    part?.name ?? 'Pilih ${slot.label}',
+                    part?.name ?? 'Choose ${slot.label}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: HDTText.body(
@@ -844,7 +844,7 @@ class _PartLibraryState extends State<_PartLibrary> {
                           style: HDTText.overline(
                               size: 10, color: HDTColors.accentHover)),
                       const SizedBox(height: 3),
-                      Text('${parts.length} parts dari BeyBrew',
+                      Text('${parts.length} parts from BeyBrew',
                           style:
                               HDTText.mono(size: 11, color: HDTColors.text3)),
                     ],
@@ -961,7 +961,7 @@ class _PartList extends StatelessWidget {
   Widget build(BuildContext context) {
     if (parts.isEmpty) {
       return Center(
-        child: Text('Tidak ada part yang cocok.',
+        child: Text('No matching parts.',
             style: HDTText.body(size: 12, color: HDTColors.text3)),
       );
     }
@@ -1258,7 +1258,7 @@ class _DeckError extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
-          'Data part gagal dibaca. Coba muat ulang halaman.',
+          'Part data could not be read. Try refreshing the page.',
           style: HDTText.body(color: HDTColors.danger),
           textAlign: TextAlign.center,
         ),

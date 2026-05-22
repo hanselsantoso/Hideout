@@ -43,7 +43,7 @@ class _ComponentsScreenState extends ConsumerState<ComponentsScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => Center(
           child: Text(
-            'Data komponen belum bisa dibaca. Coba muat ulang halaman.',
+            'Component data could not be read. Try refreshing the page.',
             style: HDTText.body(color: HDTColors.danger),
           ),
         ),
@@ -148,7 +148,7 @@ class _LoadedComponents extends StatelessWidget {
         Text('ALL PARTS', style: HDTText.display(size: 48)),
         const SizedBox(height: HDTSpace.sm),
         Text(
-          'Browse data BeyBrew bawaan dan part tambahan dari super admin. Stat deck dipakai saat user build deck, sedangkan performance berubah otomatis dari match.',
+          'Browse built-in BeyBrew data and additional parts from the super admin. Deck stats are used when users build decks, while performance updates automatically from matches.',
           style: HDTText.body(size: 14, color: HDTColors.text2, height: 1.5),
         ),
         const SizedBox(height: HDTSpace.xl),
@@ -329,7 +329,7 @@ class _PaginationSummary extends StatelessWidget {
           width: compact ? 260 : 360,
           child: Text(
             total == 0
-                ? 'Tidak ada part yang cocok.'
+                ? 'No matching parts.'
                 : 'Showing $start-$end of $total parts',
             style: HDTText.mono(size: 11, color: HDTColors.text3),
           ),
@@ -393,7 +393,7 @@ class _EmptyComponents extends StatelessWidget {
           const SizedBox(width: HDTSpace.md),
           Expanded(
             child: Text(
-              'Tidak ada part yang cocok dengan filter ini.',
+              'No parts match this filter.',
               style: HDTText.body(size: 13, color: HDTColors.text2),
             ),
           ),

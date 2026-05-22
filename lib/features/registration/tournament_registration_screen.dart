@@ -147,7 +147,7 @@ class _TournamentRegistrationScreenState
               busy: _busy,
               canBack: _step > 0,
               nextEnabled: _canProceed(deckOptions),
-              nextLabel: _step == 3 ? 'SAYA SUDAH BAYAR' : 'CONTINUE',
+              nextLabel: _step == 3 ? 'I HAVE PAID' : 'CONTINUE',
               onBack: _back,
               onNext: () => _next(tournamentId),
             ),
@@ -175,7 +175,7 @@ class _TournamentRegistrationScreenState
         const _SectionTitle('STEP 1', 'ELIGIBILITY CHECK'),
         const SizedBox(height: HDTSpace.sm),
         Text(
-          'Verifikasi otomatis sebelum registrasi. Semua syarat harus PASS untuk melanjutkan.',
+          'Automatic verification before registration. Every requirement must PASS to continue.',
           style: HDTText.body(color: HDTColors.text2),
         ),
         const SizedBox(height: HDTSpace.lg),
@@ -235,7 +235,7 @@ class _TournamentRegistrationScreenState
         ),
         const SizedBox(height: HDTSpace.sm),
         Text(
-          'Pilih deck yang akan dipakai. Deck terkunci setelah check-in di lokasi.',
+          'Choose the deck you will use. Decks are locked after on-site check-in.',
           style: HDTText.body(color: HDTColors.text2),
         ),
         const SizedBox(height: HDTSpace.lg),
@@ -243,7 +243,7 @@ class _TournamentRegistrationScreenState
           color: HDTColors.warning,
           icon: Icons.shield_outlined,
           text:
-              'Deck Restrictions: banned parts Cobalt Dragoon, required 3 kombo, ELO 2200-3000.',
+              'Deck Restrictions: banned parts Cobalt Dragoon, required 3 combos, ELO 2200-3000.',
         ),
         const SizedBox(height: HDTSpace.lg),
         LayoutBuilder(
@@ -348,7 +348,7 @@ class _TournamentRegistrationScreenState
                           controlAffinity: ListTileControlAffinity.leading,
                           contentPadding: EdgeInsets.zero,
                           title: Text(
-                            'Saya menyetujui aturan turnamen, kebijakan refund, dan deck saya tidak akan diubah setelah check-in.',
+                            'I agree to the tournament rules and refund policy, and my deck will not be changed after check-in.',
                             style: HDTText.body(color: HDTColors.text2),
                           ),
                         ),
@@ -381,10 +381,10 @@ class _TournamentRegistrationScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle('STEP 4', 'PEMBAYARAN QRIS'),
+        const _SectionTitle('STEP 4', 'QRIS PAYMENT'),
         const SizedBox(height: HDTSpace.sm),
         Text(
-          'Scan kode QRIS mock menggunakan aplikasi e-wallet atau mobile banking. Untuk MVP, klik Saya Sudah Bayar untuk verifikasi.',
+          'Scan the mock QRIS code using an e-wallet or mobile banking app. For the MVP, click I Have Paid to verify.',
           style: HDTText.body(color: HDTColors.text2),
         ),
         const SizedBox(height: HDTSpace.lg),
@@ -446,7 +446,7 @@ class _TournamentRegistrationScreenState
               color: HDTColors.info,
               icon: Icons.mail_outline,
               text:
-                  'Tiket dan detail pendaftaran akan dikirim ke email. QR ini dipakai saat check-in dan saat match dipanggil juri.',
+                  'Ticket and registration details will be sent to email. This QR is used during check-in and when a judge calls the match.',
             ),
             const SizedBox(height: HDTSpace.lg),
             Row(
@@ -464,7 +464,7 @@ class _TournamentRegistrationScreenState
                     onPressed: () => Navigator.pushReplacementNamed(
                         context, '/me/tournaments'),
                     icon: const Icon(Icons.chevron_right),
-                    label: const Text('TURNAMEN SAYA'),
+                    label: const Text('MY TOURNAMENTS'),
                   ),
                 ),
               ],
@@ -545,7 +545,7 @@ class _TournamentRegistrationScreenState
       if (!mounted) return;
       setState(() {
         _error =
-            'Registrasi belum berhasil. Pastikan akun sudah login, deck valid, lalu coba ulangi.';
+            'Registration failed. Make sure the account is signed in, the deck is valid, then try again.';
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -805,7 +805,7 @@ class _DeckSummary extends StatelessWidget {
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(deck.name, style: HDTText.body(size: 14)),
-            Text('${deck.type} - ${deck.combos.length}/3 kombo',
+            Text('${deck.type} - ${deck.combos.length}/3 combos',
                 style: HDTText.mono(size: 11, color: HDTColors.text3)),
           ]),
         ),
@@ -858,7 +858,7 @@ class _FeeBreakdown extends StatelessWidget {
           padding: const EdgeInsets.all(HDTSpace.md),
           decoration: hdtCard(bg: HDTColors.bg),
           child: Text(
-            'Komunitas JKT WOLVES menerima ${_formatRp(fee)} utuh.',
+            'JKT WOLVES Community receives the full ${_formatRp(fee)}.',
             style: HDTText.body(size: 11, color: HDTColors.text2),
           ),
         ),
@@ -908,11 +908,11 @@ class _QrisPanel extends StatelessWidget {
           child: CustomPaint(painter: _QrPainter(seed: total)),
         ),
         const SizedBox(height: HDTSpace.lg),
-        Text('TOTAL PEMBAYARAN', style: HDTText.overline(size: 9)),
+        Text('TOTAL PAYMENT', style: HDTText.overline(size: 9)),
         Text(_formatRp(total),
             style: HDTText.display(size: 28, color: HDTColors.accentHover)),
         const SizedBox(height: HDTSpace.lg),
-        Text('WAKTU PEMBAYARAN', style: HDTText.overline(size: 9)),
+        Text('PAYMENT TIME', style: HDTText.overline(size: 9)),
         Text('15:00', style: HDTText.display(size: 28)),
       ]),
     );
@@ -927,17 +927,17 @@ class _PaymentInstructions extends StatelessWidget {
     final items = [
       (
         '01',
-        'Buka aplikasi pembayaran',
-        'Gunakan e-wallet atau mobile banking yang mendukung QRIS.'
+        'Open the payment app',
+        'Use an e-wallet or mobile banking app that supports QRIS.'
       ),
-      ('02', 'Scan QRIS', 'Arahkan kamera ke kode QR di panel kiri.'),
-      ('03', 'Periksa detail', 'Pastikan merchant dan nominal sudah benar.'),
-      ('04', 'Konfirmasi', 'Klik Saya Sudah Bayar untuk mock verification.'),
+      ('02', 'Scan QRIS', 'Point the camera at the QR code in the left panel.'),
+      ('03', 'Check details', 'Make sure the merchant and amount are correct.'),
+      ('04', 'Confirm', 'Click I Have Paid for mock verification.'),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('CARA PEMBAYARAN', style: HDTText.overline(size: 10)),
+        Text('PAYMENT GUIDE', style: HDTText.overline(size: 10)),
         const SizedBox(height: HDTSpace.md),
         for (final item in items)
           Padding(

@@ -192,7 +192,7 @@ async function resetAuthUsers(stats) {
   const adminResult = await resetAuthUsersWithAdminSdk().catch((error) => ({
     checked: true,
     deleted: [],
-    warning: `firebase-admin cleanup gagal: ${error.message}`,
+    warning: `firebase-admin cleanup failed: ${error.message}`,
     fallback: true,
   }));
   if (!adminResult.fallback) return adminResult;
@@ -200,7 +200,7 @@ async function resetAuthUsers(stats) {
   const cliResult = await resetAuthUsersWithFirebaseCliToken().catch((error) => ({
     checked: true,
     deleted: [],
-    warning: `${adminResult.warning}. Firebase CLI token cleanup juga gagal: ${error.message}`,
+    warning: `${adminResult.warning}. Firebase CLI token cleanup also failed: ${error.message}`,
   }));
   if (cliResult.warning && adminResult.warning) {
     cliResult.warning = `${adminResult.warning}. ${cliResult.warning}`;
@@ -217,7 +217,7 @@ async function resetAuthUsersWithAdminSdk() {
       checked: true,
       deleted: [],
       warning:
-        'firebase-admin belum terpasang',
+        'firebase-admin is not installed',
       fallback: true,
     };
   }
@@ -247,20 +247,20 @@ async function resetAuthUsersWithFirebaseCliToken() {
   try {
     firebaseAuth = require('firebase-tools/lib/auth');
   } catch (error) {
-    throw new Error(`firebase-tools auth module tidak tersedia: ${error.message}`);
+    throw new Error(`firebase-tools auth module is not available: ${error.message}`);
   }
 
   const account = firebaseAuth.getGlobalDefaultAccount();
   const refreshToken = account?.tokens?.refresh_token;
   if (!refreshToken) {
-    throw new Error('Firebase CLI belum login. Jalankan npx firebase login lebih dulu.');
+    throw new Error('Firebase CLI is not signed in. Run npx firebase login first.');
   }
 
   const access = await firebaseAuth.getAccessToken(refreshToken, [
     'https://www.googleapis.com/auth/cloud-platform',
   ]);
   const accessToken = access?.access_token;
-  if (!accessToken) throw new Error('Gagal mengambil access token Firebase CLI.');
+  if (!accessToken) throw new Error('Failed to retrieve Firebase CLI access token.');
 
   const users = await listAuthUsersWithAccessToken(accessToken);
   const deleted = [];

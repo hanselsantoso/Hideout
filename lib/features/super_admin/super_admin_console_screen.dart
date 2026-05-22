@@ -289,10 +289,10 @@ class _ReportGrid extends ConsumerWidget {
     final data = metrics.valueOrNull ?? SuperAdminMetrics.demo;
     final cards = [
       _MetricCard(
-        label: 'User aktif',
+        label: 'Active users',
         value: '${data.activeUsers}',
         note:
-            '${data.judges} juri . ${data.communityAdmins} ketua . ${data.bannedUsers} banned',
+            '${data.judges} judges . ${data.communityAdmins} leads . ${data.bannedUsers} banned',
         icon: Icons.people_alt_outlined,
         color: HDTColors.info,
         route: '/super-admin/users',
@@ -300,16 +300,16 @@ class _ReportGrid extends ConsumerWidget {
       _MetricCard(
         label: 'Pending approval',
         value: '${data.pendingApprovals}',
-        note: 'Proposal komunitas menunggu review',
+        note: 'Community proposals waiting for review',
         icon: Icons.fact_check_outlined,
         color:
             data.pendingApprovals > 0 ? HDTColors.warning : HDTColors.success,
         route: '/super-admin/community-approvals',
       ),
       _MetricCard(
-        label: 'Turnamen',
+        label: 'Tournaments',
         value: '${data.tournaments}',
-        note: '${data.runningTournaments} sedang berjalan',
+        note: '${data.runningTournaments} running',
         icon: Icons.emoji_events_outlined,
         color: HDTColors.accentHover,
         route: '/public/tournaments',
@@ -317,7 +317,7 @@ class _ReportGrid extends ConsumerWidget {
       _MetricCard(
         label: 'Komponen tercatat',
         value: '${data.componentStats}',
-        note: 'Stat part dari ranked match',
+        note: 'Part stats from ranked matches',
         icon: Icons.category_outlined,
         color: HDTColors.success,
         route: '/super-admin/component-stats',
@@ -388,14 +388,14 @@ class _ComponentManagementState extends ConsumerState<_ComponentManagement> {
         ? const <AdminComponentSummary>[]
         : filteredRows.sublist(start, end);
     return _DataPanel(
-      title: 'MASTER DATA KOMPONEN',
+      title: 'COMPONENT MASTER DATA',
       icon: Icons.category_outlined,
       children: [
         Row(
           children: [
             Expanded(
               child: Text(
-                'Part tambahan dari super admin akan ikut muncul di deck builder user. Stat A/D/S/X/Burst dipakai langsung untuk perhitungan deck, sedangkan performa otomatis tetap dihitung dari match.',
+                'Additional parts from super admin will appear in the user deck builder. A/D/S/X/Burst stats are used directly for deck calculations, while performance is still calculated automatically from matches.',
                 style: HDTText.body(size: 12, color: HDTColors.text2),
               ),
             ),
@@ -467,17 +467,17 @@ class _ComponentManagementState extends ConsumerState<_ComponentManagement> {
           ),
           error: (_, __) => const _ManagementRow(
             item: _DataRowItem(
-              'Komponen belum terbaca',
+              'Components not readable',
               'RETRY',
-              'Data komponen dari Firebase belum bisa dibaca. Coba muat ulang halaman.',
+              'Component data from Firebase could not be read. Try refreshing the page.',
             ),
           ),
           data: (_) => rows.isEmpty
               ? const _ManagementRow(
                   item: _DataRowItem(
-                    'Belum ada part custom',
+                    'No custom parts yet',
                     'EMPTY',
-                    'Klik Add Part untuk membuat komponen baru di luar data BeyBrew bawaan.',
+                    'Click Add Part to create a new component outside the built-in BeyBrew data.',
                   ),
                 )
               : Column(
@@ -618,7 +618,7 @@ class _ComponentAdminRowState extends ConsumerState<_ComponentAdminRow> {
       builder: (context) => AlertDialog(
         title: const Text('Delete component?'),
         content: Text(
-          '${widget.item.name} akan dihapus dari master komponen. Statistik match historis tetap disimpan.',
+          '${widget.item.name} will be deleted from the component master. Historical match statistics remain stored.',
         ),
         actions: [
           TextButton(
@@ -641,13 +641,13 @@ class _ComponentAdminRowState extends ConsumerState<_ComponentAdminRow> {
           .delete();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Komponen sudah dihapus.')),
+        const SnackBar(content: Text('Component deleted.')),
       );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Komponen belum bisa dihapus. Coba ulangi.')),
+            content: Text('Component could not be deleted. Try again.')),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -822,7 +822,7 @@ class _ComponentEditorDialogState
                   const SizedBox(width: HDTSpace.md),
                   Expanded(
                     child: Text(
-                      'Upload akan menyimpan file ke Firebase Storage lalu mengisi URL gambar di part ini.',
+                      'Upload stores the file in Firebase Storage, then fills the image URL for this part.',
                       style: HDTText.body(
                         size: 12,
                         color: HDTColors.text2,
@@ -934,7 +934,8 @@ class _ComponentEditorDialogState
   Future<void> _uploadImage() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
-      setState(() => _error = 'Isi nama komponen sebelum upload gambar.');
+      setState(
+          () => _error = 'Enter the component name before uploading an image.');
       return;
     }
     final result = await FilePicker.pickFiles(
@@ -945,7 +946,7 @@ class _ComponentEditorDialogState
     final file = result.files.single;
     final bytes = file.bytes;
     if (bytes == null) {
-      setState(() => _error = 'File gambar belum bisa dibaca.');
+      setState(() => _error = 'Image file could not be read.');
       return;
     }
     setState(() {
@@ -970,7 +971,7 @@ class _ComponentEditorDialogState
     } catch (_) {
       if (!mounted) return;
       setState(() => _error =
-          'Upload gambar belum berhasil. Pastikan akun super admin dan Storage aktif.');
+          'Image upload failed. Make sure the super admin account and Storage are active.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -979,7 +980,7 @@ class _ComponentEditorDialogState
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
-      setState(() => _error = 'Nama komponen wajib diisi.');
+      setState(() => _error = 'Component name is required.');
       return;
     }
     setState(() {
@@ -1022,11 +1023,11 @@ class _ComponentEditorDialogState
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$name tersimpan.')),
+        SnackBar(content: Text('$name saved.')),
       );
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Komponen belum tersimpan. Coba ulangi.');
+      setState(() => _error = 'Component was not saved. Try again.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -1058,17 +1059,17 @@ class _StatsReview extends ConsumerWidget {
           ),
           error: (_, __) => const _ManagementRow(
             item: _DataRowItem(
-              'Statistik belum terbaca',
+              'Stats not readable',
               'RETRY',
-              'Data componentStats belum bisa dibaca. Coba muat ulang halaman.',
+              'componentStats data could not be read. Try refreshing the page.',
             ),
           ),
           data: (_) => liveRows.isEmpty
               ? const _ManagementRow(
                   item: _DataRowItem(
-                    'Belum ada statistik',
+                    'No stats yet',
                     'EMPTY',
-                    'Stat komponen akan terisi dari match atau seed data demo.',
+                    'Component stats will be filled from matches or demo seed data.',
                   ),
                 )
               : Column(
@@ -1268,7 +1269,7 @@ class _UsersManagementState extends ConsumerState<_UsersManagement> {
                 onChanged: (_) => setState(() => _page = 0),
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.search, size: 18),
-                  hintText: 'Cari nama, email, UID...',
+                  hintText: 'Search name, email, UID...',
                 ),
               ),
             ),
@@ -1291,9 +1292,9 @@ class _UsersManagementState extends ConsumerState<_UsersManagement> {
               items: const {
                 'all': 'All roles',
                 'player': 'Player',
-                'judge': 'Juri',
-                'community_admin': 'Ketua komunitas',
-                'mixed': 'Ketua + Juri',
+                'judge': 'Judge',
+                'community_admin': 'Community lead',
+                'mixed': 'Lead + Judge',
               },
               onChanged: (value) => setState(() {
                 _role = value;
@@ -1312,9 +1313,9 @@ class _UsersManagementState extends ConsumerState<_UsersManagement> {
           ),
           error: (_, __) => const _ManagementRow(
             item: _DataRowItem(
-              'User belum terbaca',
+              'Users not readable',
               'RETRY',
-              'Data users dari Firebase belum bisa dibaca.',
+              'Users data from Firebase could not be read.',
             ),
           ),
           data: (_) => Column(
@@ -1331,9 +1332,9 @@ class _UsersManagementState extends ConsumerState<_UsersManagement> {
               if (visible.isEmpty)
                 const _ManagementRow(
                   item: _DataRowItem(
-                    'Tidak ada user',
+                    'No users',
                     'EMPTY',
-                    'Tidak ada user yang cocok dengan filter saat ini.',
+                    'No users match the current filter.',
                   ),
                 )
               else
@@ -1533,9 +1534,7 @@ class _PaginationBar extends StatelessWidget {
         SizedBox(
           width: compact ? 260 : 340,
           child: Text(
-            total == 0
-                ? 'Tidak ada data yang cocok.'
-                : 'Showing $start-$end of $total',
+            total == 0 ? 'No matching data.' : 'Showing $start-$end of $total',
             style: HDTText.mono(size: 11, color: HDTColors.text3),
           ),
         ),
@@ -1729,8 +1728,8 @@ class _WeeklyReleasePanelState extends ConsumerState<_WeeklyReleasePanel> {
                 const SizedBox(height: HDTSpace.xs),
                 Text(
                   manual
-                      ? '${widget.release.selectedIds.length} komponen dipilih manual untuk ${widget.release.weekLabel}.'
-                      : 'Homepage otomatis memakai top win rate tertinggi saat belum ada pilihan manual.',
+                      ? '${widget.release.selectedIds.length} components manually selected for ${widget.release.weekLabel}.'
+                      : 'Homepage automatically uses the highest top win rate when no manual choice is set.',
                   style: HDTText.body(size: 12, color: HDTColors.text2),
                 ),
               ],
@@ -1918,7 +1917,7 @@ class _ComponentStatEditorDialogState
       }, SetOptions(merge: true));
       if (mounted) Navigator.pop(context);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Statistik belum tersimpan.');
+      if (mounted) setState(() => _error = 'Stats were not saved.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -1935,15 +1934,15 @@ class _PendingApplicationsPanel extends StatelessWidget {
     final rows =
         applications.valueOrNull ?? const <PendingApplicationSummary>[];
     return _DataPanel(
-      title: 'PENGAJUAN KOMUNITAS BARU',
+      title: 'NEW COMMUNITY APPLICATIONS',
       icon: Icons.fact_check_outlined,
       children: [
         if (rows.isEmpty)
           const _ManagementRow(
             item: _DataRowItem(
-              'Belum ada komunitas pending',
+              'No pending communities',
               'CLEAR',
-              'Setiap komunitas yang daftar dari halaman publik akan masuk ke queue ini.',
+              'Every community that registers from the public page enters this queue.',
             ),
           )
         else
@@ -1999,7 +1998,7 @@ class _FinanceStatsPanel extends StatelessWidget {
               color: HDTColors.accentHover,
             ),
             _FinanceTile(
-              label: 'Withdraw diproses',
+              label: 'Withdrawals processing',
               value: _formatRp(data.activeWithdrawals),
               color: HDTColors.warning,
             ),
@@ -2012,7 +2011,7 @@ class _FinanceStatsPanel extends StatelessWidget {
         ),
         const SizedBox(height: HDTSpace.md),
         Text(
-          'Withdraw dibuat dan dipantau dari halaman Ketua Komunitas; Super Admin hanya melihat agregat keuangan platform.',
+          'Withdrawals are created and tracked from the Community Lead page; Super Admin only sees platform finance aggregates.',
           style: HDTText.body(size: 12, color: HDTColors.text2),
         ),
       ],
@@ -2133,10 +2132,10 @@ class _AdminUserRowState extends ConsumerState<_AdminUserRow> {
             onSelected: _setRole,
             itemBuilder: (context) => const [
               PopupMenuItem(value: 'player', child: Text('Player')),
-              PopupMenuItem(value: 'judge', child: Text('Juri')),
+              PopupMenuItem(value: 'judge', child: Text('Judge')),
               PopupMenuItem(
-                  value: 'community_admin', child: Text('Ketua komunitas')),
-              PopupMenuItem(value: 'mixed', child: Text('Ketua + Juri')),
+                  value: 'community_admin', child: Text('Community lead')),
+              PopupMenuItem(value: 'mixed', child: Text('Lead + Judge')),
             ],
             child: Icon(
               Icons.admin_panel_settings_outlined,
@@ -2288,17 +2287,17 @@ class _SectionStatusChip extends StatelessWidget {
 
 class _SuperAdminNotice extends StatelessWidget {
   const _SuperAdminNotice.login()
-      : title = 'Login diperlukan',
-        message = 'Masuk sebagai super admin untuk membuka console platform.';
+      : title = 'Login required',
+        message = 'Sign in as super admin to open the platform console.';
 
   const _SuperAdminNotice.permission()
-      : title = 'Akses terbatas',
-        message = 'Halaman ini khusus untuk super admin platform.';
+      : title = 'Restricted access',
+        message = 'This page is only for platform super admins.';
 
   const _SuperAdminNotice.backend()
-      : title = 'Data belum tersedia',
+      : title = 'Data not available yet',
         message =
-            'Console super admin belum bisa membaca data saat ini. Coba kembali beberapa saat lagi.';
+            'The super admin console cannot read data right now. Try again in a moment.';
 
   final String title;
   final String message;
@@ -2587,10 +2586,10 @@ class AdminUserSummary {
   String get roleLabel {
     if (roles.contains('super_admin')) return 'SUPER ADMIN';
     if (roles.contains('community_admin') && roles.contains('judge')) {
-      return 'KETUA / JURI';
+      return 'LEAD / JUDGE';
     }
-    if (roles.contains('community_admin')) return 'KETUA';
-    if (roles.contains('judge')) return 'JURI';
+    if (roles.contains('community_admin')) return 'LEAD';
+    if (roles.contains('judge')) return 'JUDGE';
     return 'PLAYER';
   }
 
@@ -2791,7 +2790,7 @@ _SectionOverview _sectionOverview(SuperAdminSection section) {
         eyebrow: 'PLATFORM REPORTS',
         title: 'Laporan Operasional BeyTourney',
         description:
-            'Ringkasan komunitas, turnamen, match, pembayaran, dan aktivitas platform untuk dipantau oleh super admin.',
+            'Summary of communities, tournaments, matches, payments, and platform activity for super admin monitoring.',
         status: 'overview',
       );
     case SuperAdminSection.components:
@@ -2799,7 +2798,7 @@ _SectionOverview _sectionOverview(SuperAdminSection section) {
         eyebrow: 'COMPONENT MASTER',
         title: 'Manajemen Komponen Beyblade',
         description:
-            'Tempat super admin mengelola data part utama, kategori CX, assist blade, lock chip, dan part integrated.',
+            'A place for super admins to manage core part data, CX categories, assist blades, lock chips, and integrated parts.',
         status: 'master data',
       );
     case SuperAdminSection.componentStats:
@@ -2807,15 +2806,15 @@ _SectionOverview _sectionOverview(SuperAdminSection section) {
         eyebrow: 'PERFORMANCE REVIEW',
         title: 'Review Statistik Komponen',
         description:
-            'Pantau win rate, sample size, deck usage, dan performa part sebelum data dipublikasikan ke pemain.',
+            'Monitor win rate, sample size, deck usage, and part performance before data is published to players.',
         status: 'review',
       );
     case SuperAdminSection.users:
       return const _SectionOverview(
         eyebrow: 'USER MANAGEMENT',
-        title: 'Manajemen User dan Role',
+        title: 'User and Role Management',
         description:
-            'Lihat semua akun, status aktif/banned, dan atur role sebagai player, juri, ketua komunitas, atau keduanya.',
+            'View every account, active/banned status, and manage roles as player, judge, community lead, or both.',
         status: 'role control',
       );
   }

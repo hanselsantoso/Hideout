@@ -156,7 +156,7 @@ async function createCommunityApplication(leader) {
     communityName: 'Turney Trial Arena',
     city: 'Jakarta',
     leaderUserId: leader.uid,
-    description: 'Komunitas trial end-to-end untuk validasi flow awal Turney.',
+    description: 'End-to-end trial community for validating the initial Turney flow.',
     tag: 'TTA',
     type: 'Regional Club',
     region: 'Jakarta',
@@ -195,7 +195,7 @@ async function approveCommunity(superAdmin, leader) {
     city: 'Jakarta',
     region: 'Jakarta',
     website: 'https://turney.id',
-    description: 'Komunitas trial end-to-end untuk validasi flow awal Turney.',
+    description: 'End-to-end trial community for validating the initial Turney flow.',
     leaderUserId: leader.uid,
     leader: {
       name: 'Nadia Trial Lead',
@@ -254,7 +254,7 @@ async function createTournament(leader) {
   await patchDoc(leader.token, `tournaments/${ids.tournament}`, {
     id: ids.tournament,
     name: 'Turney Trial Cup',
-    description: 'Trial event dari data bersih: registrasi, group builder, juri, dan scoring.',
+    description: 'Trial event from clean data: registration, group builder, judges, and scoring.',
     status: 'registrationOpen',
     bracketType: 'roundRobinTopCut',
     location: 'Jakarta, Turney Trial Arena',

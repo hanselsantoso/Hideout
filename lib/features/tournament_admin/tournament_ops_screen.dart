@@ -423,12 +423,12 @@ List<_DoubleElimSection> _buildDoubleEliminationPreview(
   return [
     _DoubleElimSection(
       title: 'Upper Bracket',
-      subtitle: 'Winner path dari seed utama',
+      subtitle: 'Winner path from the main seed',
       rounds: upper,
     ),
     _DoubleElimSection(
       title: 'Lower Bracket',
-      subtitle: 'Pemain gugur setelah kalah kedua',
+      subtitle: 'Players are eliminated after their second loss',
       rounds: lowerRounds,
     ),
     const _DoubleElimSection(
@@ -619,7 +619,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => const _PermissionNotice(
           text:
-              'Belum bisa membaca sesi admin saat ini. Silakan coba refresh halaman.',
+              'Admin session could not be read right now. Please refresh the page.',
         ),
         data: (user) {
           if (user == null) {
@@ -630,7 +630,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
           if (!user.isCommunityAdminCompatible) {
             return _PermissionNotice(
               text:
-                  'Role akun ini ${user.role}. Tournament ops hanya untuk admin komunitas atau admin platform.',
+                  'This account role is ${user.role}. Tournament ops is only for community admins or platform admins.',
             );
           }
           return _content();
@@ -646,7 +646,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => const _PermissionNotice(
         text:
-            'Belum bisa membaca daftar tournament saat ini. Silakan coba refresh halaman.',
+            'Tournament list could not be read right now. Please refresh the page.',
       ),
       data: (items) {
         if (items.isEmpty) {
@@ -680,7 +680,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
                   judges: const [],
                   bracket: bracket,
                   dataNotice:
-                      'Roster belum bisa dimuat. Refresh halaman sebelum mengubah setup turnamen.',
+                      'Roster could not be loaded. Refresh the page before changing tournament setup.',
                 ),
                 error: (_, __) => _opsPanel(
                   selected: selected,
@@ -688,7 +688,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
                   judges: const [],
                   bracket: bracket,
                   dataNotice:
-                      'Data live belum bisa dimuat. Refresh halaman sebelum mengubah setup turnamen.',
+                      'Live data could not be loaded. Refresh the page before changing tournament setup.',
                 ),
                 data: (judgeList) => _opsPanel(
                   selected: selected,
@@ -696,7 +696,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
                   judges: judgeList,
                   bracket: bracket,
                   dataNotice:
-                      'Roster belum bisa dimuat. Refresh halaman sebelum mengubah setup turnamen.',
+                      'Roster could not be loaded. Refresh the page before changing tournament setup.',
                 ),
               ),
               data: (roster) {
@@ -709,7 +709,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
                     judges: const [],
                     bracket: bracket,
                     dataNotice:
-                        'Daftar juri belum bisa dimuat. Generate match aktif setelah data juri live terbaca.',
+                        'Judge list could not be loaded. Match generation becomes active after live judge data is available.',
                   ),
                   data: (judgeList) => _opsPanel(
                     selected: selected,
@@ -899,7 +899,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-              'Group draft tersimpan. Generate round robin akan memakai setup ini.'),
+              'Group draft saved. Round robin generation will use this setup.'),
         ),
       );
     } catch (error) {
@@ -928,7 +928,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('${registration.playerName} sudah paid active.')),
+            content: Text('${registration.playerName} is now paid active.')),
       );
     } catch (error) {
       if (!mounted) return;
@@ -994,7 +994,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '$count match round robin dibuat dari $readyCount peserta aktif.',
+            '$count round robin matches created from $readyCount active participants.',
           ),
         ),
       );
@@ -1002,7 +1002,7 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
       if (!mounted) return;
       setState(() {
         _error =
-            'Belum bisa generate Round 1. Pastikan roster sudah paid active dan juri sudah dipilih.';
+            'Round 1 could not be generated. Make sure the roster is paid active and judges are selected.';
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -1037,13 +1037,14 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$count match upper bracket stage 2 dibuat.')),
+        SnackBar(
+            content: Text('$count upper bracket stage 2 matches created.')),
       );
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _error =
-            'Top cut belum bisa dibuat. Pastikan round robin sudah punya standing dan juri sudah dipilih.';
+            'Top cut could not be created. Make sure round robin has standings and judges are selected.';
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -1165,7 +1166,7 @@ class _AdminCommandHero extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: onManageJudges,
                 icon: const Icon(Icons.verified_user_outlined, size: 16),
-                label: const Text('MANAGE JURI'),
+                label: const Text('MANAGE JUDGES'),
               ),
               ElevatedButton.icon(
                 onPressed: onCreateTournament,
@@ -1180,7 +1181,7 @@ class _AdminCommandHero extends StatelessWidget {
             children: [
               _BigMetric('ROSTER', totalRegistrations.toString()),
               _BigMetric('READY', readyRegistrations.toString()),
-              _BigMetric('JURI', judgeCount.toString()),
+              _BigMetric('JUDGES', judgeCount.toString()),
             ],
           );
 
@@ -1286,7 +1287,7 @@ class _RoundSetupPanel extends StatelessWidget {
           TextField(
             controller: arena,
             decoration: const InputDecoration(
-              labelText: 'Arena untuk generated match',
+              labelText: 'Arena for generated matches',
               prefixIcon: Icon(Icons.stadium_outlined),
             ),
           ),
@@ -1295,7 +1296,7 @@ class _RoundSetupPanel extends StatelessWidget {
             const _Notice(
               color: HDTColors.warning,
               text:
-                  'Belum ada akun judge. Buka Manage Juri dan assign pemain menjadi juri terlebih dahulu.',
+                  'No judge accounts yet. Open Manage Judges and assign players as judges first.',
             )
           else
             Wrap(
@@ -1316,7 +1317,7 @@ class _RoundSetupPanel extends StatelessWidget {
             const _Notice(
               color: HDTColors.info,
               text:
-                  'Mode demo aktif karena roster live belum tersedia. Generate bracket akan aktif setelah data paid active masuk.',
+                  'Demo mode is active because the live roster is not available yet. Bracket generation becomes active after paid active data arrives.',
             ),
           ],
           const SizedBox(height: HDTSpace.lg),
@@ -1424,7 +1425,7 @@ class _InteractiveGroupSetupPanelState
                         style: HDTText.display(size: 25)),
                     const SizedBox(height: HDTSpace.sm),
                     Text(
-                      'Ketua komunitas bisa membuat 3, 4, 5, atau jumlah grup lain, mengubah nama grup, memindahkan pemain dengan drag-and-drop, dan menaruh pemain WO di bench.',
+                      'Community leads can create 3, 4, 5, or any other number of groups, rename groups, move players with drag-and-drop, and place WO players on the bench.',
                       style: HDTText.body(
                         size: 12,
                         color: HDTColors.text2,
@@ -1445,7 +1446,7 @@ class _InteractiveGroupSetupPanelState
                       controller: _groupCount,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
-                        labelText: 'Jumlah',
+                        labelText: 'Count',
                       ),
                     ),
                   ),
@@ -1491,7 +1492,7 @@ class _InteractiveGroupSetupPanelState
             const _Notice(
               color: HDTColors.info,
               text:
-                  'Roster live belum tersedia, jadi builder ini hanya preview. Setelah pemain paid active masuk, tombol save akan aktif.',
+                  'Live roster is not available yet, so this builder is preview-only. After paid active players arrive, the save button becomes active.',
             ),
           ],
           const SizedBox(height: HDTSpace.lg),
@@ -1670,7 +1671,7 @@ class _BenchDropZone extends StatelessWidget {
               const SizedBox(height: HDTSpace.sm),
               if (players.isEmpty)
                 Text(
-                  'Drop pemain ke sini jika walk out atau belum dimasukkan grup.',
+                  'Drop players here if they walk out or have not been placed in a group.',
                   style: HDTText.body(size: 12, color: HDTColors.text3),
                 )
               else
@@ -1745,21 +1746,21 @@ class _GroupDropCard extends StatelessWidget {
                       initialValue: group.name,
                       onChanged: onNameChanged,
                       decoration: const InputDecoration(
-                        labelText: 'Nama grup',
+                        labelText: 'Group name',
                       ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: HDTSpace.md),
-              Text('${group.players.length} pemain',
+              Text('${group.players.length} players',
                   style: HDTText.mono(size: 10, color: HDTColors.text3)),
               const SizedBox(height: HDTSpace.sm),
               if (group.players.isEmpty)
                 Expanded(
                   child: Center(
                     child: Text(
-                      'Drop pemain di sini',
+                      'Drop players here',
                       style: HDTText.body(size: 12, color: HDTColors.text3),
                     ),
                   ),
@@ -1773,7 +1774,7 @@ class _GroupDropCard extends StatelessWidget {
                       _DraggablePlayerChip(
                         player,
                         trailing: IconButton(
-                          tooltip: 'Pindahkan ke bench / WO',
+                          tooltip: 'Move to bench / WO',
                           visualDensity: VisualDensity.compact,
                           onPressed: () => onBench(player),
                           icon: const Icon(Icons.logout, size: 14),
@@ -1902,12 +1903,12 @@ class _OpsModuleShelf extends StatelessWidget {
                     style: HDTText.overline(size: 10)),
                 const SizedBox(height: HDTSpace.sm),
                 Text(
-                  'Elemen bracketing lama disimpan sebagai modul internal',
+                  'Legacy bracketing elements are kept as internal modules',
                   style: HDTText.display(size: 23),
                 ),
                 const SizedBox(height: HDTSpace.sm),
                 Text(
-                  'Untuk trial awal, layar ops difokuskan ke setup grup, roster, assignment juri, dan generate match. Tampilan bracket besar akan muncul lagi setelah flow turnamen stabil.',
+                  'For the initial trial, the ops screen focuses on group setup, roster, judge assignments, and match generation. The large bracket view will return after the tournament flow is stable.',
                   style: HDTText.body(
                     size: 12,
                     color: HDTColors.text2,
@@ -2446,7 +2447,7 @@ class _DoubleEliminationBoard extends StatelessWidget {
                         style: HDTText.display(size: 24)),
                     const SizedBox(height: HDTSpace.xs),
                     Text(
-                      'Winner path, elimination path, dan reset match dibaca dalam satu board.',
+                      'Winner path, elimination path, and reset match are read in one board.',
                       style: HDTText.body(size: 12, color: HDTColors.text3),
                     ),
                   ],
@@ -2508,7 +2509,8 @@ class _EsportsDoubleElimMap extends StatelessWidget {
         height: 260,
         child: Center(
             child: _Notice(
-                color: HDTColors.warning, text: 'Bracket belum tersedia.')),
+                color: HDTColors.warning,
+                text: 'Bracket is not available yet.')),
       );
     }
     final upper = _findDoubleElimSection(sections, 'Upper') ?? sections.first;
@@ -3185,19 +3187,19 @@ class _DoubleElimFlowLegend extends StatelessWidget {
           icon: Icons.trending_up,
           color: HDTColors.success,
           title: 'Upper',
-          body: 'Menang tetap di jalur juara',
+          body: 'Winning stays on the champion path',
         ),
         _FlowLegendItem(
           icon: Icons.restart_alt,
           color: HDTColors.warning,
           title: 'Lower',
-          body: 'Kalah sekali masih hidup',
+          body: 'One loss still stays alive',
         ),
         _FlowLegendItem(
           icon: Icons.emoji_events_outlined,
           color: HDTColors.accentHover,
           title: 'Final',
-          body: 'Reset aktif jika lower menang',
+          body: 'Reset is active if lower wins',
         ),
       ],
     );
@@ -3330,7 +3332,7 @@ class _BracketBoard extends StatelessWidget {
       return const _Notice(
         color: HDTColors.warning,
         text:
-            'Bracket belum dibuat. Generate Round 1 setelah peserta sudah paid active.',
+            'Bracket has not been created. Generate Round 1 after participants are paid active.',
       );
     }
     final completed = rounds
@@ -3770,7 +3772,7 @@ class _RosterList extends StatelessWidget {
     if (roster.isEmpty) {
       return const _Notice(
         color: HDTColors.warning,
-        text: 'Belum ada peserta yang mendaftar di tournament ini.',
+        text: 'No participants have registered for this tournament yet.',
       );
     }
     return Container(
@@ -3972,10 +3974,10 @@ class _EmptyState extends StatelessWidget {
           children: [
             const Icon(Icons.emoji_events_outlined, size: 40),
             const SizedBox(height: HDTSpace.md),
-            Text('BELUM ADA TOURNAMENT', style: HDTText.display(size: 24)),
+            Text('NO TOURNAMENT YET', style: HDTText.display(size: 24)),
             const SizedBox(height: HDTSpace.sm),
             Text(
-              'Buat tournament terlebih dahulu, lalu peserta bisa daftar dan roster akan muncul di sini.',
+              'Create a tournament first, then participants can register and the roster will appear here.',
               textAlign: TextAlign.center,
               style: HDTText.body(size: 12, color: HDTColors.text2),
             ),
@@ -3983,7 +3985,7 @@ class _EmptyState extends StatelessWidget {
             ElevatedButton.icon(
               onPressed: onCreate,
               icon: const Icon(Icons.add_circle_outline),
-              label: const Text('BUAT TOURNAMENT'),
+              label: const Text('CREATE TOURNAMENT'),
             ),
           ],
         ),
@@ -4002,7 +4004,7 @@ class _LoginRequired extends StatelessWidget {
     return Center(
       child: ElevatedButton(
         onPressed: onLogin,
-        child: const Text('LOGIN ADMIN KOMUNITAS'),
+        child: const Text('COMMUNITY ADMIN LOGIN'),
       ),
     );
   }

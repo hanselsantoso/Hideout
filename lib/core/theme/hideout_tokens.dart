@@ -1,8 +1,8 @@
 // ============================================================
 // HIDEOUT DESIGN TOKENS
-// Source-of-truth untuk semua warna, spacing, radius, dan
-// typography helper. Import file ini di mana pun kamu butuh
-// akses ke design system HIDEOUT.
+// Source of truth for all colors, spacing, radius, and
+// typography helpers. Import this file wherever you need
+// Access to the HIDEOUT design system.
 // ============================================================
 
 import 'package:flutter/material.dart';
@@ -40,7 +40,7 @@ class HDTColors {
   static const Color defender = Color(0xFF3498DB);
   static const Color balance = Color(0xFF9B59B6);
 
-  /// Kembalikan warna berdasarkan deck class string
+  /// Return a color based on the deck class string.
   static Color fromDeckClass(String cls) {
     switch (cls.toUpperCase()) {
       case 'RUSHER':
@@ -56,7 +56,7 @@ class HDTColors {
     }
   }
 
-  /// Kembalikan warna berdasarkan match result
+  /// Return a color based on match result.
   static Color fromResult(String r) {
     switch (r.toUpperCase()) {
       case 'WIN':
@@ -68,7 +68,7 @@ class HDTColors {
     }
   }
 
-  /// Kembalikan warna berdasarkan game finish type
+  /// Return a color based on game finish type.
   static Color fromFinish(String f) {
     switch (f.toUpperCase()) {
       case 'BURST':
@@ -86,14 +86,14 @@ class HDTColors {
 }
 
 // ─── Typography ─────────────────────────────────────────────
-/// Helper untuk membangun TextStyle sesuai HIDEOUT design system.
+/// Helper for building TextStyle values that match the HIDEOUT design system.
 /// - display / overline → Oswald
 /// - mono               → JetBrains Mono
 /// - body               → Inter
 class HDTText {
   HDTText._();
 
-  /// Oswald — digunakan untuk judul, nama pemain, angka ELO
+  /// Oswald - used for headings, player names, and ELO numbers.
   static TextStyle display({
     double size = 20,
     Color? color,
@@ -107,7 +107,7 @@ class HDTText {
         letterSpacing: letterSpacing,
       );
 
-  /// Oswald ALLCAPS kecil — digunakan untuk label, badge, overline
+  /// Small Oswald ALLCAPS - used for labels, badges, and overlines.
   static TextStyle overline({
     double size = 9,
     Color? color,
@@ -120,7 +120,7 @@ class HDTText {
         letterSpacing: letterSpacing,
       );
 
-  /// JetBrains Mono — ID, tanggal, angka teknis
+  /// JetBrains Mono - IDs, dates, and technical numbers.
   static TextStyle mono({
     double size = 11,
     Color? color,
@@ -184,7 +184,7 @@ BoxDecoration hdtCard({
       boxShadow: shadow,
     );
 
-/// Card dengan warna aksen di gradient background
+/// Card with accent color in the gradient background.
 BoxDecoration hdtAccentCard({
   required Color accentColor,
   BorderRadius? radius,

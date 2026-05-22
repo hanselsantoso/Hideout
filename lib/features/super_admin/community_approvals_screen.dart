@@ -32,7 +32,7 @@ class _CommunityApprovalsScreenState
             const SizedBox(width: HDTSpace.sm),
             const Icon(Icons.chevron_right, size: 14, color: HDTColors.text3),
             const SizedBox(width: HDTSpace.sm),
-            Text('PERSETUJUAN KOMUNITAS', style: HDTText.overline(size: 10)),
+            Text('COMMUNITY APPROVALS', style: HDTText.overline(size: 10)),
           ],
         ),
         actions: [
@@ -119,8 +119,7 @@ class _CommunityApprovalsScreenState
       });
     } catch (_) {
       if (!mounted) return;
-      setState(
-          () => _message = 'Review gagal. Coba ulangi beberapa saat lagi.');
+      setState(() => _message = 'Review failed. Try again in a moment.');
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
@@ -160,11 +159,11 @@ class _ApprovalContent extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('PENGAJUAN KOMUNITAS BARU',
+                      Text('NEW COMMUNITY APPLICATIONS',
                           style: HDTText.display(size: 32)),
                       const SizedBox(height: HDTSpace.xs),
                       Text(
-                        'Setiap komunitas yang mendaftar dari halaman Buka Komunitas masuk ke queue ini. Saat disetujui, ketua komunitas otomatis mendapat akses admin komunitas.',
+                        'Every community that applies from the Open Community page enters this queue. When approved, the community lead automatically receives community admin access.',
                         style: HDTText.body(color: HDTColors.text2),
                       ),
                       const SizedBox(height: HDTSpace.md),
@@ -173,11 +172,11 @@ class _ApprovalContent extends StatelessWidget {
                         runSpacing: HDTSpace.sm,
                         children: [
                           _MetaChip(Icons.groups_outlined,
-                              'SOURCE: REGISTRASI KOMUNITAS'),
+                              'SOURCE: COMMUNITY REGISTRATION'),
                           _MetaChip(Icons.admin_panel_settings_outlined,
-                              'ROLE: KETUA KOMUNITAS'),
+                              'ROLE: COMMUNITY LEAD'),
                           _MetaChip(Icons.account_balance_wallet_outlined,
-                              'WITHDRAW: DI HALAMAN KETUA'),
+                              'WITHDRAW: DI HALAMAN LEAD'),
                         ],
                       ),
                     ],
@@ -257,7 +256,7 @@ class _ApplicationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final created = application.createdAt;
     final submittedAt = created == null
-        ? 'Tanggal tidak tersedia'
+        ? 'Date not available'
         : '${created.year}-${created.month.toString().padLeft(2, '0')}-${created.day.toString().padLeft(2, '0')} ${created.hour.toString().padLeft(2, '0')}:${created.minute.toString().padLeft(2, '0')}';
 
     return Container(
@@ -363,7 +362,7 @@ class _ApplicationCard extends StatelessWidget {
 
   static String _firstParagraph(String value) {
     final first = value.split('\n').first.trim();
-    return first.isEmpty ? 'Tidak ada deskripsi komunitas.' : first;
+    return first.isEmpty ? 'No community description.' : first;
   }
 
   static Color _colorFor(String value) {
@@ -411,18 +410,18 @@ class _ApplicationCard extends StatelessWidget {
     final rows = [
       if (application.description.isNotEmpty) application.description,
       if (application.tag.isNotEmpty) 'Tag: ${application.tag}',
-      if (application.type.isNotEmpty) 'Tipe: ${application.type}',
+      if (application.type.isNotEmpty) 'Type: ${application.type}',
       if (application.region.isNotEmpty) 'Region: ${application.region}',
       if (application.website.isNotEmpty) 'Website: ${application.website}',
       if (application.leaderName.isNotEmpty)
-        'Ketua: ${application.leaderName} (${application.leaderEmail})',
+        'Lead: ${application.leaderName} (${application.leaderEmail})',
       if (application.leaderInstagram.isNotEmpty)
         'Instagram: ${application.leaderInstagram}',
       if (application.bankName.isNotEmpty)
-        'Rekening: ${application.bankName} - ${application.bankHolder} (${application.bankNumber})',
+        'Bank account: ${application.bankName} - ${application.bankHolder} (${application.bankNumber})',
       'Dokumen: KTP ${application.idUploaded ? 'OK' : 'review'}, Surat ${application.letterUploaded ? 'OK' : 'opsional'}, Logo ${application.logoUploaded ? 'OK' : 'opsional'}',
     ];
-    return rows.isEmpty ? 'Tidak ada detail tambahan.' : rows.join('\n\n');
+    return rows.isEmpty ? 'No additional details.' : rows.join('\n\n');
   }
 }
 
@@ -437,7 +436,7 @@ class _RejectReasonDialog extends StatefulWidget {
 
 class _RejectReasonDialogState extends State<_RejectReasonDialog> {
   final _reason = TextEditingController(
-    text: 'Dokumen atau data komunitas belum lengkap.',
+    text: 'Documents or community data are incomplete.',
   );
 
   @override
@@ -450,7 +449,7 @@ class _RejectReasonDialogState extends State<_RejectReasonDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: HDTColors.s1,
-      title: Text('Tolak Pengajuan', style: HDTText.display(size: 22)),
+      title: Text('Reject Application', style: HDTText.display(size: 22)),
       content: SizedBox(
         width: 460,
         child: Column(
@@ -477,7 +476,7 @@ class _RejectReasonDialogState extends State<_RejectReasonDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('BATAL'),
+          child: const Text('CANCEL'),
         ),
         ElevatedButton.icon(
           onPressed: () => Navigator.pop(context, _reason.text),
@@ -520,7 +519,7 @@ class _ReviewHistoryPanel extends StatelessWidget {
           const SizedBox(height: HDTSpace.md),
           if (items.isEmpty)
             Text(
-              'Belum ada histori approval atau rejection komunitas.',
+              'No community approval or rejection history yet.',
               style: HDTText.body(size: 12, color: HDTColors.text2),
             )
           else
@@ -542,7 +541,7 @@ class _ReviewHistoryRow extends StatelessWidget {
     final color = approved ? HDTColors.success : HDTColors.danger;
     final reviewed = application.reviewedAt;
     final date = reviewed == null
-        ? 'Tanggal review belum tersedia'
+        ? 'Review date not available yet'
         : '${reviewed.year}-${reviewed.month.toString().padLeft(2, '0')}-${reviewed.day.toString().padLeft(2, '0')}';
     return Container(
       margin: const EdgeInsets.only(bottom: HDTSpace.sm),
@@ -722,7 +721,7 @@ class _PermissionNotice extends StatelessWidget {
         padding: const EdgeInsets.all(HDTSpace.xl),
         decoration: hdtCard(),
         child: Text(
-          'Role akun ini `$role`. Approval komunitas hanya untuk super admin.',
+          'This account role is `$role`. Community approval is only for super admin.',
           textAlign: TextAlign.center,
           style: HDTText.body(color: HDTColors.text2, height: 1.5),
         ),
@@ -749,10 +748,10 @@ class _BackendNotice extends StatelessWidget {
               const Icon(Icons.cloud_off_outlined,
                   color: HDTColors.warning, size: 44),
               const SizedBox(height: HDTSpace.md),
-              Text('BACKEND BELUM TERBACA', style: HDTText.display(size: 24)),
+              Text('BACKEND NOT READABLE', style: HDTText.display(size: 24)),
               const SizedBox(height: HDTSpace.sm),
               Text(
-                'Belum bisa membaca pending approval saat ini. Coba kembali beberapa saat lagi.',
+                'Pending approvals cannot be read right now. Try again in a moment.',
                 textAlign: TextAlign.center,
                 style: HDTText.body(color: HDTColors.text2, height: 1.5),
               ),
@@ -780,7 +779,7 @@ class _EmptyApprovals extends StatelessWidget {
           const SizedBox(height: HDTSpace.md),
           Text('QUEUE KOSONG', style: HDTText.display(size: 24)),
           const SizedBox(height: HDTSpace.sm),
-          Text('Belum ada komunitas baru yang menunggu persetujuan.',
+          Text('No new communities are waiting for approval.',
               style: HDTText.body(color: HDTColors.text2)),
         ],
       ),

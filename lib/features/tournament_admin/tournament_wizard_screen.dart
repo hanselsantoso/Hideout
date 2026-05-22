@@ -11,7 +11,7 @@ const _wizardSteps = [
   'ELIGIBILITY',
   'PRICING',
   'LOGISTICS',
-  'JURI & ARENA',
+  'JUDGES & ARENA',
 ];
 
 const _tiers = [
@@ -67,7 +67,7 @@ class _TournamentWizardScreenState
       TextEditingController(text: 'Spring Showdown - Single Elim Championship');
   final _description = TextEditingController(
       text:
-          'Turnamen Beyblade X bulanan untuk komunitas Jakarta. Bracket terbuka, 64 slot.');
+          'Monthly Beyblade X tournament for the Jakarta community. Open bracket, 64 slots.');
   final _venue = TextEditingController(text: 'GBK Arena 02 - Senayan');
   final _city = TextEditingController(text: 'Jakarta');
   final _capacity = TextEditingController(text: '64');
@@ -324,7 +324,7 @@ class _TournamentWizardScreenState
           color: HDTColors.accentHover,
           icon: Icons.info_outline,
           text:
-              'Banner color dan tier akan diturunkan ke halaman registrasi dan bracket.',
+              'Banner color and tier will flow into the registration page and bracket.',
         ),
       ],
     );
@@ -344,7 +344,7 @@ class _TournamentWizardScreenState
         ),
         const SizedBox(height: HDTSpace.sm),
         Text(
-          'Default event memakai 2 stage: round robin group untuk semua peserta, lalu top cut double elimination.',
+          'Default event uses 2 stages: round robin groups for all participants, then double-elimination top cut.',
           style: HDTText.body(color: HDTColors.text2),
         ),
         const SizedBox(height: HDTSpace.lg),
@@ -390,7 +390,7 @@ class _TournamentWizardScreenState
           rows: [
             _ToggleRow(
               title: 'Allow Draws',
-              subtitle: 'Draw count sebagai 0.5 point per side.',
+              subtitle: 'Draws count as 0.5 point per side.',
               value: _allowDraws,
               onChanged: (value) => setState(() => _allowDraws = value),
             ),
@@ -402,7 +402,7 @@ class _TournamentWizardScreenState
             const _InfoRow(
               title: 'Tiebreaker',
               value: 'Sudden Death',
-              subtitle: 'Cara menentukan pemenang saat skor seri.',
+              subtitle: 'How to determine the winner when the score is tied.',
             ),
           ],
         ),
@@ -417,7 +417,7 @@ class _TournamentWizardScreenState
         const _SectionTitle('STEP 3', 'ELIGIBILITY & DECK RULES'),
         const SizedBox(height: HDTSpace.sm),
         Text(
-          'Rule ini muncul di registration flow dan dipakai juri saat verifikasi deck.',
+          'This rule appears in the registration flow and is used by judges during deck verification.',
           style: HDTText.body(color: HDTColors.text2),
         ),
         const SizedBox(height: HDTSpace.lg),
@@ -444,13 +444,14 @@ class _TournamentWizardScreenState
           rows: [
             _ToggleRow(
               title: 'Deck locked after check-in',
-              subtitle: 'Juri membandingkan QR peserta dengan deck terdaftar.',
+              subtitle:
+                  'Judges compare participant QR with the registered deck.',
               value: _lockedDeck,
               onChanged: (value) => setState(() => _lockedDeck = value),
             ),
             _ToggleRow(
               title: 'Verified account only',
-              subtitle: 'Email terverifikasi wajib sebelum pembayaran.',
+              subtitle: 'Verified email is required before payment.',
               value: _verifiedOnly,
               onChanged: (value) => setState(() => _verifiedOnly = value),
             ),
@@ -468,7 +469,7 @@ class _TournamentWizardScreenState
           color: HDTColors.warning,
           icon: Icons.shield_outlined,
           text:
-              'Default poin match: Spin +1, Burst +2, Over +2, Xtreme +3. Admin komunitas masih bisa menulis override di rules.',
+              'Default match points: Spin +1, Burst +2, Over +2, Xtreme +3. Community admins can still write overrides in the rules.',
         ),
       ],
     );
@@ -505,11 +506,11 @@ class _TournamentWizardScreenState
                                 controller: _entryFee,
                                 keyboardType: TextInputType.number),
                             _Field(
-                                label: 'PLATFORM FEE % (DIBAYAR USER)',
+                                label: 'PLATFORM FEE % (PAID BY USER)',
                                 controller: _platformRate,
                                 keyboardType: TextInputType.number),
                             _Field(
-                                label: 'MIDTRANS / QRIS EST. % (DIBAYAR USER)',
+                                label: 'MIDTRANS / QRIS EST. % (PAID BY USER)',
                                 controller: _gatewayRate,
                                 keyboardType: TextInputType.number),
                           ],
@@ -578,7 +579,7 @@ class _TournamentWizardScreenState
           color: HDTColors.accentHover,
           icon: Icons.qr_code_2,
           text:
-              'Peserta scan QR untuk check-in. Saat match dipanggil, juri scan lagi untuk validasi deck terkunci.',
+              'Participants scan QR for check-in. When a match is called, judges scan again to validate the locked deck.',
         ),
       ],
     );
@@ -596,7 +597,7 @@ class _TournamentWizardScreenState
       children: [
         Row(
           children: [
-            const Expanded(child: _SectionTitle('STEP 6', 'JURI & ARENA')),
+            const Expanded(child: _SectionTitle('STEP 6', 'JUDGES & ARENA')),
             ElevatedButton.icon(
               onPressed: () => setState(() => _arenas.add(_ArenaDraft(
                     name:
@@ -609,7 +610,7 @@ class _TournamentWizardScreenState
         ),
         const SizedBox(height: HDTSpace.sm),
         Text(
-          'Assign juri dari pool komunitas ke arena fisik. Satu arena bisa punya lebih dari satu juri.',
+          'Assign judges from the community pool to physical arenas. One arena can have more than one judge.',
           style: HDTText.body(color: HDTColors.text2),
         ),
         if (liveJudges.isEmpty) ...[
@@ -620,8 +621,8 @@ class _TournamentWizardScreenState
                 ? Icons.warning_amber_outlined
                 : Icons.manage_accounts_outlined,
             text: judges.hasError
-                ? 'Belum bisa membaca akun juri dari Firebase. Chip demo tetap tampil untuk layout, tapi generate match butuh akun juri live.'
-                : 'Belum ada akun dengan role judge. Tambahkan/promosikan pemain menjadi juri agar match live bisa di-assign ke akun mereka.',
+                ? 'Judge accounts could not be read from Firebase. Demo chips still appear for layout, but match generation needs live judge accounts.'
+                : 'No accounts with the judge role yet. Add or promote players to judges so live matches can be assigned to them.',
           ),
         ],
         const SizedBox(height: HDTSpace.lg),
@@ -658,7 +659,7 @@ class _TournamentWizardScreenState
               _MiniStat('FEE', _formatRp(_grossFee)),
               _MiniStat(
                   'CHECK-IN', '${_checkInOpen.text} - ${_checkInClose.text}'),
-              _MiniStat('JURI', '$totalJuri assigned'),
+              _MiniStat('JUDGES', '$totalJuri assigned'),
             ],
           ),
         ),
@@ -717,13 +718,13 @@ class _TournamentWizardScreenState
       if (!mounted) return;
       setState(() => _createdId = id.isEmpty ? 'created' : id);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tournament tersimpan di Firebase.')),
+        const SnackBar(content: Text('Tournament saved to Firebase.')),
       );
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _error =
-            'Belum bisa membuat tournament. Pastikan akun ini punya role admin komunitas dan coba ulangi.';
+            'Tournament could not be created. Make sure this account has the community admin role and try again.';
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -749,13 +750,13 @@ class _TournamentWizardScreenState
       if (!mounted) return;
       setState(() => _seededMatchCount = count);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$count match siap untuk juri.')),
+        SnackBar(content: Text('$count matches are ready for judges.')),
       );
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _error =
-            'Belum bisa generate match. Pastikan ada akun juri live dan minimal 2 peserta sudah paid active.';
+            'Matches could not be generated. Make sure there is a live judge account and at least 2 paid active participants.';
       });
     } finally {
       if (mounted) setState(() => _seedingMatches = false);
@@ -890,11 +891,11 @@ class _LoginRequired extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('BUAT TURNAMEN')),
+      appBar: AppBar(title: const Text('CREATE TOURNAMENT')),
       body: Center(
         child: ElevatedButton(
           onPressed: () => Navigator.pushNamed(context, '/signup'),
-          child: const Text('LOGIN ADMIN KOMUNITAS'),
+          child: const Text('COMMUNITY ADMIN LOGIN'),
         ),
       ),
     );
@@ -908,14 +909,14 @@ class _PermissionNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('BUAT TURNAMEN')),
+      appBar: AppBar(title: const Text('CREATE TOURNAMENT')),
       body: Center(
         child: Container(
           margin: const EdgeInsets.all(HDTSpace.lg),
           padding: const EdgeInsets.all(HDTSpace.xl),
           decoration: hdtCard(),
           child: Text(
-            'Role akun ini `$role`. Buat tournament hanya untuk admin komunitas atau super admin.',
+            'This account role is `$role`. Creating tournaments is only for community admins or super admins.',
             textAlign: TextAlign.center,
             style: HDTText.body(color: HDTColors.text2, height: 1.5),
           ),
@@ -1287,7 +1288,7 @@ class _StageCard extends StatelessWidget {
                   title: 'Round-robin pairing',
                   value: 'All-play-all',
                   subtitle:
-                      'Setiap pemain di grup akan bertemu semua lawan satu kali.',
+                      'Every player in the group meets every opponent once.',
                 ),
               ],
             ),
@@ -1296,7 +1297,7 @@ class _StageCard extends StatelessWidget {
               color: HDTColors.info,
               icon: Icons.visibility_outlined,
               text:
-                  'Standings, hasil match, next call, rules, dan tiebreaker stage ini akan tampil transparan untuk pemain.',
+                  'Standings, match results, next calls, rules, and this stage tiebreaker will be shown transparently to players.',
             ),
           ],
           if (stage.format == 'Double Elimination') ...[
@@ -1307,13 +1308,13 @@ class _StageCard extends StatelessWidget {
                   title: 'Bracket structure',
                   value: 'Upper + Lower',
                   subtitle:
-                      'Pemain yang kalah di upper turun ke lower bracket. Eliminasi terjadi setelah kalah kedua.',
+                      'Players who lose in upper drop to the lower bracket. Elimination happens after the second loss.',
                 ),
                 _InfoRow(
                   title: 'Grand final',
                   value: 'Reset ON',
                   subtitle:
-                      'Jika winner lower mengalahkan winner upper di grand final pertama, bracket reset match akan dimainkan.',
+                      'If the lower winner beats the upper winner in the first grand final, a bracket reset match will be played.',
                 ),
               ],
             ),
@@ -1351,7 +1352,7 @@ class _ArenaCard extends StatelessWidget {
             },
           ),
           const SizedBox(height: HDTSpace.lg),
-          Text('ASSIGNED JURI', style: HDTText.overline(size: 9)),
+          Text('ASSIGNED JUDGES', style: HDTText.overline(size: 9)),
           const SizedBox(height: HDTSpace.sm),
           Wrap(
             spacing: HDTSpace.sm,
@@ -1468,7 +1469,7 @@ class _MoneyPreview extends StatelessWidget {
             padding: const EdgeInsets.all(HDTSpace.md),
             decoration: hdtCard(bg: HDTColors.bg),
             child: Text(
-              'Midtrans/QRIS dipasang nanti. MVP ini menganggap payment lunas setelah konfirmasi.',
+              'Midtrans/QRIS will be connected later. This MVP treats payment as paid after confirmation.',
               style:
                   HDTText.body(size: 11, color: HDTColors.text2, height: 1.5),
             ),
@@ -1840,8 +1841,8 @@ class _MatchSeedActions extends StatelessWidget {
                 const SizedBox(height: HDTSpace.xs),
                 Text(
                   seededMatchCount == null
-                      ? 'Generate match dari registrasi paid dan assign ke juri live.'
-                      : '$seededMatchCount match sudah dibuat untuk tournament $tournamentId.',
+                      ? 'Generate matches from paid registrations and assign them to live judges.'
+                      : '$seededMatchCount matches have been created for tournament $tournamentId.',
                   style: HDTText.body(size: 12, color: HDTColors.text2),
                 ),
               ],
@@ -1960,9 +1961,9 @@ class _BottomBar extends StatelessWidget {
 
 String _seedingTip(String mode) {
   return switch (mode) {
-    'ELO-based' => 'Pemain ranked tinggi dipasangkan dengan ranked rendah.',
-    'Win Rate-based' => 'Pairing menggunakan win rate sebagai metrik.',
-    'Manual' => 'Atur seeding manual sebelum stage 1 dimulai.',
+    'ELO-based' => 'High-ranked players are paired with low-ranked players.',
+    'Win Rate-based' => 'Pairing uses win rate as the metric.',
+    'Manual' => 'Set manual seeding before stage 1 starts.',
     _ => 'Shuffle seed otomatis.',
   };
 }

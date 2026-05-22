@@ -71,7 +71,7 @@ const users = [
   {
     uid: 'demo-mixed-raka',
     email: 'hideout.mixed@example.com',
-    displayName: 'Raka Judge Ketua',
+    displayName: 'Raka Judge Lead',
     region: 'JKT',
     role: 'community_admin',
     roles: ['player', 'community_admin', 'judge'],
@@ -126,7 +126,7 @@ const pendingApplications = [
       letterUploaded: true,
     },
     description:
-      'Komunitas baru Solo dengan 40+ pemain aktif. KTP OK, jadwal venue mingguan sudah tersedia.',
+      'New Solo community with 40+ active players. ID verified, weekly venue schedule is available.',
   },
   {
     id: 'demo-app-medan-bey',
@@ -157,7 +157,7 @@ const pendingApplications = [
       letterUploaded: false,
     },
     description:
-      'Pengajuan komunitas Medan. Dokumen venue sudah ada, perlu cek ulang data penanggung jawab.',
+      'Medan community application. Venue documents are available; responsible party data needs another check.',
   },
 ];
 
@@ -174,7 +174,7 @@ const reviewedApplications = [
     status: 'approved',
     communityId: 'jkt-wolves',
     reviewerId: 'demo-super-admin-hansel',
-    description: 'Komunitas Jakarta existing yang sudah terverifikasi.',
+    description: 'Existing verified Jakarta community.',
   },
   {
     id: 'demo-app-bali-rejected',
@@ -183,12 +183,12 @@ const reviewedApplications = [
     leaderUserId: 'demo-player-kaede',
     requesterId: 'demo-player-kaede',
     tag: 'BSH',
-    type: 'Kasual & Komunitas',
+    type: 'Casual & Community',
     region: 'Bali',
     status: 'rejected',
     reviewerId: 'demo-super-admin-hansel',
-    rejectionReason: 'Data venue dan identitas penanggung jawab belum lengkap.',
-    description: 'Pengajuan demo yang sengaja ditolak untuk histori review.',
+    rejectionReason: 'Venue data and responsible party identity are incomplete.',
+    description: 'Demo application intentionally rejected for review history.',
   },
 ];
 
@@ -196,7 +196,7 @@ const tournaments = [
   {
     id: 'hideout-cup-04',
     name: 'HIDEOUT CUP #04',
-    description: 'Ranked weekend cup dengan Swiss stage dan top cut.',
+    description: 'Ranked weekend cup with Swiss stage and top cut.',
     status: 'registrationOpen',
     bracketType: 'swissTopCut',
     location: 'Jakarta, JKT WOLVES Arena',
@@ -212,7 +212,7 @@ const tournaments = [
   {
     id: 'east-coast-showdown',
     name: 'EAST COAST SHOWDOWN',
-    description: 'Event live Surabaya untuk pemain aktif komunitas.',
+    description: 'Live Surabaya event for active community players.',
     status: 'running',
     bracketType: 'singleElimination',
     location: 'Surabaya, SBY SPIN Base',
@@ -228,7 +228,7 @@ const tournaments = [
   {
     id: 'highland-open',
     name: 'HIGHLAND OPEN',
-    description: 'Open event Bandung untuk testing meta baru.',
+    description: 'Open Bandung event for testing the new meta.',
     status: 'upcoming',
     bracketType: 'swiss',
     location: 'Bandung, BDG GRINDERS Hideout',
