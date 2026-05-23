@@ -317,7 +317,7 @@ class _JudgeGuidePanel extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: () => Navigator.pushNamed(context, '/juri/scan'),
             icon: const Icon(Icons.qr_code_scanner, size: 16),
-            label: const Text('BUKA SCANNER'),
+            label: const Text('OPEN SCANNER'),
           ),
         ],
       ),

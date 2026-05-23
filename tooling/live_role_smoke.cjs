@@ -25,6 +25,11 @@ const roles = [
       ['my-tournaments', '/me/tournaments'],
       ['my-decks', '/me/decks'],
     ],
+    blockedRoutes: [
+      ['blocked-judge-matches', '/juri/matches'],
+      ['blocked-community-admin', '/community/admin'],
+      ['blocked-super-admin', '/super-admin/reports'],
+    ],
   },
   {
     name: 'judge',
@@ -33,6 +38,10 @@ const roles = [
       ['dashboard', '/dashboard'],
       ['judge-matches', '/juri/matches'],
       ['judge-scan', '/juri/scan'],
+    ],
+    blockedRoutes: [
+      ['blocked-community-admin', '/community/admin'],
+      ['blocked-super-admin', '/super-admin/reports'],
     ],
   },
   {
@@ -43,6 +52,10 @@ const roles = [
       ['community-admin', '/community/admin'],
       ['tournament-ops', '/admin/tournaments/ops'],
     ],
+    blockedRoutes: [
+      ['blocked-judge-matches', '/juri/matches'],
+      ['blocked-super-admin', '/super-admin/reports'],
+    ],
   },
   {
     name: 'super-admin',
@@ -51,6 +64,10 @@ const roles = [
       ['reports', '/super-admin/reports'],
       ['approvals', '/super-admin/community-approvals'],
       ['users', '/super-admin/users'],
+    ],
+    blockedRoutes: [
+      ['blocked-dashboard', '/dashboard'],
+      ['blocked-judge-matches', '/juri/matches'],
     ],
   },
 ];
@@ -121,6 +138,23 @@ async function openRoleRoute(page, role, route) {
   );
 }
 
+async function openBlockedRoute(page, role, route) {
+  const [name, pathName] = route;
+  await page.goto(`${baseUrl}${pathName}`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 45000,
+  });
+  await waitForFlutter(page);
+  const url = page.url();
+  if (url.includes('/signin')) {
+    throw new Error(`${role.name} was signed out while checking ${pathName}`);
+  }
+  const screenshot = await capture(page, `${role.name}-${name}`);
+  console.log(
+    `${role.name}:${name}: denied-smoke url=${url} screenshot=${screenshot.file}`,
+  );
+}
+
 async function main() {
   fs.mkdirSync(screenshotDir, { recursive: true });
   const browser = await chromium.launch({
@@ -151,6 +185,9 @@ async function main() {
         await loginWithDemo(page, role);
         for (const route of role.routes) {
           await openRoleRoute(page, role, route);
+        }
+        for (const route of role.blockedRoutes || []) {
+          await openBlockedRoute(page, role, route);
         }
       } finally {
         await context.close().catch(() => {});

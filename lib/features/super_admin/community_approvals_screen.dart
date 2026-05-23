@@ -398,7 +398,7 @@ class _ApplicationCard extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('TUTUP'),
+              child: const Text('CLOSE'),
             ),
           ],
         );

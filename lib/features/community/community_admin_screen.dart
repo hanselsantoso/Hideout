@@ -523,7 +523,7 @@ class _CommunityAdminGuidePanel extends StatelessWidget {
                 onPressed: () =>
                     Navigator.pushNamed(context, '/admin/tournaments/ops'),
                 icon: const Icon(Icons.account_tree_outlined, size: 16),
-                label: const Text('BUKA OPS'),
+                label: const Text('OPEN OPS'),
               ),
             ],
           ),

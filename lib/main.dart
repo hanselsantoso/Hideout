@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 
+import 'core/auth/route_access.dart';
 import 'core/theme/hideout_theme.dart';
 import 'core/theme/hideout_tokens.dart';
 import 'data/models/app_user.dart';
@@ -83,45 +84,45 @@ class BeyTourneyApp extends StatelessWidget {
         '/community/admin': (_) => _roleRoute(
               '/community/admin',
               const CommunityAdminScreen(),
-              allowedRoles: _communityManagerAccess,
+              allowedRoles: communityManagerAccess,
             ),
         '/community/judges': (_) => _roleRoute(
               '/community/judges',
               const CommunityJudgesScreen(),
-              allowedRoles: _communityManagerAccess,
+              allowedRoles: communityManagerAccess,
             ),
         '/super-admin/community-approvals': (_) => _roleRoute(
             '/super-admin/community-approvals',
             const CommunityApprovalsScreen(),
-            allowedRoles: _superAdminAccess),
+            allowedRoles: superAdminAccess),
         '/super-admin/reports': (_) => _roleRoute('/super-admin/reports',
             const SuperAdminConsoleScreen(section: SuperAdminSection.reports),
-            allowedRoles: _superAdminAccess),
+            allowedRoles: superAdminAccess),
         '/super-admin/components': (_) => _roleRoute(
             '/super-admin/components',
             const SuperAdminConsoleScreen(
                 section: SuperAdminSection.components),
-            allowedRoles: _superAdminAccess),
+            allowedRoles: superAdminAccess),
         '/super-admin/component-stats': (_) => _roleRoute(
             '/super-admin/component-stats',
             const SuperAdminConsoleScreen(
                 section: SuperAdminSection.componentStats),
-            allowedRoles: _superAdminAccess),
+            allowedRoles: superAdminAccess),
         '/super-admin/users': (_) => _roleRoute('/super-admin/users',
             const SuperAdminConsoleScreen(section: SuperAdminSection.users),
-            allowedRoles: _superAdminAccess),
+            allowedRoles: superAdminAccess),
         '/super-admin/parts/new': (_) => _roleRoute('/super-admin/users',
             const SuperAdminConsoleScreen(section: SuperAdminSection.users),
-            allowedRoles: _superAdminAccess),
+            allowedRoles: superAdminAccess),
         '/admin/tournaments/new': (_) => _roleRoute(
               '/admin/tournaments/new',
               const TournamentWizardScreen(),
-              allowedRoles: _communityManagerAccess,
+              allowedRoles: communityManagerAccess,
             ),
         '/admin/tournaments/ops': (_) => _roleRoute(
               '/admin/tournaments/ops',
               const TournamentOpsScreen(),
-              allowedRoles: _communityManagerAccess,
+              allowedRoles: communityManagerAccess,
             ),
         '/tournaments': (_) =>
             _roleRoute('/tournaments', const TournamentsScreen()),
@@ -137,38 +138,27 @@ class BeyTourneyApp extends StatelessWidget {
         '/juri/matches': (_) => _roleRoute(
               '/juri/matches',
               const JudgeMatchesScreen(),
-              allowedRoles: _judgeAccess,
+              allowedRoles: judgeAccess,
             ),
         '/juri/scan': (_) => _roleRoute(
               '/juri/scan',
               const JudgeScannerScreen(),
-              allowedRoles: _judgeAccess,
+              allowedRoles: judgeAccess,
             ),
         '/juri/score': (_) => _roleRoute(
               '/juri/score',
               const JudgeScoreScreen(),
-              allowedRoles: _judgeAccess,
+              allowedRoles: judgeAccess,
             ),
       },
     );
   }
 }
 
-const _playerAccess = {'player', 'judge', 'community_admin'};
-const _judgeAccess = {'judge'};
-const _communityManagerAccess = {'community_admin', 'super_admin'};
-const _superAdminAccess = {'super_admin'};
-const _anySignedInAccess = {
-  'player',
-  'judge',
-  'community_admin',
-  'super_admin',
-};
-
 Widget _authRoute(Widget child) {
   return _AuthzRoute(
     selectedRoute: null,
-    allowedRoles: _anySignedInAccess,
+    allowedRoles: anySignedInAccess,
     requireProfile: false,
     useRoleShell: false,
     child: child,
@@ -178,7 +168,7 @@ Widget _authRoute(Widget child) {
 Widget _roleRoute(
   String route,
   Widget child, {
-  Set<String> allowedRoles = _playerAccess,
+  Set<String> allowedRoles = playerAccess,
 }) {
   return _AuthzRoute(
     selectedRoute: route,
@@ -195,7 +185,7 @@ class AppShell extends StatelessWidget {
     return _roleRoute(
       '/dashboard',
       const DashboardScreen(),
-      allowedRoles: _playerAccess,
+      allowedRoles: playerAccess,
     );
   }
 }
@@ -266,9 +256,9 @@ class _AuthzRoute extends ConsumerWidget {
                 actionRoute: '/signin',
               );
             }
-            if (!_hasRouteAccess(user, allowedRoles)) {
-              final home = _defaultRouteFor(user);
-              final expected = allowedRoles.map(_roleLabel).join(', ');
+            if (!hasRouteAccess(user, allowedRoles)) {
+              final home = defaultRouteFor(user);
+              final expected = allowedRoles.map(roleLabel).join(', ');
               return RoleShell(
                 selectedRoute: home,
                 child: _RouteStateScreen(
@@ -283,7 +273,7 @@ class _AuthzRoute extends ConsumerWidget {
             }
             if (!useRoleShell) return child;
             return RoleShell(
-              selectedRoute: selectedRoute ?? _defaultRouteFor(user),
+              selectedRoute: selectedRoute ?? defaultRouteFor(user),
               child: child,
             );
           },
@@ -351,26 +341,6 @@ class _RouteStateScreen extends StatelessWidget {
     if (embedded) return content;
     return Scaffold(backgroundColor: HDTColors.bg, body: content);
   }
-}
-
-bool _hasRouteAccess(AppUser user, Set<String> allowedRoles) {
-  final capabilities = _capabilitiesFor(user);
-  return allowedRoles.any(capabilities.contains);
-}
-
-String _defaultRouteFor(AppUser user) {
-  final capabilities = _capabilitiesFor(user);
-  if (capabilities.contains('super_admin')) return '/super-admin/reports';
-  return '/dashboard';
-}
-
-String _roleLabel(String role) {
-  return switch (role) {
-    'super_admin' => 'super admin',
-    'community_admin' => 'community admin',
-    'judge' => 'judge',
-    _ => 'player',
-  };
 }
 
 class RoleShell extends ConsumerWidget {
@@ -735,7 +705,7 @@ class _SidebarModeHeader extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'MODE AKTIF',
+                  'ACTIVE MODE',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: HDTText.overline(size: 8, color: HDTColors.text3),
@@ -778,7 +748,7 @@ class _MobileModeHeader extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('MODE AKTIF',
+            Text('ACTIVE MODE',
                 style: HDTText.overline(size: 8, color: HDTColors.text3)),
             Text(config.label, style: HDTText.display(size: 14)),
           ],
@@ -971,24 +941,15 @@ class _SidebarModeConfig {
 }
 
 List<_RoleNavItem> _visibleRoleItems(AppUser? user) {
-  final capabilities = _capabilitiesFor(user);
+  final capabilities = capabilitiesFor(user);
   return [
     for (final item in _roleNavItems)
       if (item.roles.any(capabilities.contains)) item,
   ];
 }
 
-Set<String> _capabilitiesFor(AppUser? user) {
-  if (user == null) return {'player'};
-  final capabilities = user.capabilities;
-  if (capabilities.contains('super_admin')) {
-    return {'super_admin'};
-  }
-  return {'player', ...capabilities};
-}
-
 _SidebarModeConfig _modeConfigFor(AppUser? user) {
-  final capabilities = _capabilitiesFor(user);
+  final capabilities = capabilitiesFor(user);
   if (capabilities.contains('super_admin')) {
     return const _SidebarModeConfig(
       label: 'Super Admin',

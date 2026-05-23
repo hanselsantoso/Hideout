@@ -9,6 +9,7 @@ import '../../core/theme/hideout_tokens.dart';
 import '../../data/models/app_user.dart';
 import '../../data/models/bey_part.dart';
 import '../../data/models/tournament_summary.dart';
+import '../../data/repositories/auth_repository.dart';
 
 class LandingScreen extends StatelessWidget {
   const LandingScreen({super.key});
@@ -75,12 +76,14 @@ class LandingScreen extends StatelessWidget {
   }
 }
 
-class _TopNav extends StatelessWidget {
+class _TopNav extends ConsumerWidget {
   const _TopNav();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final compact = MediaQuery.sizeOf(context).width < 760;
+    final profile = ref.watch(currentUserProfileProvider);
+    final user = profile.valueOrNull;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: HDTSpace.lg),
       child: Row(
@@ -102,18 +105,38 @@ class _TopNav extends StatelessWidget {
             PopupMenuButton<String>(
               icon: const Icon(Icons.menu, color: HDTColors.text),
               color: HDTColors.s1,
-              onSelected: (route) => Navigator.pushNamed(context, route),
-              itemBuilder: (context) => const [
-                PopupMenuItem(
+              onSelected: (value) async {
+                if (value == '_logout') {
+                  await ref.read(authRepositoryProvider).signOut();
+                  if (context.mounted) {
+                    Navigator.pushNamedAndRemoveUntil(
+                        context, '/', (_) => false);
+                  }
+                  return;
+                }
+                if (context.mounted) Navigator.pushNamed(context, value);
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
                     value: '/public/tournaments', child: Text('Tournaments')),
-                PopupMenuItem(
+                const PopupMenuItem(
                     value: '/public/leaderboard', child: Text('Leaderboard')),
-                PopupMenuItem(
+                const PopupMenuItem(
                     value: '/communities', child: Text('Communities')),
-                PopupMenuItem(value: '/components', child: Text('Components')),
-                PopupMenuDivider(),
-                PopupMenuItem(value: '/signin', child: Text('Sign in')),
-                PopupMenuItem(value: '/signup', child: Text('Register')),
+                const PopupMenuItem(
+                    value: '/components', child: Text('Components')),
+                const PopupMenuDivider(),
+                if (user == null) ...[
+                  const PopupMenuItem(value: '/signin', child: Text('Sign in')),
+                  const PopupMenuItem(
+                      value: '/signup', child: Text('Register')),
+                ] else ...[
+                  PopupMenuItem(
+                    value: _landingHomeRouteFor(user),
+                    child: const Text('Profile'),
+                  ),
+                  const PopupMenuItem(value: '_logout', child: Text('Logout')),
+                ],
               ],
             ),
           ] else ...[
@@ -123,20 +146,47 @@ class _TopNav extends StatelessWidget {
             const _NavLink('COMMUNITIES', '/communities'),
             const _NavLink('COMPONENTS', '/components'),
             const Spacer(),
-            TextButton(
-              onPressed: () => Navigator.pushNamed(context, '/signin'),
-              child: const Text('SIGN IN'),
-            ),
-            const SizedBox(width: HDTSpace.sm),
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, '/signup'),
-              child: const Text('REGISTER'),
-            ),
+            if (user == null) ...[
+              TextButton(
+                onPressed: () => Navigator.pushNamed(context, '/signin'),
+                child: const Text('SIGN IN'),
+              ),
+              const SizedBox(width: HDTSpace.sm),
+              ElevatedButton(
+                onPressed: () => Navigator.pushNamed(context, '/signup'),
+                child: const Text('REGISTER'),
+              ),
+            ] else ...[
+              OutlinedButton.icon(
+                onPressed: () =>
+                    Navigator.pushNamed(context, _landingHomeRouteFor(user)),
+                icon: const Icon(Icons.account_circle_outlined, size: 16),
+                label: const Text('PROFILE'),
+              ),
+              const SizedBox(width: HDTSpace.sm),
+              TextButton.icon(
+                onPressed: () async {
+                  await ref.read(authRepositoryProvider).signOut();
+                  if (context.mounted) {
+                    Navigator.pushNamedAndRemoveUntil(
+                        context, '/', (_) => false);
+                  }
+                },
+                icon: const Icon(Icons.logout, size: 16),
+                label: const Text('LOGOUT'),
+              ),
+            ],
           ],
         ],
       ),
     );
   }
+}
+
+String _landingHomeRouteFor(AppUser user) {
+  final capabilities = user.capabilities;
+  if (capabilities.contains('super_admin')) return '/super-admin/reports';
+  return '/dashboard';
 }
 
 class _NavLink extends StatelessWidget {

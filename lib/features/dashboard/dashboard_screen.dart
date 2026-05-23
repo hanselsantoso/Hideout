@@ -20,6 +20,7 @@ class DashboardScreen extends ConsumerWidget {
       },
       orElse: () => 'BLADE RUNNER',
     );
+    final capabilities = profile.valueOrNull?.capabilities ?? {'player'};
 
     return Scaffold(
       backgroundColor: HDTColors.bg,
@@ -27,7 +28,7 @@ class DashboardScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 28, 24, 80),
           children: [
-            _Header(name: name),
+            _Header(name: name, capabilities: capabilities),
             const SizedBox(height: 24),
             LayoutBuilder(
               builder: (context, constraints) {
@@ -106,11 +107,19 @@ class DashboardScreen extends ConsumerWidget {
 
 class _Header extends StatelessWidget {
   final String name;
+  final Set<String> capabilities;
 
-  const _Header({required this.name});
+  const _Header({
+    required this.name,
+    required this.capabilities,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final hasJudge = capabilities.contains('judge');
+    final hasCommunityAdmin = capabilities.contains('community_admin');
+    final hasSuperAdmin = capabilities.contains('super_admin');
+    final hasPlayer = capabilities.contains('player');
     return Wrap(
       alignment: WrapAlignment.spaceBetween,
       crossAxisAlignment: WrapCrossAlignment.end,
@@ -145,40 +154,55 @@ class _Header extends StatelessWidget {
                 minimumSize: const Size(112, 42),
               ),
             ),
-            OutlinedButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/juri/matches'),
-              icon: const Icon(Icons.sports_martial_arts_outlined, size: 16),
-              label: const Text('JUDGE MATCHES'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(160, 42),
+            if (hasJudge)
+              OutlinedButton.icon(
+                onPressed: () => Navigator.pushNamed(context, '/juri/matches'),
+                icon: const Icon(Icons.sports_martial_arts_outlined, size: 16),
+                label: const Text('JUDGE MATCHES'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(160, 42),
+                ),
               ),
-            ),
-            OutlinedButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/community/admin'),
-              icon: const Icon(Icons.admin_panel_settings_outlined, size: 16),
-              label: const Text('COMMUNITY ADMIN'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(174, 42),
+            if (hasCommunityAdmin) ...[
+              OutlinedButton.icon(
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/community/admin'),
+                icon: const Icon(Icons.admin_panel_settings_outlined, size: 16),
+                label: const Text('COMMUNITY ADMIN'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(174, 42),
+                ),
               ),
-            ),
-            OutlinedButton.icon(
-              onPressed: () =>
-                  Navigator.pushNamed(context, '/admin/tournaments/ops'),
-              icon: const Icon(Icons.account_tree_outlined, size: 16),
-              label: const Text('TOURNEY OPS'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(148, 42),
+              OutlinedButton.icon(
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/admin/tournaments/ops'),
+                icon: const Icon(Icons.account_tree_outlined, size: 16),
+                label: const Text('TOURNEY OPS'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(148, 42),
+                ),
               ),
-            ),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/me/decks/new'),
-              icon: const Icon(Icons.add, size: 16),
-              label: const Text('BUILD DECK'),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(148, 42),
-                backgroundColor: HDTColors.accent,
+            ],
+            if (hasSuperAdmin)
+              OutlinedButton.icon(
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/super-admin/reports'),
+                icon: const Icon(Icons.query_stats_outlined, size: 16),
+                label: const Text('PLATFORM REPORTS'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(174, 42),
+                ),
               ),
-            ),
+            if (hasPlayer)
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pushNamed(context, '/me/decks/new'),
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('BUILD DECK'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(148, 42),
+                  backgroundColor: HDTColors.accent,
+                ),
+              ),
           ],
         ),
       ],

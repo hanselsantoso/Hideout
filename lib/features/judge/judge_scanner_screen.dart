@@ -337,7 +337,7 @@ class _ScannerPanel extends StatelessWidget {
           style: HDTText.body(size: 13),
           decoration: const InputDecoration(
             prefixIcon: Icon(Icons.confirmation_number_outlined, size: 16),
-            hintText: 'ID registrasi / tiket',
+            hintText: 'Registration / ticket ID',
           ),
         ),
         if (error != null) ...[
@@ -353,7 +353,7 @@ class _ScannerPanel extends StatelessWidget {
             icon: Icon(cameraOpen
                 ? Icons.videocam_off_outlined
                 : Icons.photo_camera_outlined),
-            label: Text(cameraOpen ? 'TUTUP KAMERA' : 'BUKA KAMERA DEVICE'),
+            label: Text(cameraOpen ? 'CLOSE CAMERA' : 'OPEN DEVICE CAMERA'),
           ),
         ),
         const SizedBox(height: HDTSpace.sm),
@@ -446,14 +446,33 @@ class _QueuePanel extends StatelessWidget {
       padding: const EdgeInsets.all(HDTSpace.xl),
       decoration: hdtCard(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('ARENA 02 QUEUE', style: HDTText.display(size: 24)),
+        Text('JUDGE SCAN GUIDE', style: HDTText.display(size: 24)),
         const SizedBox(height: HDTSpace.sm),
-        Text('Next calls for judge verification.',
-            style: HDTText.body(color: HDTColors.text2)),
+        Text(
+          'Use this screen only for live check-in and assigned match deck verification. Enter or scan a registered participant ticket, compare the registered deck with the physical deck, then save the result.',
+          style: HDTText.body(color: HDTColors.text2, height: 1.45),
+        ),
         const SizedBox(height: HDTSpace.lg),
-        const _QueueRow('M-018', 'HANSEL', 'MARDIKA', 'READY'),
-        const _QueueRow('M-019', 'NADIA', 'BAYU', 'WAITING'),
-        const _QueueRow('M-020', 'TARO', 'GERHANA', 'WAITING'),
+        const _GuideLine(
+          icon: Icons.assignment_ind_outlined,
+          title: 'Open assigned match',
+          body:
+              'Start from Match Assignments when this judge has active matches.',
+        ),
+        const SizedBox(height: HDTSpace.sm),
+        const _GuideLine(
+          icon: Icons.qr_code_scanner,
+          title: 'Scan participant ticket',
+          body:
+              'Use CHECK-IN for arrivals or MATCH for deck verification before a battle.',
+        ),
+        const SizedBox(height: HDTSpace.sm),
+        const _GuideLine(
+          icon: Icons.fact_check_outlined,
+          title: 'Reject mismatches',
+          body:
+              'Turn off any failed deck check and save the rejection so the lead can resolve it.',
+        ),
       ]),
     );
   }
@@ -565,7 +584,7 @@ class _ResultPanel extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: onReset,
               icon: const Icon(Icons.close),
-              label: const Text('SCAN ULANG'),
+              label: const Text('SCAN AGAIN'),
               style: OutlinedButton.styleFrom(
                   foregroundColor: HDTColors.text2,
                   side: const BorderSide(color: HDTColors.s2)),
@@ -587,28 +606,44 @@ class _ResultPanel extends StatelessWidget {
   }
 }
 
-class _QueueRow extends StatelessWidget {
-  const _QueueRow(this.id, this.a, this.b, this.status);
-  final String id;
-  final String a;
-  final String b;
-  final String status;
+class _GuideLine extends StatelessWidget {
+  const _GuideLine({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: HDTSpace.md),
+      padding: const EdgeInsets.all(HDTSpace.md),
       decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: HDTColors.s2))),
-      child: Row(children: [
-        Text(id, style: HDTText.mono(size: 11, color: HDTColors.text3)),
+        color: HDTColors.s1,
+        borderRadius: HDTR.md,
+        border: Border.fromBorderSide(BorderSide(color: HDTColors.s2)),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, size: 18, color: HDTColors.info),
         const SizedBox(width: HDTSpace.md),
-        Expanded(child: Text('$a vs $b', style: HDTText.body(size: 13))),
-        Text(status,
-            style: HDTText.overline(
-                size: 9,
-                color:
-                    status == 'READY' ? HDTColors.success : HDTColors.warning)),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title.toUpperCase(), style: HDTText.overline(size: 9)),
+              const SizedBox(height: HDTSpace.xs),
+              Text(body,
+                  style: HDTText.body(
+                    size: 12,
+                    color: HDTColors.text2,
+                    height: 1.35,
+                  )),
+            ],
+          ),
+        ),
       ]),
     );
   }
