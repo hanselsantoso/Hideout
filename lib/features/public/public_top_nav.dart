@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/hideout_tokens.dart';
-import '../../data/models/app_user.dart';
-import '../../data/repositories/auth_repository.dart';
+import 'public_account_menu.dart';
 
-class PublicTopNav extends ConsumerWidget {
+class PublicTopNav extends StatelessWidget {
   const PublicTopNav({super.key, required this.activeRoute});
 
   final String activeRoute;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 820;
-    final profile = ref.watch(currentUserProfileProvider);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: HDTSpace.lg),
       child: Row(
@@ -72,85 +69,11 @@ class PublicTopNav extends ConsumerWidget {
               ],
               icon: const Icon(Icons.menu),
             ),
-          profile.when(
-            data: (user) => user == null
-                ? const _PublicAuthButtons()
-                : _PublicProfileButtons(user: user),
-            loading: () => const SizedBox.square(
-              dimension: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            error: (_, __) => const _PublicAuthButtons(),
-          ),
+          PublicSessionActions(compact: compact),
         ],
       ),
     );
   }
-}
-
-class _PublicAuthButtons extends StatelessWidget {
-  const _PublicAuthButtons();
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: HDTSpace.sm,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        TextButton(
-          onPressed: () => Navigator.pushNamed(context, '/signin'),
-          child: const Text('SIGN IN'),
-        ),
-        ElevatedButton(
-          onPressed: () => Navigator.pushNamed(context, '/signup'),
-          child: const Text('REGISTER'),
-        ),
-      ],
-    );
-  }
-}
-
-class _PublicProfileButtons extends ConsumerWidget {
-  const _PublicProfileButtons({required this.user});
-
-  final AppUser user;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Wrap(
-      spacing: HDTSpace.sm,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        OutlinedButton.icon(
-          onPressed: () => Navigator.pushNamed(context, _dashboardRoute(user)),
-          icon: const Icon(Icons.account_circle_outlined, size: 16),
-          label: Text(_profileLabel(user)),
-        ),
-        IconButton(
-          tooltip: 'Logout',
-          onPressed: () async {
-            await ref.read(authRepositoryProvider).signOut();
-            if (context.mounted) {
-              Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
-            }
-          },
-          icon: const Icon(Icons.logout, size: 18),
-        ),
-      ],
-    );
-  }
-}
-
-String _profileLabel(AppUser user) {
-  final name = user.displayName.trim().isNotEmpty
-      ? user.displayName.trim()
-      : user.email.split('@').first;
-  return name.toUpperCase();
-}
-
-String _dashboardRoute(AppUser user) {
-  if (user.capabilities.contains('super_admin')) return '/super-admin/reports';
-  return '/dashboard';
 }
 
 class _NavLink extends StatelessWidget {

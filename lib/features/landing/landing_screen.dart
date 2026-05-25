@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/firestore_paths.dart';
+import '../../core/auth/route_access.dart';
 import '../../core/theme/hideout_tokens.dart';
 import '../../data/models/app_user.dart';
 import '../../data/models/bey_part.dart';
 import '../../data/models/tournament_summary.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../public/public_account_menu.dart';
 
 class LandingScreen extends StatelessWidget {
   const LandingScreen({super.key});
@@ -76,14 +78,12 @@ class LandingScreen extends StatelessWidget {
   }
 }
 
-class _TopNav extends ConsumerWidget {
+class _TopNav extends StatelessWidget {
   const _TopNav();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 760;
-    final profile = ref.watch(currentUserProfileProvider);
-    final user = profile.valueOrNull;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: HDTSpace.lg),
       child: Row(
@@ -105,40 +105,19 @@ class _TopNav extends ConsumerWidget {
             PopupMenuButton<String>(
               icon: const Icon(Icons.menu, color: HDTColors.text),
               color: HDTColors.s1,
-              onSelected: (value) async {
-                if (value == '_logout') {
-                  await ref.read(authRepositoryProvider).signOut();
-                  if (context.mounted) {
-                    Navigator.pushNamedAndRemoveUntil(
-                        context, '/', (_) => false);
-                  }
-                  return;
-                }
-                if (context.mounted) Navigator.pushNamed(context, value);
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
+              onSelected: (value) => Navigator.pushNamed(context, value),
+              itemBuilder: (context) => const [
+                PopupMenuItem(
                     value: '/public/tournaments', child: Text('Tournaments')),
-                const PopupMenuItem(
+                PopupMenuItem(
                     value: '/public/leaderboard', child: Text('Leaderboard')),
-                const PopupMenuItem(
+                PopupMenuItem(
                     value: '/communities', child: Text('Communities')),
-                const PopupMenuItem(
-                    value: '/components', child: Text('Components')),
-                const PopupMenuDivider(),
-                if (user == null) ...[
-                  const PopupMenuItem(value: '/signin', child: Text('Sign in')),
-                  const PopupMenuItem(
-                      value: '/signup', child: Text('Register')),
-                ] else ...[
-                  PopupMenuItem(
-                    value: _landingHomeRouteFor(user),
-                    child: const Text('Profile'),
-                  ),
-                  const PopupMenuItem(value: '_logout', child: Text('Logout')),
-                ],
+                PopupMenuItem(value: '/components', child: Text('Components')),
               ],
             ),
+            const SizedBox(width: HDTSpace.sm),
+            const PublicSessionActions(compact: true),
           ] else ...[
             const SizedBox(width: HDTSpace.xxxl),
             const _NavLink('TOURNAMENTS', '/public/tournaments'),
@@ -146,47 +125,12 @@ class _TopNav extends ConsumerWidget {
             const _NavLink('COMMUNITIES', '/communities'),
             const _NavLink('COMPONENTS', '/components'),
             const Spacer(),
-            if (user == null) ...[
-              TextButton(
-                onPressed: () => Navigator.pushNamed(context, '/signin'),
-                child: const Text('SIGN IN'),
-              ),
-              const SizedBox(width: HDTSpace.sm),
-              ElevatedButton(
-                onPressed: () => Navigator.pushNamed(context, '/signup'),
-                child: const Text('REGISTER'),
-              ),
-            ] else ...[
-              OutlinedButton.icon(
-                onPressed: () =>
-                    Navigator.pushNamed(context, _landingHomeRouteFor(user)),
-                icon: const Icon(Icons.account_circle_outlined, size: 16),
-                label: const Text('PROFILE'),
-              ),
-              const SizedBox(width: HDTSpace.sm),
-              TextButton.icon(
-                onPressed: () async {
-                  await ref.read(authRepositoryProvider).signOut();
-                  if (context.mounted) {
-                    Navigator.pushNamedAndRemoveUntil(
-                        context, '/', (_) => false);
-                  }
-                },
-                icon: const Icon(Icons.logout, size: 16),
-                label: const Text('LOGOUT'),
-              ),
-            ],
+            const PublicSessionActions(),
           ],
         ],
       ),
     );
   }
-}
-
-String _landingHomeRouteFor(AppUser user) {
-  final capabilities = user.capabilities;
-  if (capabilities.contains('super_admin')) return '/super-admin/reports';
-  return '/dashboard';
 }
 
 class _NavLink extends StatelessWidget {
@@ -250,12 +194,17 @@ class _HeroSection extends StatelessWidget {
   }
 }
 
-class _HeroCopy extends StatelessWidget {
+class _HeroCopy extends ConsumerWidget {
   const _HeroCopy();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final titleSize = MediaQuery.sizeOf(context).width < 520 ? 58.0 : 92.0;
+    final auth = ref.watch(authStateProvider);
+    final signedIn = auth.valueOrNull != null;
+    final checkingSession = auth.isLoading && !signedIn;
+    final user = ref.watch(currentUserProfileProvider).valueOrNull;
+    final dashboardRoute = user == null ? '/dashboard' : defaultRouteFor(user);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -295,9 +244,19 @@ class _HeroCopy extends StatelessWidget {
             SizedBox(
               height: 48,
               child: ElevatedButton.icon(
-                onPressed: () => Navigator.pushNamed(context, '/signup'),
-                icon: const Icon(Icons.arrow_forward),
-                label: const Text('REGISTER NOW'),
+                onPressed: checkingSession
+                    ? null
+                    : () => Navigator.pushNamed(
+                          context,
+                          signedIn ? dashboardRoute : '/signup',
+                        ),
+                icon: Icon(
+                    signedIn ? Icons.dashboard_outlined : Icons.arrow_forward),
+                label: Text(checkingSession
+                    ? 'CHECKING SESSION'
+                    : signedIn
+                        ? 'OPEN DASHBOARD'
+                        : 'REGISTER NOW'),
               ),
             ),
             SizedBox(
@@ -1174,11 +1133,16 @@ class _MetaStat extends StatelessWidget {
   }
 }
 
-class _CtaBand extends StatelessWidget {
+class _CtaBand extends ConsumerWidget {
   const _CtaBand();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authStateProvider);
+    final signedIn = auth.valueOrNull != null;
+    final checkingSession = auth.isLoading && !signedIn;
+    final user = ref.watch(currentUserProfileProvider).valueOrNull;
+    final dashboardRoute = user == null ? '/dashboard' : defaultRouteFor(user);
     return Container(
       decoration: const BoxDecoration(
         color: HDTColors.s1,
@@ -1200,11 +1164,13 @@ class _CtaBand extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('READY TO PROVE IT?',
+                    Text(signedIn ? 'READY TO CONTINUE?' : 'READY TO PROVE IT?',
                         style: HDTText.display(size: 50)),
                     const SizedBox(height: HDTSpace.sm),
                     Text(
-                      'Create an account, build your first deck, and enter this week\'s bracket.',
+                      signedIn
+                          ? 'Return to your dashboard, review your decks, and keep your tournament flow moving.'
+                          : 'Create an account, build your first deck, and enter this week\'s bracket.',
                       style: HDTText.body(color: HDTColors.text2),
                     ),
                   ],
@@ -1214,12 +1180,24 @@ class _CtaBand extends StatelessWidget {
                 spacing: HDTSpace.md,
                 children: [
                   ElevatedButton(
-                    onPressed: () => Navigator.pushNamed(context, '/signup'),
-                    child: const Text('REGISTER'),
+                    onPressed: checkingSession
+                        ? null
+                        : () => Navigator.pushNamed(
+                              context,
+                              signedIn ? dashboardRoute : '/signup',
+                            ),
+                    child: Text(checkingSession
+                        ? 'CHECKING'
+                        : signedIn
+                            ? 'OPEN DASHBOARD'
+                            : 'REGISTER'),
                   ),
                   OutlinedButton(
-                    onPressed: () => Navigator.pushNamed(context, '/signin'),
-                    child: const Text('SIGN IN'),
+                    onPressed: () => Navigator.pushNamed(
+                      context,
+                      signedIn ? '/public/tournaments' : '/signin',
+                    ),
+                    child: Text(signedIn ? 'BROWSE TOURNAMENTS' : 'SIGN IN'),
                   ),
                 ],
               ),

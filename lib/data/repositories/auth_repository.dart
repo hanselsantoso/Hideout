@@ -25,7 +25,17 @@ final authStateProvider = StreamProvider<User?>((ref) {
 });
 
 final currentUserProfileProvider = StreamProvider<AppUser?>((ref) {
-  final auth = ref.watch(authStateProvider).valueOrNull;
+  final authState = ref.watch(authStateProvider);
+  if (authState.isLoading && authState.valueOrNull == null) {
+    return const Stream<AppUser?>.empty();
+  }
+  if (authState.hasError) {
+    return Stream<AppUser?>.error(
+      authState.error!,
+      authState.stackTrace,
+    );
+  }
+  final auth = authState.valueOrNull;
   if (auth == null) return Stream<AppUser?>.value(null);
   return ref.watch(authRepositoryProvider).watchUser(auth.uid);
 });
