@@ -7,6 +7,9 @@ class AppUser {
   final String role;
   final Set<String> roles;
   final int eloRating;
+  final int totalWins;
+  final int totalLosses;
+  final int totalMatches;
   final bool isActive;
   final bool isQrActivated;
 
@@ -17,6 +20,9 @@ class AppUser {
     required this.role,
     this.roles = const {},
     required this.eloRating,
+    required this.totalWins,
+    required this.totalLosses,
+    required this.totalMatches,
     required this.isActive,
     required this.isQrActivated,
   });
@@ -47,6 +53,11 @@ class AppUser {
       role: (data['role'] ?? 'player').toString(),
       roles: _rolesFromData(data),
       eloRating: (data['eloRating'] as num?)?.round() ?? 1000,
+      totalWins: (data['totalWins'] as num?)?.round() ?? 0,
+      totalLosses: (data['totalLosses'] as num?)?.round() ?? 0,
+      totalMatches: (data['totalMatches'] as num?)?.round() ??
+          (((data['totalWins'] as num?)?.round() ?? 0) +
+              ((data['totalLosses'] as num?)?.round() ?? 0)),
       isActive: data['isActive'] != false,
       isQrActivated: data['isQrActivated'] == true,
     );

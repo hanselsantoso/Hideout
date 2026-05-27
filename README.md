@@ -92,6 +92,10 @@ stay server-side in Firebase Functions; do not commit it to the repository.
 Set the Firebase secret before deploying functions:
 
 ```powershell
+# If this project has never used Firebase secrets, enable Secret Manager API
+# first from Google Cloud Console:
+# https://console.developers.google.com/apis/api/secretmanager.googleapis.com/overview?project=tournamentmanagement-942ef
+
 firebase functions:secrets:set XENDIT_SECRET_KEY --project tournamentmanagement-942ef
 ```
 
@@ -116,3 +120,10 @@ The smoke test creates a hosted checkout without `allowed_payment_channels`, so
 Xendit shows every sandbox channel enabled for the account. Use
 `XENDIT_PAYMENT_SESSION_ID` to re-check an existing session instead of creating
 a new one.
+
+Seed the beta registration tournament:
+
+```powershell
+$env:HIDEOUT_DEMO_PASSWORD="..."
+npm run seed:beta-tournament
+```

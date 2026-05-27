@@ -37,11 +37,11 @@ class _LoadedDecks extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userDecks = ref.watch(userDecksProvider);
     final savedDecks = userDecks.valueOrNull ?? const <PlayerDeck>[];
-    final decks = savedDecks.isEmpty ? _demoDecks(catalog) : savedDecks;
+    final decks = savedDecks;
     final syncLabel = userDecks.isLoading
         ? 'Syncing Firebase decks...'
         : savedDecks.isEmpty
-            ? 'Demo decks shown until you save your first deck'
+            ? 'No Firebase deck saved yet'
             : '${savedDecks.length} Firebase deck loaded';
     final totalParts = catalog.blades.length +
         catalog.assistBlades.length +
@@ -469,6 +469,8 @@ class _Bars extends StatelessWidget {
   }
 }
 
+// Stored for future demo mode; live deck inventory uses Firebase decks only.
+// ignore: unused_element
 List<PlayerDeck> _demoDecks(BeyPartsCatalog catalog) {
   DeckComboDraft combo(
     String blade,

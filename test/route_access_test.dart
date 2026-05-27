@@ -58,6 +58,9 @@ AppUser _user({
     role: role,
     roles: roles,
     eloRating: 1000,
+    totalWins: 0,
+    totalLosses: 0,
+    totalMatches: 0,
     isActive: true,
     isQrActivated: true,
   );

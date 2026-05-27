@@ -35,6 +35,8 @@ const _seedingModes = [
   'Manual',
 ];
 
+// Stored for future demo mode; live tournament creation uses Firebase judges.
+// ignore: unused_element
 const _fallbackJuriCandidates = [
   AssignableJudge(uid: 'fallback:bayu', displayName: 'BAYU', role: 'demo'),
   AssignableJudge(uid: 'fallback:nadia', displayName: 'NADIA', role: 'demo'),
@@ -106,8 +108,8 @@ class _TournamentWizardScreenState
   ];
   final Set<String> _bannedParts = {'Cobalt Dragoon'};
   final List<_ArenaDraft> _arenas = [
-    _ArenaDraft(name: 'ARENA 01', juri: {'fallback:bayu'}),
-    _ArenaDraft(name: 'ARENA 02', juri: {'fallback:nadia'}),
+    _ArenaDraft(name: 'ARENA 01'),
+    _ArenaDraft(name: 'ARENA 02'),
   ];
 
   @override
@@ -588,8 +590,7 @@ class _TournamentWizardScreenState
   Widget _juriStep() {
     final judges = ref.watch(assignableJudgesProvider);
     final liveJudges = judges.valueOrNull ?? const <AssignableJudge>[];
-    final candidates =
-        liveJudges.isEmpty ? _fallbackJuriCandidates : liveJudges;
+    final candidates = liveJudges;
     final totalJuri =
         _arenas.fold<int>(0, (sum, arena) => sum + arena.juri.length);
     return Column(
@@ -621,7 +622,7 @@ class _TournamentWizardScreenState
                 ? Icons.warning_amber_outlined
                 : Icons.manage_accounts_outlined,
             text: judges.hasError
-                ? 'Judge accounts could not be read from Firebase. Demo chips still appear for layout, but match generation needs live judge accounts.'
+                ? 'Judge accounts could not be read from Firebase. Match generation needs live judge accounts.'
                 : 'No accounts with the judge role yet. Add or promote players to judges so live matches can be assigned to them.',
           ),
         ],
@@ -767,7 +768,6 @@ class _TournamentWizardScreenState
     final liveJudges = ref.read(assignableJudgesProvider).valueOrNull ??
         const <AssignableJudge>[];
     final namesById = {
-      for (final judge in _fallbackJuriCandidates) judge.uid: judge.displayName,
       for (final judge in liveJudges) judge.uid: judge.displayName,
     };
     return [

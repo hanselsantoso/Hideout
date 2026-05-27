@@ -16,6 +16,8 @@ const _registrationSteps = [
   'CONFIRMED',
 ];
 
+// Stored for future demo mode; live registration uses Firebase decks only.
+// ignore: unused_element
 const _deckOptions = [
   _DeckDraft(
     id: 'demo-phantom-reaper',
@@ -51,7 +53,7 @@ const _deckOptions = [
 ];
 
 List<_DeckDraft> _registrationDecks(List<PlayerDeck>? savedDecks) {
-  if (savedDecks == null || savedDecks.isEmpty) return _deckOptions;
+  if (savedDecks == null || savedDecks.isEmpty) return const [];
   return savedDecks.map(_deckFromPlayerDeck).toList();
 }
 
@@ -264,6 +266,16 @@ class _TournamentRegistrationScreenState
               spacing: HDTSpace.md,
               runSpacing: HDTSpace.md,
               children: [
+                if (deckOptions.isEmpty)
+                  SizedBox(
+                    width: constraints.maxWidth,
+                    child: const _Notice(
+                      color: HDTColors.info,
+                      icon: Icons.inventory_2_outlined,
+                      text:
+                          'No saved deck was found in Firebase. Build and save a deck first before joining a beta tournament.',
+                    ),
+                  ),
                 for (final deck in deckOptions)
                   SizedBox(
                     width: width,
@@ -497,7 +509,7 @@ class _TournamentRegistrationScreenState
   bool _canProceed(List<_DeckDraft> deckOptions) {
     return switch (_step) {
       0 => true,
-      1 => _selectedDeckDraft(deckOptions).eligible,
+      1 => deckOptions.isNotEmpty && _selectedDeckDraft(deckOptions).eligible,
       2 => _accepted,
       3 => true,
       _ => true,
@@ -645,6 +657,18 @@ class _TournamentRegistrationScreenState
   }
 
   _DeckDraft _selectedDeckDraft(List<_DeckDraft> deckOptions) {
+    if (deckOptions.isEmpty) {
+      return const _DeckDraft(
+        id: '',
+        name: 'No saved deck',
+        type: 'BALANCE',
+        combos: [],
+        atk: 0,
+        def: 0,
+        sta: 0,
+        eligible: false,
+      );
+    }
     return deckOptions.firstWhere(
       (deck) => deck.name == _selectedDeck,
       orElse: () => deckOptions.first,

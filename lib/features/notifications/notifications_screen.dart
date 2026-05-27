@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/hideout_tokens.dart';
 import '../../core/widgets/hdt_widgets.dart';
+import '../../data/repositories/notification_repository.dart';
 
 // ─── Model ──────────────────────────────────────────────────
 enum NotifType { match, tournament, trophy, community, system }
@@ -96,8 +97,9 @@ class NotifItem {
       );
 }
 
-// Seed data
-List<NotifItem> _seedNotifs() => [
+// Stored for the future demo mode. Live screens read Firebase notifications.
+// ignore: unused_element
+List<NotifItem> _demoNotifs() => [
       NotifItem(
           id: 'n1',
           title: 'BJX Cup #4 - Bracket announced',
@@ -200,58 +202,27 @@ List<NotifItem> _seedNotifs() => [
 
 // State & notifier
 class NotificationState {
-  final List<NotifItem> items;
   final String
       filter; // ALL | UNREAD | match | tournament | trophy | community | system
   final int page;
 
   const NotificationState({
-    required this.items,
     this.filter = 'ALL',
     this.page = 0,
   });
 
-  NotificationState copyWith(
-          {List<NotifItem>? items, String? filter, int? page}) =>
-      NotificationState(
-          items: items ?? this.items,
-          filter: filter ?? this.filter,
-          page: page ?? this.page);
-
-  int get unreadCount => items.where((n) => !n.read).length;
-
-  List<NotifItem> get filteredList => items.where((n) {
-        if (filter == 'UNREAD') return !n.read;
-        if (filter != 'ALL') return n.type.label == filter;
-        return true;
-      }).toList();
+  NotificationState copyWith({String? filter, int? page}) =>
+      NotificationState(filter: filter ?? this.filter, page: page ?? this.page);
 }
 
 class NotificationNotifier extends Notifier<NotificationState> {
   static const perPage = 6;
 
   @override
-  NotificationState build() => NotificationState(items: _seedNotifs());
+  NotificationState build() => const NotificationState();
 
   void setFilter(String f) => state = state.copyWith(filter: f, page: 0);
   void setPage(int p) => state = state.copyWith(page: p);
-
-  void markRead(String id) {
-    final items = state.items
-        .map((n) => n.id == id ? n.copyWith(read: true) : n)
-        .toList();
-    state = state.copyWith(items: items);
-  }
-
-  void markAll() {
-    final items = state.items.map((n) => n.copyWith(read: true)).toList();
-    state = state.copyWith(items: items);
-  }
-
-  void remove(String id) {
-    final items = state.items.where((n) => n.id != id).toList();
-    state = state.copyWith(items: items);
-  }
 }
 
 final notificationProvider =
@@ -259,6 +230,43 @@ final notificationProvider =
         NotificationNotifier.new);
 
 // ─── Screen ──────────────────────────────────────────────────
+NotifItem _notifFromLive(AppNotification item) {
+  final type = _notifTypeFromLive(item.type);
+  return NotifItem(
+    id: item.id,
+    title: item.title,
+    body: item.body,
+    ts: _relativeTime(item.createdAt),
+    type: type,
+    read: item.read,
+    pinned: item.pinned,
+    actorName: item.actorName,
+    actorColor: type.color,
+    ctaLabel: item.ctaLabel,
+    ctaRoute: item.ctaRoute,
+  );
+}
+
+NotifType _notifTypeFromLive(String value) {
+  final normalized = value.trim().toLowerCase();
+  if (normalized.contains('match')) return NotifType.match;
+  if (normalized.contains('tournament')) return NotifType.tournament;
+  if (normalized.contains('trophy') || normalized.contains('rank')) {
+    return NotifType.trophy;
+  }
+  if (normalized.contains('community')) return NotifType.community;
+  return NotifType.system;
+}
+
+String _relativeTime(DateTime? date) {
+  if (date == null) return 'now';
+  final diff = DateTime.now().difference(date);
+  if (diff.inMinutes < 1) return 'now';
+  if (diff.inHours < 1) return '${diff.inMinutes} minutes ago';
+  if (diff.inDays < 1) return '${diff.inHours} hours ago';
+  return '${diff.inDays} days ago';
+}
+
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
 
@@ -277,7 +285,15 @@ class NotificationsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(notificationProvider);
     final notifier = ref.read(notificationProvider.notifier);
-    final list = state.filteredList;
+    final live = ref.watch(userNotificationsProvider);
+    final allItems =
+        live.valueOrNull?.map(_notifFromLive).toList() ?? const <NotifItem>[];
+    final unreadCount = allItems.where((n) => !n.read).length;
+    final list = allItems.where((n) {
+      if (state.filter == 'UNREAD') return !n.read;
+      if (state.filter != 'ALL') return n.type.label == state.filter;
+      return true;
+    }).toList();
     final pinned = list.where((n) => n.pinned).toList();
     final rest = list.where((n) => !n.pinned).toList();
     final paginatedRest =
@@ -288,21 +304,23 @@ class NotificationsScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Row(children: [
           const Text('NOTIFICATIONS'),
-          if (state.unreadCount > 0) ...[
+          if (unreadCount > 0) ...[
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
                   color: HDTColors.accent, borderRadius: HDTR.full),
-              child: Text('${state.unreadCount}',
+              child: Text('$unreadCount',
                   style: HDTText.mono(size: 11, color: Colors.white)),
             ),
           ],
         ]),
         actions: [
-          if (state.unreadCount > 0)
+          if (unreadCount > 0)
             TextButton.icon(
-              onPressed: notifier.markAll,
+              onPressed: () => ref
+                  .read(notificationRepositoryProvider)
+                  .markAllRead(live.valueOrNull ?? const []),
               icon: const Icon(Icons.done_all, size: 14),
               label: const Text('MARK ALL'),
               style: TextButton.styleFrom(foregroundColor: HDTColors.text2),
@@ -323,10 +341,10 @@ class NotificationsScreen extends ConsumerWidget {
               children: _filterTabs.map((tab) {
                 final key = tab.$1;
                 final count = key == 'ALL'
-                    ? state.items.length
+                    ? allItems.length
                     : key == 'UNREAD'
-                        ? state.unreadCount
-                        : state.items.where((n) => n.type.label == key).length;
+                        ? unreadCount
+                        : allItems.where((n) => n.type.label == key).length;
                 return Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: HDTFilterChip(
@@ -349,6 +367,20 @@ class NotificationsScreen extends ConsumerWidget {
               : ListView(
                   padding: const EdgeInsets.all(HDTSpace.lg),
                   children: [
+                    if (live.isLoading) ...[
+                      const Center(child: CircularProgressIndicator()),
+                      const SizedBox(height: HDTSpace.lg),
+                    ],
+                    if (live.hasError) ...[
+                      const HDTEmptyState(
+                        icon: Icons.cloud_off_outlined,
+                        title: 'NOTIFICATIONS UNAVAILABLE',
+                        subtitle:
+                            'Firebase notifications could not be read. Refresh after the connection is stable.',
+                      ),
+                      const SizedBox(height: HDTSpace.lg),
+                    ],
+
                     // Pinned
                     if (pinned.isNotEmpty) ...[
                       Row(children: [
@@ -363,8 +395,9 @@ class NotificationsScreen extends ConsumerWidget {
                             padding: const EdgeInsets.only(bottom: HDTSpace.sm),
                             child: _NotifCard(
                                 item: n,
-                                onRead: () => notifier.markRead(n.id),
-                                onDelete: () => notifier.remove(n.id)),
+                                onRead: () => ref
+                                    .read(notificationRepositoryProvider)
+                                    .markRead(n.id)),
                           )),
                       const SizedBox(height: HDTSpace.sm),
                       hdtDivider(
@@ -376,8 +409,9 @@ class NotificationsScreen extends ConsumerWidget {
                           padding: const EdgeInsets.only(bottom: HDTSpace.sm),
                           child: _NotifCard(
                               item: n,
-                              onRead: () => notifier.markRead(n.id),
-                              onDelete: () => notifier.remove(n.id)),
+                              onRead: () => ref
+                                  .read(notificationRepositoryProvider)
+                                  .markRead(n.id)),
                         )),
 
                     const SizedBox(height: HDTSpace.lg),
@@ -400,10 +434,8 @@ class NotificationsScreen extends ConsumerWidget {
 class _NotifCard extends StatelessWidget {
   final NotifItem item;
   final VoidCallback onRead;
-  final VoidCallback onDelete;
 
-  const _NotifCard(
-      {required this.item, required this.onRead, required this.onDelete});
+  const _NotifCard({required this.item, required this.onRead});
 
   @override
   Widget build(BuildContext context) {
@@ -510,12 +542,6 @@ class _NotifCard extends StatelessWidget {
                   onPressed: onRead,
                   tooltip: 'Mark as read',
                 ),
-              IconButton(
-                icon: const Icon(Icons.close, size: 14),
-                color: HDTColors.text3,
-                onPressed: onDelete,
-                tooltip: 'Dismiss',
-              ),
               if (!n.read)
                 Container(
                   width: 8,

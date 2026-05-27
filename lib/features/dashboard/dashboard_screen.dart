@@ -2,7 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/hideout_tokens.dart';
+import '../../data/models/app_user.dart';
+import '../../data/models/player_deck.dart';
+import '../../data/models/tournament_summary.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../../data/repositories/deck_repository.dart';
+import '../../data/repositories/notification_repository.dart';
+import '../../data/repositories/tournament_repository.dart';
+import '../player/my_tournaments_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -21,6 +28,21 @@ class DashboardScreen extends ConsumerWidget {
       orElse: () => 'BLADE RUNNER',
     );
     final capabilities = profile.valueOrNull?.capabilities ?? {'player'};
+    final user = profile.valueOrNull;
+    final decks =
+        ref.watch(userDecksProvider).valueOrNull ?? const <PlayerDeck>[];
+    final registrations =
+        ref.watch(playerTournamentEntriesProvider).valueOrNull ??
+            const <PlayerTournamentEntry>[];
+    final notifications = ref.watch(userNotificationsProvider).valueOrNull ??
+        const <AppNotification>[];
+    final registeredIds = registrations.map((item) => item.id).toSet();
+    final recommended = (ref.watch(liveTournamentsProvider).valueOrNull ??
+            const <TournamentSummary>[])
+        .where((item) => item.registrationOpen)
+        .where((item) => !registeredIds.contains(item.id))
+        .take(3)
+        .toList();
 
     return Scaffold(
       backgroundColor: HDTColors.bg,
@@ -28,69 +50,73 @@ class DashboardScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 28, 24, 80),
           children: [
-            _Header(name: name, capabilities: capabilities),
+            _Header(
+              name: name,
+              capabilities: capabilities,
+              user: user,
+            ),
             const SizedBox(height: 24),
             LayoutBuilder(
               builder: (context, constraints) {
                 final wide = constraints.maxWidth >= 1040;
                 if (!wide) {
-                  return const Column(
+                  return Column(
                     children: [
-                      _NextUpCard(),
-                      SizedBox(height: 16),
-                      _RankCard(),
-                      SizedBox(height: 16),
-                      _FormCard(),
-                      SizedBox(height: 16),
-                      _DecksCard(),
-                      SizedBox(height: 16),
-                      _ActiveTournamentsCard(),
-                      SizedBox(height: 16),
-                      _NotificationsCard(),
-                      SizedBox(height: 16),
-                      _RecommendedCard(),
-                      SizedBox(height: 16),
-                      _GoalCard(),
+                      _NextUpCard(tournaments: registrations),
+                      const SizedBox(height: 16),
+                      _RankCard(user: user),
+                      const SizedBox(height: 16),
+                      _FormCard(user: user),
+                      const SizedBox(height: 16),
+                      _DecksCard(decks: decks),
+                      const SizedBox(height: 16),
+                      _ActiveTournamentsCard(tournaments: registrations),
+                      const SizedBox(height: 16),
+                      _NotificationsCard(notifications: notifications),
+                      const SizedBox(height: 16),
+                      _RecommendedCard(tournaments: recommended),
+                      const SizedBox(height: 16),
+                      _GoalCard(user: user),
                     ],
                   );
                 }
 
-                return const Row(
+                return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       flex: 5,
                       child: Column(
                         children: [
-                          _NextUpCard(),
-                          SizedBox(height: 16),
-                          _RankCard(),
-                          SizedBox(height: 16),
-                          _FormCard(),
+                          _NextUpCard(tournaments: registrations),
+                          const SizedBox(height: 16),
+                          _RankCard(user: user),
+                          const SizedBox(height: 16),
+                          _FormCard(user: user),
                         ],
                       ),
                     ),
-                    SizedBox(width: 16),
+                    const SizedBox(width: 16),
                     Expanded(
                       flex: 4,
                       child: Column(
                         children: [
-                          _DecksCard(),
-                          SizedBox(height: 16),
-                          _ActiveTournamentsCard(),
+                          _DecksCard(decks: decks),
+                          const SizedBox(height: 16),
+                          _ActiveTournamentsCard(tournaments: registrations),
                         ],
                       ),
                     ),
-                    SizedBox(width: 16),
+                    const SizedBox(width: 16),
                     Expanded(
                       flex: 3,
                       child: Column(
                         children: [
-                          _NotificationsCard(),
-                          SizedBox(height: 16),
-                          _RecommendedCard(),
-                          SizedBox(height: 16),
-                          _GoalCard(),
+                          _NotificationsCard(notifications: notifications),
+                          const SizedBox(height: 16),
+                          _RecommendedCard(tournaments: recommended),
+                          const SizedBox(height: 16),
+                          _GoalCard(user: user),
                         ],
                       ),
                     ),
@@ -108,10 +134,12 @@ class DashboardScreen extends ConsumerWidget {
 class _Header extends StatelessWidget {
   final String name;
   final Set<String> capabilities;
+  final AppUser? user;
 
   const _Header({
     required this.name,
     required this.capabilities,
+    required this.user,
   });
 
   @override
@@ -133,7 +161,11 @@ class _Header extends StatelessWidget {
             Text(name, style: HDTText.display(size: 40)),
             const SizedBox(height: 4),
             Text(
-              'HDT-202 . JAKARTA . ELO 2,680',
+              [
+                user?.email.split('@').first.toUpperCase() ?? 'PLAYER',
+                user?.role.toUpperCase() ?? 'PLAYER',
+                'ELO ${user?.eloRating ?? 1000}',
+              ].join(' . '),
               style: HDTText.mono(size: 12, color: HDTColors.text3),
             ),
           ],
@@ -211,10 +243,19 @@ class _Header extends StatelessWidget {
 }
 
 class _NextUpCard extends StatelessWidget {
-  const _NextUpCard();
+  const _NextUpCard({required this.tournaments});
+
+  final List<PlayerTournamentEntry> tournaments;
 
   @override
   Widget build(BuildContext context) {
+    final active = tournaments
+        .where((item) =>
+            item.status == PlayerTournamentStatus.ongoing ||
+            item.status == PlayerTournamentStatus.checkedIn ||
+            item.status == PlayerTournamentStatus.registered)
+        .toList();
+    final next = active.isEmpty ? null : active.first;
     return _Panel(
       title: 'NEXT UP',
       action: Row(
@@ -235,29 +276,25 @@ class _NextUpCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('JKT WOLVES', style: HDTText.overline(size: 10)),
+          Text(next?.community.toUpperCase() ?? 'NO ACTIVE ENTRY',
+              style: HDTText.overline(size: 10)),
           const SizedBox(height: 8),
-          Text('Hideout Cup #03', style: HDTText.display(size: 32)),
+          Text(next?.name ?? 'Register for a tournament',
+              style: HDTText.display(size: 32)),
           const SizedBox(height: 2),
           Text(
-            'BO5 . Single Elim . 32 PLAYERS',
+            next == null
+                ? 'Live tournament data will appear here after registration.'
+                : '${next.format} . ${next.registered}/${next.capacity} PLAYERS',
             style: HDTText.mono(size: 12, color: HDTColors.text3),
           ),
           const SizedBox(height: 24),
-          const Row(
-            children: [
-              Expanded(child: _CountdownTile(label: 'DAYS', value: '01')),
-              SizedBox(width: 8),
-              Expanded(child: _CountdownTile(label: 'HRS', value: '18')),
-              SizedBox(width: 8),
-              Expanded(child: _CountdownTile(label: 'MIN', value: '42')),
-              SizedBox(width: 8),
-              Expanded(child: _CountdownTile(label: 'SEC', value: '17')),
-            ],
-          ),
+          _CountdownRow(target: next?.date),
           const SizedBox(height: 20),
           Text(
-            'Gear Sports Arena, Jakarta',
+            next == null
+                ? 'No venue selected yet'
+                : '${next.venue}, ${next.city}',
             style: HDTText.body(size: 12, color: HDTColors.text2),
           ),
           const SizedBox(height: 18),
@@ -267,29 +304,22 @@ class _NextUpCard extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: () => Navigator.pushNamed(
                     context,
-                    '/tournaments/detail',
-                    arguments: {
-                      'tournamentId': 'bjx-cup-3',
-                      'name': 'HIDEOUT Cup #3. Spring Showdown',
-                      'community': 'JKT Wolves',
-                      'status': 'LIVE',
-                      'format': 'BO5 . Single Elim',
-                      'tier': 'PREMIER',
-                      'city': 'Jakarta',
-                      'venue': 'Gear Sports Arena',
-                      'fee': 'Rp 100.000',
-                      'date': DateTime(2026, 5, 9).toIso8601String(),
-                      'registered': 32,
-                      'capacity': 32,
-                    },
+                    next == null ? '/tournaments' : '/tournaments/detail',
+                    arguments: next?.toTournamentArgs(),
                   ),
-                  child: const Text('VIEW BRACKET'),
+                  child: Text(next == null ? 'FIND EVENT' : 'VIEW EVENT'),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => Navigator.pushNamed(context, '/me/qr'),
+                  onPressed: next == null
+                      ? null
+                      : () => Navigator.pushNamed(
+                            context,
+                            '/me/qr',
+                            arguments: next.toTicketArgs(),
+                          ),
                   child: const Text('QR PASS'),
                 ),
               ),
@@ -297,6 +327,40 @@ class _NextUpCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CountdownRow extends StatelessWidget {
+  const _CountdownRow({required this.target});
+
+  final DateTime? target;
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = target?.difference(DateTime.now());
+    final duration =
+        remaining == null || remaining.isNegative ? Duration.zero : remaining;
+    final days = duration.inDays;
+    final hours = duration.inHours.remainder(24);
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+    return Row(
+      children: [
+        Expanded(
+            child: _CountdownTile(label: 'DAYS', value: _padCounter(days, 2))),
+        const SizedBox(width: 8),
+        Expanded(
+            child: _CountdownTile(label: 'HRS', value: _padCounter(hours, 2))),
+        const SizedBox(width: 8),
+        Expanded(
+            child:
+                _CountdownTile(label: 'MIN', value: _padCounter(minutes, 2))),
+        const SizedBox(width: 8),
+        Expanded(
+            child:
+                _CountdownTile(label: 'SEC', value: _padCounter(seconds, 2))),
+      ],
     );
   }
 }
@@ -330,13 +394,17 @@ class _CountdownTile extends StatelessWidget {
 }
 
 class _RankCard extends StatelessWidget {
-  const _RankCard();
+  const _RankCard({required this.user});
+
+  final AppUser? user;
 
   @override
   Widget build(BuildContext context) {
+    final elo = user?.eloRating ?? 1000;
+    final matches = user?.totalMatches ?? 0;
     return _Panel(
       title: 'MY RANK',
-      action: Text('SEASON 3',
+      action: Text('LIVE PROFILE',
           style: HDTText.mono(size: 11, color: HDTColors.text3)),
       child: Row(
         children: [
@@ -347,51 +415,39 @@ class _RankCard extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('2,680', style: HDTText.display(size: 54)),
+                    Text(_formatInt(elo), style: HDTText.display(size: 54)),
                     const SizedBox(width: 8),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 9),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.trending_up,
-                              size: 14, color: HDTColors.success),
-                          const SizedBox(width: 3),
-                          Text('+45',
-                              style: HDTText.mono(
-                                  size: 13, color: HDTColors.success)),
-                        ],
+                    if (matches > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 9),
+                        child: Text('$matches matches',
+                            style:
+                                HDTText.mono(size: 12, color: HDTColors.text3)),
                       ),
-                    ),
                   ],
                 ),
-                Text('ELO . LAST 7 DAYS', style: HDTText.overline(size: 10)),
+                Text('ELO . FIREBASE USER PROFILE',
+                    style: HDTText.overline(size: 10)),
                 const SizedBox(height: 16),
-                const _RankLine(
-                    label: 'GLOBAL #5', total: '/ 12,450', value: .92),
+                _RankLine(
+                    label: 'WIN RATE',
+                    total:
+                        '${user?.totalWins ?? 0}W / ${user?.totalLosses ?? 0}L',
+                    value: matches == 0 ? 0 : (user!.totalWins / matches)),
                 const SizedBox(height: 12),
                 const _RankLine(
-                    label: 'JAKARTA #2', total: '/ 4,120', value: .96),
+                    label: 'GLOBAL RANK',
+                    total: 'pending live match volume',
+                    value: 0),
               ],
             ),
           ),
           const SizedBox(width: 20),
-          const SizedBox(
+          SizedBox(
             width: 136,
             height: 80,
             child: _Sparkline(
-              data: [
-                2520,
-                2550,
-                2540,
-                2580,
-                2600,
-                2595,
-                2620,
-                2640,
-                2635,
-                2660,
-                2680
-              ],
+              data: matches == 0 ? const [] : [1000, elo.toDouble()],
               color: HDTColors.accentHover,
             ),
           ),
@@ -441,23 +497,38 @@ class _RankLine extends StatelessWidget {
 }
 
 class _FormCard extends StatelessWidget {
-  const _FormCard();
+  const _FormCard({required this.user});
+
+  final AppUser? user;
 
   @override
   Widget build(BuildContext context) {
-    const form = ['W', 'W', 'L', 'W', 'W', 'W', 'L', 'W', 'W', 'W'];
+    final wins = user?.totalWins ?? 0;
+    final losses = user?.totalLosses ?? 0;
+    final formWins = wins.clamp(0, 10).toInt();
+    final formLosses = losses.clamp(0, 10 - formWins).toInt();
+    final form = <String>[
+      for (var i = 0; i < formWins; i++) 'W',
+      for (var i = 0; i < formLosses; i++) 'L',
+    ];
     return _Panel(
       title: 'RECENT FORM',
-      action: Text('8W-2L LAST 10',
+      action: Text('${wins}W-${losses}L LIVE',
           style: HDTText.mono(size: 11, color: HDTColors.text2)),
-      child: Row(
-        children: [
-          for (final item in form) ...[
-            Expanded(child: _FormTile(result: item)),
-            if (item != form.last) const SizedBox(width: 8),
-          ],
-        ],
-      ),
+      child: form.isEmpty
+          ? const _EmptyInline(
+              icon: Icons.query_stats_outlined,
+              title: 'No match form yet',
+              subtitle: 'Finished judged matches will fill this strip.',
+            )
+          : Row(
+              children: [
+                for (final item in form) ...[
+                  Expanded(child: _FormTile(result: item)),
+                  if (item != form.last) const SizedBox(width: 8),
+                ],
+              ],
+            ),
     );
   }
 }
@@ -487,7 +558,9 @@ class _FormTile extends StatelessWidget {
 }
 
 class _DecksCard extends StatelessWidget {
-  const _DecksCard();
+  const _DecksCard({required this.decks});
+
+  final List<PlayerDeck> decks;
 
   @override
   Widget build(BuildContext context) {
@@ -499,25 +572,27 @@ class _DecksCard extends StatelessWidget {
             style: HDTText.overline(color: HDTColors.accentHover)),
       ),
       padding: EdgeInsets.zero,
-      child: const Column(
-        children: [
-          _DeckRow(
-              name: 'Phantom Reaper',
-              record: '12W-3L . 15 matches',
-              wr: '80%',
-              color: HDTColors.success),
-          _DeckRow(
-              name: 'Void Bastion',
-              record: '8W-4L . 12 matches',
-              wr: '67%',
-              color: HDTColors.accentHover),
-          _DeckRow(
-              name: 'Shrike Mk.II',
-              record: '7W-5L . 12 matches',
-              wr: '58%',
-              color: HDTColors.text),
-        ],
-      ),
+      child: decks.isEmpty
+          ? const Padding(
+              padding: EdgeInsets.all(20),
+              child: _EmptyInline(
+                icon: Icons.inventory_2_outlined,
+                title: 'No saved deck yet',
+                subtitle: 'Create a deck before registering for beta events.',
+              ),
+            )
+          : Column(
+              children: [
+                for (final deck in decks.take(4))
+                  _DeckRow(
+                    name: deck.name,
+                    record:
+                        '${deck.combos.length}/3 combos . ${deck.legal ? 'legal' : 'needs review'}',
+                    wr: '${deck.stats.total}',
+                    color: deck.legal ? HDTColors.success : HDTColors.warning,
+                  ),
+              ],
+            ),
     );
   }
 }
@@ -578,38 +653,44 @@ class _DeckRow extends StatelessWidget {
 }
 
 class _ActiveTournamentsCard extends StatelessWidget {
-  const _ActiveTournamentsCard();
+  const _ActiveTournamentsCard({required this.tournaments});
+
+  final List<PlayerTournamentEntry> tournaments;
 
   @override
   Widget build(BuildContext context) {
+    final active = tournaments
+        .where((item) =>
+            item.status == PlayerTournamentStatus.ongoing ||
+            item.status == PlayerTournamentStatus.checkedIn ||
+            item.status == PlayerTournamentStatus.registered)
+        .take(4)
+        .toList();
     return _Panel(
       title: 'ACTIVE TOURNAMENTS',
-      action: Text('4', style: HDTText.mono(size: 11, color: HDTColors.text3)),
+      action: Text('${active.length}',
+          style: HDTText.mono(size: 11, color: HDTColors.text3)),
       padding: EdgeInsets.zero,
-      child: const Column(
-        children: [
-          _TournamentMiniRow(
-              status: 'LIVE',
-              name: 'Friday Night Burst',
-              date: 'TODAY . 19:00',
-              paid: true),
-          _TournamentMiniRow(
-              status: 'UPCOMING',
-              name: 'Hideout Cup #03',
-              date: 'TOMORROW . 14:00',
-              paid: true),
-          _TournamentMiniRow(
-              status: 'UPCOMING',
-              name: 'Highland Open',
-              date: 'MAY 15 . 10:00',
-              paid: true),
-          _TournamentMiniRow(
-              status: 'UPCOMING',
-              name: 'Sultanate Series',
-              date: 'MAY 22 . 13:00',
-              paid: false),
-        ],
-      ),
+      child: active.isEmpty
+          ? const Padding(
+              padding: EdgeInsets.all(20),
+              child: _EmptyInline(
+                icon: Icons.emoji_events_outlined,
+                title: 'No active tournaments',
+                subtitle: 'Paid registrations will appear here.',
+              ),
+            )
+          : Column(
+              children: [
+                for (final entry in active)
+                  _TournamentMiniRow(
+                    status: entry.statusLabel,
+                    name: entry.name,
+                    date: _shortDate(entry.date),
+                    paid: entry.status != PlayerTournamentStatus.registered,
+                  ),
+              ],
+            ),
     );
   }
 }
@@ -681,32 +762,36 @@ class _TournamentMiniRow extends StatelessWidget {
 }
 
 class _NotificationsCard extends StatelessWidget {
-  const _NotificationsCard();
+  const _NotificationsCard({required this.notifications});
+
+  final List<AppNotification> notifications;
 
   @override
   Widget build(BuildContext context) {
-    return const _Panel(
+    return _Panel(
       title: 'NOTIFICATIONS',
-      action: Icon(Icons.notifications_none, size: 15, color: HDTColors.text3),
+      action: const Icon(Icons.notifications_none,
+          size: 15, color: HDTColors.text3),
       padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          _NotificationRow(
-              unread: true,
-              time: '5m',
-              text: 'Match vs BJX-077 NIRO scheduled in 2 hours'),
-          _NotificationRow(
-              unread: true,
-              time: '1h',
-              text: 'JKT Wolves opened registration for Hideout #04'),
-          _NotificationRow(
-              unread: false,
-              time: '4h',
-              text: 'Your ELO updated: +12 vs BJX-091 AVI'),
-          _NotificationRow(
-              unread: false, time: '1d', text: 'Withdrawal Rp 75.000 received'),
-        ],
-      ),
+      child: notifications.isEmpty
+          ? const Padding(
+              padding: EdgeInsets.all(20),
+              child: _EmptyInline(
+                icon: Icons.notifications_none,
+                title: 'No notifications',
+                subtitle: 'System and tournament alerts will appear here.',
+              ),
+            )
+          : Column(
+              children: [
+                for (final item in notifications.take(4))
+                  _NotificationRow(
+                    unread: !item.read,
+                    time: _relativeTime(item.createdAt),
+                    text: item.title,
+                  ),
+              ],
+            ),
     );
   }
 }
@@ -767,36 +852,56 @@ class _NotificationRow extends StatelessWidget {
 }
 
 class _RecommendedCard extends StatelessWidget {
-  const _RecommendedCard();
+  const _RecommendedCard({required this.tournaments});
+
+  final List<TournamentSummary> tournaments;
 
   @override
   Widget build(BuildContext context) {
-    return const _Panel(
+    return _Panel(
       title: 'RECOMMENDED',
-      action: Icon(Icons.auto_awesome, size: 15, color: HDTColors.accentHover),
+      action: const Icon(Icons.auto_awesome,
+          size: 15, color: HDTColors.accentHover),
       padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          _RecommendedRow(
-              name: 'East Coast Showdown',
-              community: 'SBY SPIN',
-              date: 'MAY 18',
-              fee: 'Rp 85.000',
-              elo: '2400-2900'),
-          _RecommendedRow(
-              name: 'Highland Open',
-              community: 'BDG GRINDERS',
-              date: 'MAY 15',
-              fee: 'Rp 65.000',
-              elo: '2200+'),
-          _RecommendedRow(
-              name: 'Sultanate Series',
-              community: 'YOGYA META',
-              date: 'MAY 22',
-              fee: 'Rp 50.000',
-              elo: 'OPEN'),
-        ],
-      ),
+      child: tournaments.isEmpty
+          ? const Padding(
+              padding: EdgeInsets.all(20),
+              child: _EmptyInline(
+                icon: Icons.search_outlined,
+                title: 'No open events',
+                subtitle: 'Open registrations from Firebase will appear here.',
+              ),
+            )
+          : Column(
+              children: [
+                for (final tournament in tournaments)
+                  _RecommendedRow(
+                    name: tournament.name,
+                    community: 'OPEN REGISTRATION',
+                    date: _shortDate(tournament.startDate),
+                    fee: _formatRp(tournament.registrationFee),
+                    elo: 'OPEN',
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      '/tournaments/detail',
+                      arguments: {
+                        'tournamentId': tournament.id,
+                        'name': tournament.name,
+                        'community': 'Turney',
+                        'status': 'REGISTRATION OPEN',
+                        'format': tournament.bracketType,
+                        'tier': 'STANDARD',
+                        'city': '',
+                        'venue': tournament.location,
+                        'fee': _formatRp(tournament.registrationFee),
+                        'date': tournament.startDate?.toIso8601String() ?? '',
+                        'registered': tournament.currentParticipantCount,
+                        'capacity': tournament.maxParticipants,
+                      },
+                    ),
+                  ),
+              ],
+            ),
     );
   }
 }
@@ -807,6 +912,7 @@ class _RecommendedRow extends StatelessWidget {
   final String date;
   final String fee;
   final String elo;
+  final VoidCallback? onTap;
 
   const _RecommendedRow({
     required this.name,
@@ -814,48 +920,56 @@ class _RecommendedRow extends StatelessWidget {
     required this.date,
     required this.fee,
     required this.elo,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: HDTColors.s2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                  child: Text(community, style: HDTText.overline(size: 9))),
-              Text(date, style: HDTText.mono(size: 10, color: HDTColors.text3)),
-            ],
-          ),
-          const SizedBox(height: 5),
-          Text(name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: HDTText.body(size: 14, weight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Text(fee, style: HDTText.mono(size: 11, color: HDTColors.text2)),
-              const Spacer(),
-              Text('ELO $elo',
-                  style:
-                      HDTText.overline(size: 9, color: HDTColors.accentHover)),
-            ],
-          ),
-        ],
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: HDTColors.s2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                    child: Text(community, style: HDTText.overline(size: 9))),
+                Text(date,
+                    style: HDTText.mono(size: 10, color: HDTColors.text3)),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Text(name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: HDTText.body(size: 14, weight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text(fee,
+                    style: HDTText.mono(size: 11, color: HDTColors.text2)),
+                const Spacer(),
+                Text('ELO $elo',
+                    style: HDTText.overline(
+                        size: 9, color: HDTColors.accentHover)),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _GoalCard extends StatelessWidget {
-  const _GoalCard();
+  const _GoalCard({required this.user});
+
+  final AppUser? user;
 
   @override
   Widget build(BuildContext context) {
@@ -869,11 +983,16 @@ class _GoalCard extends StatelessWidget {
           const Icon(Icons.emoji_events_outlined,
               size: 22, color: HDTColors.accentHover),
           const SizedBox(height: 14),
-          Text('2 WINS\nFROM TOP 4',
+          Text(
+              user?.isQrActivated == true
+                  ? 'QR READY\nFOR BETA'
+                  : 'SETUP\nIN PROGRESS',
               style: HDTText.display(size: 24, color: Colors.white)),
           const SizedBox(height: 8),
           Text(
-            'Next 2 ranked wins put you in JKT top 4 this season.',
+            user?.isQrActivated == true
+                ? 'This profile is ready to join live tournament trials.'
+                : 'Complete registration and check-in data before event day.',
             style: HDTText.body(size: 12, color: HDTColors.text2, height: 1.45),
           ),
         ],
@@ -917,6 +1036,95 @@ class _Panel extends StatelessWidget {
       ),
     );
   }
+}
+
+class _EmptyInline extends StatelessWidget {
+  const _EmptyInline({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: HDTColors.text3, size: 20),
+        const SizedBox(width: HDTSpace.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: HDTText.body(size: 13)),
+              const SizedBox(height: HDTSpace.xs),
+              Text(
+                subtitle,
+                style: HDTText.body(
+                  size: 12,
+                  color: HDTColors.text3,
+                  height: 1.45,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _padCounter(int value, int width) {
+  return value.clamp(0, 99).toString().padLeft(width, '0');
+}
+
+String _formatInt(int value) {
+  return value.toString().replaceAllMapped(
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+        (match) => '${match[1]},',
+      );
+}
+
+String _formatRp(int value) {
+  return 'Rp ${value.toString().replaceAllMapped(
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+        (match) => '${match[1]}.',
+      )}';
+}
+
+String _shortDate(DateTime? date) {
+  if (date == null) return 'TBA';
+  const months = [
+    'JAN',
+    'FEB',
+    'MAR',
+    'APR',
+    'MAY',
+    'JUN',
+    'JUL',
+    'AUG',
+    'SEP',
+    'OCT',
+    'NOV',
+    'DEC'
+  ];
+  final month = months[date.month - 1];
+  final hour = date.hour.toString().padLeft(2, '0');
+  final minute = date.minute.toString().padLeft(2, '0');
+  return '$month ${date.day} . $hour:$minute';
+}
+
+String _relativeTime(DateTime? date) {
+  if (date == null) return 'now';
+  final diff = DateTime.now().difference(date);
+  if (diff.inMinutes < 1) return 'now';
+  if (diff.inHours < 1) return '${diff.inMinutes}m';
+  if (diff.inDays < 1) return '${diff.inHours}h';
+  return '${diff.inDays}d';
 }
 
 class _Sparkline extends StatelessWidget {

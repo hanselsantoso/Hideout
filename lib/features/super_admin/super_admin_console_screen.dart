@@ -286,7 +286,7 @@ class _ReportGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final metrics = ref.watch(superAdminMetricsProvider);
-    final data = metrics.valueOrNull ?? SuperAdminMetrics.demo;
+    final data = metrics.valueOrNull ?? SuperAdminMetrics.empty;
     final cards = [
       _MetricCard(
         label: 'Active users',
@@ -2390,6 +2390,22 @@ class SuperAdminMetrics {
     platformRevenue: 42850000,
     paymentCount: 1482,
     activeWithdrawals: 8300000,
+  );
+
+  static const empty = SuperAdminMetrics(
+    activeUsers: 0,
+    bannedUsers: 0,
+    judges: 0,
+    communityAdmins: 0,
+    communities: 0,
+    pendingApprovals: 0,
+    tournaments: 0,
+    runningTournaments: 0,
+    componentStats: 0,
+    grossRevenue: 0,
+    platformRevenue: 0,
+    paymentCount: 0,
+    activeWithdrawals: 0,
   );
 }
 
