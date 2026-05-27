@@ -546,7 +546,7 @@ class _TournamentRegistrationScreenState
       return;
     }
 
-    if (tournamentId.isEmpty || tournamentId.contains('-')) {
+    if (tournamentId.isEmpty || tournamentId.startsWith('demo-')) {
       setState(() {
         _registrationId = 'DEMO-${DateTime.now().millisecondsSinceEpoch}';
         _paymentSessionId = 'DEMO-CHECKOUT';
