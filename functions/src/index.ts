@@ -821,6 +821,27 @@ export const createXenditQrisPayment = onCall(
     if (registration.playerId !== uid) {
       throw new HttpsError("permission-denied", "Only the registered player can pay.");
     }
+    if (registration.paymentStatus === "paid" && registration.registrationStatus === "active") {
+      const qrString = asString(registration.xenditQrisQrString);
+      return {
+        paymentSessionId:
+          asString(registration.xenditQrisId) ||
+          asString(registration.paymentId) ||
+          `PAID-${registrationId}`,
+        paymentLinkUrl: null,
+        status: "COMPLETED",
+        paid: true,
+        expired: false,
+        paymentId: asString(registration.paymentId) || null,
+        paymentRequestId: null,
+        paymentMode: "qris",
+        qrisReferenceId: asString(registration.xenditQrisReferenceId) || null,
+        qrisQrId: asString(registration.xenditQrisId) || null,
+        qrisQrString: qrString || null,
+        qrisQrImageDataUrl: qrString ? await qrisDataUrl(qrString) : null,
+        message: "Registration payment has already been confirmed.",
+      };
+    }
     if (
       registration.paymentProvider === "xendit_qris" &&
       typeof registration.xenditQrisId === "string" &&

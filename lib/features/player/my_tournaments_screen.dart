@@ -8,6 +8,7 @@ import '../../core/widgets/hdt_widgets.dart';
 import '../../data/repositories/auth_repository.dart';
 
 enum PlayerTournamentStatus {
+  pendingPayment,
   registered,
   checkedIn,
   ongoing,
@@ -29,6 +30,9 @@ class PlayerTournamentEntry {
   final int capacity;
   final Color color;
   final String deck;
+  final String fee;
+  final String registrationStatus;
+  final String paymentStatus;
   final String ticketId;
   final String playerName;
   final String playerCode;
@@ -51,6 +55,9 @@ class PlayerTournamentEntry {
     required this.capacity,
     required this.color,
     required this.deck,
+    required this.fee,
+    required this.registrationStatus,
+    required this.paymentStatus,
     required this.ticketId,
     this.playerName = 'PLAYER',
     this.playerCode = '',
@@ -64,19 +71,22 @@ class PlayerTournamentEntry {
         'tournamentId': id,
         'name': name,
         'community': community,
-        'status': status == PlayerTournamentStatus.ongoing
-            ? 'LIVE'
-            : status == PlayerTournamentStatus.registered
-                ? 'REGISTRATION OPEN'
-                : 'COMPLETED',
+        'status': status == PlayerTournamentStatus.ongoing ? 'LIVE' : 'OPEN',
         'format': format,
         'tier': tier,
         'city': city,
         'venue': venue,
-        'fee': 'Rp 100.000',
+        'fee': fee,
         'date': date.toIso8601String(),
         'registered': registered,
         'capacity': capacity,
+      };
+
+  Map<String, Object> toPaymentArgs() => {
+        ...toTournamentArgs(),
+        'registrationId': ticketId,
+        'resumePayment': true,
+        'initialStep': 3,
       };
 
   Map<String, Object> toTicketArgs() => {
@@ -94,6 +104,7 @@ class PlayerTournamentEntry {
 
   String get statusLabel {
     return switch (status) {
+      PlayerTournamentStatus.pendingPayment => 'PENDING PAYMENT',
       PlayerTournamentStatus.registered => 'REGISTERED',
       PlayerTournamentStatus.checkedIn => 'CHECKED IN',
       PlayerTournamentStatus.ongoing => 'ONGOING',
@@ -159,6 +170,10 @@ PlayerTournamentEntry _entryFromLive({
       tournament['bracketType'] ?? tournament['format'],
       fallback: 'Tournament',
     ),
+    fee: _rupiah(_intFrom(tournament['registrationFee'])),
+    registrationStatus:
+        _text(registration['registrationStatus'], fallback: 'pending'),
+    paymentStatus: _text(registration['paymentStatus'], fallback: 'pending'),
     registered: _intFrom(tournament['currentParticipantCount']),
     capacity: _intFrom(tournament['maxParticipants'], fallback: 0),
     color: _colorForStatus(status),
@@ -182,12 +197,20 @@ PlayerTournamentStatus _statusFromLive(
 ) {
   final registrationStatus =
       _text(registration['registrationStatus']).toLowerCase();
+  final paymentStatus = _text(registration['paymentStatus']).toLowerCase();
   final checkInStatus = _text(registration['checkInStatus']).toLowerCase();
   final tournamentStatus = _text(tournament['status']).toLowerCase();
   if (registrationStatus == 'walkout' ||
       registrationStatus == 'walk_out' ||
       registrationStatus == 'eliminated') {
     return PlayerTournamentStatus.eliminated;
+  }
+  if (registrationStatus == 'pendingpayment' ||
+      registrationStatus == 'pending_payment' ||
+      paymentStatus == 'pending' ||
+      paymentStatus == 'processing' ||
+      paymentStatus == 'unpaid') {
+    return PlayerTournamentStatus.pendingPayment;
   }
   if (tournamentStatus == 'completed') return PlayerTournamentStatus.completed;
   if (tournamentStatus == 'running' || tournamentStatus == 'live') {
@@ -211,6 +234,17 @@ String _text(Object? value, {String fallback = ''}) {
   return text.isEmpty ? fallback : text;
 }
 
+String _rupiah(int value) {
+  if (value <= 0) return 'FREE';
+  final raw = value.toString();
+  final parts = <String>[];
+  for (var end = raw.length; end > 0; end -= 3) {
+    final start = (end - 3).clamp(0, raw.length);
+    parts.insert(0, raw.substring(start, end));
+  }
+  return 'Rp ${parts.join('.')}';
+}
+
 int _intFrom(Object? value, {int fallback = 0}) {
   if (value is num) return value.round();
   return int.tryParse(value?.toString() ?? '') ?? fallback;
@@ -224,6 +258,7 @@ int? _nullableInt(Object? value) {
 
 Color _colorForStatus(PlayerTournamentStatus status) {
   return switch (status) {
+    PlayerTournamentStatus.pendingPayment => HDTColors.warning,
     PlayerTournamentStatus.ongoing => HDTColors.accent,
     PlayerTournamentStatus.registered => HDTColors.info,
     PlayerTournamentStatus.checkedIn => HDTColors.success,
@@ -373,6 +408,7 @@ class _MyTournamentsView extends StatelessWidget {
                           children: [
                             for (final filter in const [
                               'ALL',
+                              'PENDING PAYMENT',
                               'ONGOING',
                               'REGISTERED',
                               'COMPLETED',
@@ -681,11 +717,24 @@ class _Actions extends StatelessWidget {
     final active = tournament.status == PlayerTournamentStatus.ongoing ||
         tournament.status == PlayerTournamentStatus.registered ||
         tournament.status == PlayerTournamentStatus.checkedIn;
+    final pendingPayment =
+        tournament.status == PlayerTournamentStatus.pendingPayment;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       alignment: WrapAlignment.end,
       children: [
+        if (pendingPayment)
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pushNamed(
+              context,
+              '/tournaments/register',
+              arguments: tournament.toPaymentArgs(),
+            ),
+            icon: const Icon(Icons.qr_code_2, size: 13),
+            label: const Text('PAY QRIS'),
+            style: ElevatedButton.styleFrom(minimumSize: const Size(116, 34)),
+          ),
         if (active)
           ElevatedButton.icon(
             onPressed: () => Navigator.pushNamed(
@@ -768,6 +817,11 @@ class _Meta extends StatelessWidget {
 
 (Color, Color, String) _statusStyle(PlayerTournamentStatus status) {
   return switch (status) {
+    PlayerTournamentStatus.pendingPayment => (
+        HDTColors.warning,
+        HDTColors.warning.withValues(alpha: .14),
+        'PENDING PAYMENT'
+      ),
     PlayerTournamentStatus.ongoing => (
         Colors.white,
         HDTColors.accent,

@@ -256,6 +256,33 @@ class TournamentRepository {
       ),
       fallbackNetFee: fee,
     );
+    final existingSnap = await firestore
+        .collection(FirestorePaths.tournamentRegistrations(tournamentId))
+        .where('playerId', isEqualTo: playerId)
+        .limit(10)
+        .get();
+    for (final doc in existingSnap.docs) {
+      final data = doc.data();
+      final registrationStatus =
+          (data['registrationStatus'] ?? '').toString().toLowerCase();
+      final paymentStatus =
+          (data['paymentStatus'] ?? '').toString().toLowerCase();
+      final canResume = !{
+            'walkout',
+            'walk_out',
+            'paymentexpired',
+            'payment_expired',
+            'cancelled',
+            'canceled',
+          }.contains(registrationStatus) &&
+          !{
+            'expired',
+            'failed',
+            'cancelled',
+            'canceled',
+          }.contains(paymentStatus);
+      if (canResume) return doc.id;
+    }
     final ref = firestore
         .collection(FirestorePaths.tournamentRegistrations(tournamentId))
         .doc();

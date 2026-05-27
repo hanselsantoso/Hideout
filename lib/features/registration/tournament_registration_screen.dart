@@ -100,6 +100,32 @@ class _TournamentRegistrationScreenState
   String? _qrisQrImageDataUrl;
   String? _qrisQrString;
   String? _error;
+  bool _routeArgsApplied = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_routeArgsApplied) return;
+    _routeArgsApplied = true;
+    final args = (ModalRoute.of(context)?.settings.arguments as Map?) ?? {};
+    final registrationId = (args['registrationId'] ?? '').toString();
+    if (registrationId.isNotEmpty) {
+      _registrationId = registrationId;
+    }
+    final deckName = (args['deckName'] ?? args['deck']).toString();
+    if (deckName.trim().isNotEmpty && deckName != 'null') {
+      _selectedDeck = deckName;
+    }
+    final requestedStep = args['initialStep'];
+    if (requestedStep is int) {
+      _step = requestedStep.clamp(0, _registrationSteps.length - 2);
+    }
+    if (args['resumePayment'] == true) {
+      _step = 3;
+      _paymentMessage =
+          'Payment is still pending. Create or reload the QRIS code, then check the payment status after paying.';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -405,10 +431,10 @@ class _TournamentRegistrationScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle('STEP 4', 'XENDIT CHECKOUT'),
+        const _SectionTitle('STEP 4', 'XENDIT QRIS'),
         const SizedBox(height: HDTSpace.sm),
         Text(
-          'Create a sandbox checkout, choose any enabled Xendit payment method, then return here to sync the payment status.',
+          'Create a Xendit sandbox QRIS code, scan it in test mode, then check the payment status here.',
           style: HDTText.body(color: HDTColors.text2),
         ),
         if (_paymentMessage != null) ...[
