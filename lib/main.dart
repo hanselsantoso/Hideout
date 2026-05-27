@@ -1159,7 +1159,7 @@ class HomeScreen extends StatelessWidget {
                       style: HDTText.display(size: 28)),
                   const SizedBox(height: HDTSpace.md),
                   Text(
-                    'This Flutter version now uses the existing Firebase project for auth, tournaments, payment simulation, QR, and available callable functions.',
+                    'This Flutter version now uses the existing Firebase project for auth, tournaments, Xendit sandbox payments, QR, and available callable functions.',
                     style: HDTText.body(
                         size: 13, color: HDTColors.text2, height: 1.5),
                   ),

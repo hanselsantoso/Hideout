@@ -1847,6 +1847,38 @@ class TournamentRepository {
     }
   }
 
+  Future<XenditPaymentSessionResult> createXenditPaymentSession({
+    required String tournamentId,
+    required String registrationId,
+    required String appBaseUrl,
+  }) async {
+    final callable = functions.httpsCallable('createXenditPaymentSession');
+    final response = await callable.call<Map<String, dynamic>>({
+      'tournamentId': tournamentId,
+      'registrationId': registrationId,
+      'appBaseUrl': appBaseUrl,
+    });
+    return XenditPaymentSessionResult.fromMap(
+      Map<String, dynamic>.from(response.data),
+    );
+  }
+
+  Future<XenditPaymentSessionResult> syncXenditPaymentSession({
+    required String tournamentId,
+    required String registrationId,
+    String? paymentSessionId,
+  }) async {
+    final callable = functions.httpsCallable('syncXenditPaymentSession');
+    final response = await callable.call<Map<String, dynamic>>({
+      'tournamentId': tournamentId,
+      'registrationId': registrationId,
+      if (paymentSessionId != null) 'paymentSessionId': paymentSessionId,
+    });
+    return XenditPaymentSessionResult.fromMap(
+      Map<String, dynamic>.from(response.data),
+    );
+  }
+
   Future<void> activateTournamentRegistration({
     required String tournamentId,
     required String registrationId,
@@ -2284,6 +2316,44 @@ class TournamentRegistrationSummary {
       paymentStatus: (data['paymentStatus'] ?? 'pending').toString(),
       registrationStatus: (data['registrationStatus'] ?? 'pending').toString(),
       registeredAt: rawDate is Timestamp ? rawDate.toDate() : null,
+    );
+  }
+}
+
+class XenditPaymentSessionResult {
+  const XenditPaymentSessionResult({
+    required this.paymentSessionId,
+    required this.status,
+    required this.paid,
+    required this.expired,
+    this.paymentLinkUrl,
+    this.paymentId,
+    this.paymentRequestId,
+    this.message,
+  });
+
+  final String paymentSessionId;
+  final String status;
+  final bool paid;
+  final bool expired;
+  final String? paymentLinkUrl;
+  final String? paymentId;
+  final String? paymentRequestId;
+  final String? message;
+
+  bool get canOpenCheckout =>
+      paymentLinkUrl != null && paymentLinkUrl!.trim().isNotEmpty;
+
+  factory XenditPaymentSessionResult.fromMap(Map<String, dynamic> data) {
+    return XenditPaymentSessionResult(
+      paymentSessionId: (data['paymentSessionId'] ?? '').toString(),
+      status: (data['status'] ?? 'ACTIVE').toString(),
+      paid: data['paid'] == true,
+      expired: data['expired'] == true,
+      paymentLinkUrl: data['paymentLinkUrl']?.toString(),
+      paymentId: data['paymentId']?.toString(),
+      paymentRequestId: data['paymentRequestId']?.toString(),
+      message: data['message']?.toString(),
     );
   }
 }

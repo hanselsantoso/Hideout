@@ -80,5 +80,39 @@ Deploy:
 
 ```powershell
 npx firebase deploy --only firestore:rules --project tournamentmanagement-942ef
+npx firebase deploy --only functions --project tournamentmanagement-942ef
 npx firebase deploy --only hosting --project tournamentmanagement-942ef
 ```
+
+## Xendit Sandbox
+
+Payments use Xendit Payment Session in `PAYMENT_LINK` mode. The secret key must
+stay server-side in Firebase Functions; do not commit it to the repository.
+
+Set the Firebase secret before deploying functions:
+
+```powershell
+firebase functions:secrets:set XENDIT_SECRET_KEY --project tournamentmanagement-942ef
+```
+
+Optional webhook verification can be enabled by setting `XENDIT_WEBHOOK_TOKEN`
+in the functions runtime environment, then configuring the same token in the
+Xendit dashboard.
+
+Register this webhook URL in the Xendit dashboard for Payment Session events:
+
+```text
+https://asia-southeast1-tournamentmanagement-942ef.cloudfunctions.net/xenditPaymentSessionWebhook
+```
+
+Local sandbox smoke test:
+
+```powershell
+$env:XENDIT_SECRET_KEY="..."
+npm run smoke:xendit
+```
+
+The smoke test creates a hosted checkout without `allowed_payment_channels`, so
+Xendit shows every sandbox channel enabled for the account. Use
+`XENDIT_PAYMENT_SESSION_ID` to re-check an existing session instead of creating
+a new one.

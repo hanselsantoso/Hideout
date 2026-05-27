@@ -331,7 +331,7 @@ class _CommunityApplyScreenState extends ConsumerState<CommunityApplyScreen> {
             icon: Icons.credit_card,
             color: HDTColors.info,
             text:
-                'Participant payments will later be processed via Midtrans. For this web MVP, payments are still treated as automatically paid.',
+                'Participant payments are processed through Xendit sandbox checkout before registrations become active.',
           ),
         ),
         _SelectField(

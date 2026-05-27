@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/hideout_tokens.dart';
 import '../../data/models/player_deck.dart';
@@ -85,6 +86,10 @@ class _TournamentRegistrationScreenState
   bool _busy = false;
   bool _breakdownOpen = true;
   String? _registrationId;
+  String? _paymentSessionId;
+  String? _paymentLinkUrl;
+  String? _paymentStatus;
+  String? _paymentMessage;
   String? _error;
 
   @override
@@ -147,7 +152,7 @@ class _TournamentRegistrationScreenState
               busy: _busy,
               canBack: _step > 0,
               nextEnabled: _canProceed(deckOptions),
-              nextLabel: _step == 3 ? 'I HAVE PAID' : 'CONTINUE',
+              nextLabel: _step == 3 ? _paymentActionLabel : 'CONTINUE',
               onBack: _back,
               onNext: () => _next(tournamentId),
             ),
@@ -381,12 +386,20 @@ class _TournamentRegistrationScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle('STEP 4', 'QRIS PAYMENT'),
+        const _SectionTitle('STEP 4', 'XENDIT CHECKOUT'),
         const SizedBox(height: HDTSpace.sm),
         Text(
-          'Scan the mock QRIS code using an e-wallet or mobile banking app. For the MVP, click I Have Paid to verify.',
+          'Create a sandbox checkout, choose any enabled Xendit payment method, then return here to sync the payment status.',
           style: HDTText.body(color: HDTColors.text2),
         ),
+        if (_paymentMessage != null) ...[
+          const SizedBox(height: HDTSpace.md),
+          _Notice(
+            color: HDTColors.info,
+            icon: Icons.info_outline,
+            text: _paymentMessage!,
+          ),
+        ],
         const SizedBox(height: HDTSpace.lg),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -397,12 +410,18 @@ class _TournamentRegistrationScreenState
               children: [
                 SizedBox(
                   width: wide ? 330 : constraints.maxWidth,
-                  child: _QrisPanel(total: total),
+                  child: _XenditCheckoutPanel(
+                    total: total,
+                    paymentSessionId: _paymentSessionId,
+                    paymentLinkUrl: _paymentLinkUrl,
+                    status: _paymentStatus,
+                    onOpen: _openPaymentLink,
+                  ),
                 ),
                 SizedBox(
                   width:
                       wide ? constraints.maxWidth - 350 : constraints.maxWidth,
-                  child: const _PaymentInstructions(),
+                  child: _PaymentInstructions(hasLink: _paymentLinkUrl != null),
                 ),
               ],
             );
@@ -485,6 +504,13 @@ class _TournamentRegistrationScreenState
     };
   }
 
+  String get _paymentActionLabel {
+    if (_paymentSessionId == null || _paymentLinkUrl == null) {
+      return 'CREATE XENDIT CHECKOUT';
+    }
+    return 'CHECK PAYMENT STATUS';
+  }
+
   void _back() {
     setState(() {
       _error = null;
@@ -511,6 +537,9 @@ class _TournamentRegistrationScreenState
     if (tournamentId.isEmpty || tournamentId.contains('-')) {
       setState(() {
         _registrationId = 'DEMO-${DateTime.now().millisecondsSinceEpoch}';
+        _paymentSessionId = 'DEMO-CHECKOUT';
+        _paymentStatus = 'COMPLETED';
+        _paymentMessage = 'Demo tournament registration has been confirmed.';
         _step++;
       });
       return;
@@ -525,30 +554,93 @@ class _TournamentRegistrationScreenState
       final selectedDeck = _selectedDeckDraft(
         _registrationDecks(ref.read(userDecksProvider).valueOrNull),
       );
-      final registrationId = await repo.createRegistration(
-        tournamentId: tournamentId,
-        playerId: user.uid,
-        playerName: user.displayName ?? user.email ?? 'Player',
-        deckId: selectedDeck.id,
-        deckName: selectedDeck.name,
-        deckSnapshot:
-            selectedDeck.snapshot.isEmpty ? null : selectedDeck.snapshot,
-      );
-      await repo.simulatePayment(
-          tournamentId: tournamentId, registrationId: registrationId);
+      final registrationId = _registrationId ??
+          await repo.createRegistration(
+            tournamentId: tournamentId,
+            playerId: user.uid,
+            playerName: user.displayName ?? user.email ?? 'Player',
+            deckId: selectedDeck.id,
+            deckName: selectedDeck.name,
+            deckSnapshot:
+                selectedDeck.snapshot.isEmpty ? null : selectedDeck.snapshot,
+          );
+      if (_registrationId == null && mounted) {
+        setState(() => _registrationId = registrationId);
+      }
+
+      final XenditPaymentSessionResult payment;
+      if (_paymentSessionId == null || _paymentLinkUrl == null) {
+        payment = await repo.createXenditPaymentSession(
+          tournamentId: tournamentId,
+          registrationId: registrationId,
+          appBaseUrl: _appBaseUrl,
+        );
+      } else {
+        payment = await repo.syncXenditPaymentSession(
+          tournamentId: tournamentId,
+          registrationId: registrationId,
+          paymentSessionId: _paymentSessionId,
+        );
+      }
       if (!mounted) return;
+      _applyPaymentResult(payment);
+      if (payment.paid) {
+        setState(() => _step++);
+        return;
+      }
+      if (payment.expired) {
+        setState(() {
+          _paymentSessionId = null;
+          _paymentLinkUrl = null;
+          _paymentMessage =
+              'The previous Xendit session expired. Create a new checkout to continue.';
+        });
+        return;
+      }
+      if (payment.canOpenCheckout) {
+        await _openPaymentLink();
+      }
       setState(() {
-        _registrationId = registrationId;
-        _step++;
+        _paymentMessage =
+            'Checkout is ready. Complete the sandbox payment, then press Check Payment Status.';
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _error =
-            'Registration failed. Make sure the account is signed in, the deck is valid, then try again.';
+            'Payment setup failed. Make sure the account is signed in, the deck is valid, and the Xendit sandbox is configured.';
       });
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  String get _appBaseUrl {
+    final origin = Uri.base.origin;
+    return origin.startsWith('https://') ? origin : 'https://turney.id';
+  }
+
+  void _applyPaymentResult(XenditPaymentSessionResult payment) {
+    setState(() {
+      _paymentSessionId = payment.paymentSessionId.isEmpty
+          ? _paymentSessionId
+          : payment.paymentSessionId;
+      _paymentLinkUrl = payment.paymentLinkUrl ?? _paymentLinkUrl;
+      _paymentStatus = payment.status;
+      _paymentMessage = payment.message;
+    });
+  }
+
+  Future<void> _openPaymentLink() async {
+    final link = _paymentLinkUrl;
+    final uri = link == null ? null : Uri.tryParse(link);
+    if (uri == null) return;
+    final opened = await launchUrl(uri, webOnlyWindowName: '_blank');
+    if (!opened && mounted) {
+      setState(() {
+        _paymentMessage =
+            'Checkout link is ready, but the browser blocked the new tab. Copy the link from the checkout panel.';
+      });
     }
   }
 
@@ -850,7 +942,7 @@ class _FeeBreakdown extends StatelessWidget {
           const SizedBox(height: HDTSpace.md),
           _FeeLine('Entry fee', fee),
           _FeeLine('Platform fee (10%)', platform, muted: true),
-          _FeeLine('Midtrans / QRIS fee', gateway, muted: true),
+          _FeeLine('Xendit gateway fee', gateway, muted: true),
           const _FeeLine('Withdrawal coverage', 500, muted: true),
         ],
         const SizedBox(height: HDTSpace.md),
@@ -867,12 +959,25 @@ class _FeeBreakdown extends StatelessWidget {
   }
 }
 
-class _QrisPanel extends StatelessWidget {
-  const _QrisPanel({required this.total});
+class _XenditCheckoutPanel extends StatelessWidget {
+  const _XenditCheckoutPanel({
+    required this.total,
+    required this.paymentSessionId,
+    required this.paymentLinkUrl,
+    required this.status,
+    required this.onOpen,
+  });
+
   final int total;
+  final String? paymentSessionId;
+  final String? paymentLinkUrl;
+  final String? status;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
+    final currentStatus = (status ?? 'NOT CREATED').toUpperCase();
+    final active = paymentLinkUrl != null && paymentLinkUrl!.isNotEmpty;
     return Container(
       padding: const EdgeInsets.all(HDTSpace.lg),
       decoration: hdtCard(),
@@ -882,20 +987,27 @@ class _QrisPanel extends StatelessWidget {
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('MERCHANT', style: HDTText.overline(size: 8)),
-              Text('HIDEOUT PLATFORM', style: HDTText.display(size: 14)),
+              Text('TURNEY SANDBOX', style: HDTText.display(size: 14)),
             ]),
           ),
           Container(
             padding: const EdgeInsets.symmetric(
                 horizontal: HDTSpace.sm, vertical: HDTSpace.xs),
             decoration: BoxDecoration(
-              color: HDTColors.success.withValues(alpha: 0.15),
+              color: (active ? HDTColors.success : HDTColors.info)
+                  .withValues(alpha: 0.15),
               borderRadius: HDTR.sm,
-              border:
-                  Border.all(color: HDTColors.success.withValues(alpha: 0.35)),
+              border: Border.all(
+                  color: (active ? HDTColors.success : HDTColors.info)
+                      .withValues(alpha: 0.35)),
             ),
-            child: Text('ACTIVE',
-                style: HDTText.overline(size: 8, color: HDTColors.success)),
+            child: Text(
+              currentStatus,
+              style: HDTText.overline(
+                size: 8,
+                color: active ? HDTColors.success : HDTColors.info,
+              ),
+            ),
           ),
         ]),
         const SizedBox(height: HDTSpace.lg),
@@ -903,36 +1015,92 @@ class _QrisPanel extends StatelessWidget {
           width: 220,
           height: 220,
           padding: const EdgeInsets.all(HDTSpace.lg),
-          decoration:
-              const BoxDecoration(color: Colors.white, borderRadius: HDTR.lg),
-          child: CustomPaint(painter: _QrPainter(seed: total)),
+          decoration: BoxDecoration(
+            color: HDTColors.bg,
+            borderRadius: HDTR.lg,
+            border: Border.all(color: HDTColors.s2),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.account_balance_wallet_outlined,
+                  size: 56, color: HDTColors.accentHover),
+              const SizedBox(height: HDTSpace.md),
+              Text('XENDIT', style: HDTText.display(size: 28)),
+              const SizedBox(height: HDTSpace.xs),
+              Text(
+                active ? 'CHECKOUT READY' : 'PAYMENT SESSION',
+                textAlign: TextAlign.center,
+                style: HDTText.overline(size: 9, color: HDTColors.text3),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: HDTSpace.lg),
         Text('TOTAL PAYMENT', style: HDTText.overline(size: 9)),
         Text(_formatRp(total),
             style: HDTText.display(size: 28, color: HDTColors.accentHover)),
         const SizedBox(height: HDTSpace.lg),
-        Text('PAYMENT TIME', style: HDTText.overline(size: 9)),
-        Text('15:00', style: HDTText.display(size: 28)),
+        Text('SESSION ID', style: HDTText.overline(size: 9)),
+        Text(
+          paymentSessionId == null
+              ? 'NOT CREATED'
+              : _shortId(paymentSessionId!),
+          style: HDTText.mono(size: 12, color: HDTColors.text2),
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: HDTSpace.md),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: active ? onOpen : null,
+            icon: const Icon(Icons.open_in_new),
+            label: const Text('OPEN CHECKOUT'),
+          ),
+        ),
+        if (paymentLinkUrl != null) ...[
+          const SizedBox(height: HDTSpace.sm),
+          SelectableText(
+            paymentLinkUrl!,
+            textAlign: TextAlign.center,
+            style: HDTText.mono(size: 10, color: HDTColors.text3),
+          ),
+        ],
       ]),
     );
   }
 }
 
 class _PaymentInstructions extends StatelessWidget {
-  const _PaymentInstructions();
+  const _PaymentInstructions({required this.hasLink});
+
+  final bool hasLink;
 
   @override
   Widget build(BuildContext context) {
     final items = [
       (
         '01',
-        'Open the payment app',
-        'Use an e-wallet or mobile banking app that supports QRIS.'
+        'Create checkout',
+        'Turney creates a Xendit sandbox Payment Session from the server.'
       ),
-      ('02', 'Scan QRIS', 'Point the camera at the QR code in the left panel.'),
-      ('03', 'Check details', 'Make sure the merchant and amount are correct.'),
-      ('04', 'Confirm', 'Click I Have Paid for mock verification.'),
+      (
+        '02',
+        'Choose payment method',
+        'The hosted checkout shows every Xendit channel enabled for sandbox.'
+      ),
+      (
+        '03',
+        'Complete sandbox payment',
+        'Follow the test instruction shown by Xendit for the selected channel.'
+      ),
+      (
+        '04',
+        'Sync status',
+        hasLink
+            ? 'Return here and press Check Payment Status.'
+            : 'After checkout is created, the button changes into status sync.'
+      ),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1279,4 +1447,9 @@ String _formatRp(int value) {
         RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
         (match) => '${match[1]}.',
       )}';
+}
+
+String _shortId(String value) {
+  if (value.length <= 16) return value;
+  return '${value.substring(0, 8)}...${value.substring(value.length - 6)}';
 }

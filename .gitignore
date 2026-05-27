@@ -5,5 +5,11 @@
 build/
 .idea/
 .firebase/
+.codex-appdata/
 node_modules/
 *.log
+.env
+.env.*
+functions/.env
+functions/.env.*
+functions/lib/

@@ -1469,7 +1469,7 @@ class _MoneyPreview extends StatelessWidget {
             padding: const EdgeInsets.all(HDTSpace.md),
             decoration: hdtCard(bg: HDTColors.bg),
             child: Text(
-              'Midtrans/QRIS will be connected later. This MVP treats payment as paid after confirmation.',
+              'Xendit sandbox checkout is used for paid registrations before players become active.',
               style:
                   HDTText.body(size: 11, color: HDTColors.text2, height: 1.5),
             ),

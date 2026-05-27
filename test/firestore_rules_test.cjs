@@ -135,7 +135,7 @@ describe('firestore security rules', () => {
     );
   });
 
-  it('allows organizers and players to update limited registration ops fields', async () => {
+  it('allows organizers, but not players, to update registration payment ops fields', async () => {
     await assertSucceeds(
       updateDoc(doc(authedDb('community-a'), 'tournaments/owned-event/registrations/reg-a'), {
         paymentStatus: 'paid',
@@ -143,7 +143,7 @@ describe('firestore security rules', () => {
         updatedAt: 'now',
       }),
     );
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(authedDb('player-a'), 'tournaments/owned-event/registrations/reg-a'), {
         paymentStatus: 'paid',
         registrationStatus: 'active',
