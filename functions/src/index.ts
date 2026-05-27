@@ -3,9 +3,10 @@ import * as logger from "firebase-functions/logger";
 import {defineSecret} from "firebase-functions/params";
 import {setGlobalOptions} from "firebase-functions/v2";
 import {HttpsError, onCall, onRequest} from "firebase-functions/v2/https";
+import QRCode from "qrcode";
 
 admin.initializeApp();
-setGlobalOptions({region: "asia-southeast1", maxInstances: 20});
+setGlobalOptions({region: "asia-southeast1", maxInstances: 20, invoker: "public"});
 
 const db = admin.firestore();
 const serverTimestamp = admin.firestore.FieldValue.serverTimestamp;
@@ -27,6 +28,39 @@ type XenditSession = {
   metadata?: Record<string, unknown> | null;
 };
 
+type XenditQrCode = {
+  id?: string;
+  reference_id?: string;
+  external_id?: string;
+  qr_string?: string;
+  status?: string;
+  amount?: number;
+  currency?: string;
+  channel_code?: string;
+  metadata?: Record<string, unknown> | null;
+};
+
+type XenditQrPayment = {
+  id?: string;
+  reference_id?: string;
+  external_id?: string;
+  qr_id?: string;
+  qr_string?: string;
+  qr_code?: {
+    id?: string;
+    reference_id?: string;
+    external_id?: string;
+    qr_string?: string;
+    type?: string;
+    metadata?: Record<string, unknown> | null;
+  } | null;
+  status?: string;
+  amount?: number;
+  currency?: string;
+  payment_detail?: Record<string, unknown> | null;
+  created?: string;
+};
+
 type PaymentTarget = {
   tournamentId: string;
   registrationId: string;
@@ -40,6 +74,11 @@ type PublicPaymentSession = {
   expired: boolean;
   paymentId: string | null;
   paymentRequestId: string | null;
+  paymentMode?: "checkout" | "qris" | "free";
+  qrisReferenceId?: string | null;
+  qrisQrId?: string | null;
+  qrisQrString?: string | null;
+  qrisQrImageDataUrl?: string | null;
   message?: string;
 };
 
@@ -145,12 +184,14 @@ async function xenditRequest<T>(
   method: "GET" | "POST",
   path: string,
   body?: Record<string, unknown>,
+  extraHeaders: Record<string, string> = {},
 ): Promise<T> {
   const response = await fetch(`${xenditApiBase}${path}`, {
     method,
     headers: {
       Authorization: xenditAuthHeader(),
       "Content-Type": "application/json",
+      ...extraHeaders,
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -175,6 +216,95 @@ async function xenditRequest<T>(
     throw new HttpsError("internal", message);
   }
   return payload as T;
+}
+
+async function qrisDataUrl(qrString: string): Promise<string> {
+  return QRCode.toDataURL(qrString, {
+    errorCorrectionLevel: "M",
+    margin: 1,
+    width: 420,
+  });
+}
+
+async function lookupQrisPayments(
+  referenceId: string,
+  qrId: string,
+): Promise<XenditQrPayment[]> {
+  const headers = {"api-version": "2022-07-31"};
+  const paths = [
+    `/qr_codes/payments?external_id=${encodeURIComponent(referenceId)}&limit=10`,
+    `/qr_codes/payments?reference_id=${encodeURIComponent(referenceId)}&limit=10`,
+    `/qr_codes/${encodeURIComponent(qrId)}/payments`,
+  ];
+  for (const path of paths) {
+    try {
+      const payments = await xenditRequest<XenditQrPayment[]>("GET", path, undefined, headers);
+      if (payments.length > 0) {
+        return payments;
+      }
+    } catch (error) {
+      logger.warn("Xendit QRIS payment lookup failed", {referenceId, qrId, path, error});
+    }
+  }
+  return [];
+}
+
+async function resolveQrisTarget(payment: XenditQrPayment): Promise<PaymentTarget | null> {
+  const referenceId =
+    asString(payment.reference_id) ||
+    asString(payment.external_id) ||
+    asString(payment.qr_code?.reference_id) ||
+    asString(payment.qr_code?.external_id);
+  const qrId = asString(payment.qr_id) || asString(payment.qr_code?.id);
+  let query: admin.firestore.Query<admin.firestore.DocumentData> | null = null;
+  if (referenceId) {
+    query = db
+      .collectionGroup("registrations")
+      .where("xenditQrisReferenceId", "==", referenceId)
+      .limit(1);
+  } else if (qrId) {
+    query = db
+      .collectionGroup("registrations")
+      .where("xenditQrisId", "==", qrId)
+      .limit(1);
+  }
+  if (!query) {
+    return null;
+  }
+  const snapshot = await query.get();
+  const registrationDoc = snapshot.docs[0];
+  const tournamentDoc = registrationDoc?.ref.parent.parent;
+  if (!registrationDoc || !tournamentDoc) {
+    return null;
+  }
+  return {tournamentId: tournamentDoc.id, registrationId: registrationDoc.id};
+}
+
+function qrisFromPayment(
+  payment: XenditQrPayment,
+  registration: admin.firestore.DocumentData,
+): XenditQrCode {
+  return {
+    id:
+      asString(payment.qr_id) ||
+      asString(payment.qr_code?.id) ||
+      asString(registration.xenditQrisId),
+    reference_id:
+      asString(payment.reference_id) ||
+      asString(payment.external_id) ||
+      asString(payment.qr_code?.reference_id) ||
+      asString(payment.qr_code?.external_id) ||
+      asString(registration.xenditQrisReferenceId),
+    qr_string:
+      asString(payment.qr_string) ||
+      asString(payment.qr_code?.qr_string) ||
+      asString(registration.xenditQrisQrString),
+    status: asString(payment.status, "COMPLETED"),
+    amount:
+      asPositiveInt(payment.amount) ||
+      asPositiveInt(registration.userPayableAmount),
+    currency: payment.currency ?? "IDR",
+  };
 }
 
 async function getUserRoles(uid: string): Promise<Set<string>> {
@@ -407,6 +537,124 @@ async function writePaymentSessionState(
   return publicSession(session);
 }
 
+async function writeQrisState(
+  target: PaymentTarget,
+  qr: XenditQrCode,
+  source: string,
+  paidPayment?: XenditQrPayment,
+): Promise<PublicPaymentSession> {
+  const referenceId = asString(qr.reference_id || qr.external_id);
+  const qrId = asString(qr.id);
+  const qrString = asString(qr.qr_string);
+  if (!referenceId || !qrId || !qrString) {
+    throw new HttpsError("internal", "Xendit did not return a QRIS code.");
+  }
+  const registrationRef = db.doc(
+    `tournaments/${target.tournamentId}/registrations/${target.registrationId}`,
+  );
+  const tournamentRef = db.doc(`tournaments/${target.tournamentId}`);
+  const paymentRef = db.doc(`tournaments/${target.tournamentId}/payments/${qrId}`);
+  const paidStatus = asString(paidPayment?.status).toUpperCase();
+  const paid = paidStatus === "SUCCEEDED" || paidStatus === "COMPLETED";
+  const status = paid ? "COMPLETED" : asString(qr.status, "ACTIVE").toUpperCase();
+  const imageDataUrl = await qrisDataUrl(qrString);
+
+  await db.runTransaction(async (tx) => {
+    const registrationSnap = await tx.get(registrationRef);
+    if (!registrationSnap.exists) {
+      throw new HttpsError("not-found", "Registration was not found.");
+    }
+    const registration = registrationSnap.data() ?? {};
+    const wasReady =
+      registration.paymentStatus === "paid" &&
+      registration.registrationStatus === "active";
+    const paymentDoc = {
+      id: qrId,
+      tournamentId: target.tournamentId,
+      registrationId: target.registrationId,
+      playerId: asString(registration.playerId),
+      playerName: asString(registration.playerName, "Player"),
+      provider: "xendit_qris",
+      xenditQrisId: qrId,
+      xenditQrisReferenceId: referenceId,
+      xenditQrisStatus: status,
+      xenditQrisPaymentId: asString(paidPayment?.id) || null,
+      currency: qr.currency ?? paidPayment?.currency ?? "IDR",
+      grossAmount:
+        asPositiveInt(qr.amount) ||
+        asPositiveInt(paidPayment?.amount) ||
+        asPositiveInt(registration.userPayableAmount),
+      adminNetAmount: asPositiveInt(registration.adminNetAmount),
+      platformFeeAmount: asPositiveInt(registration.platformFeeAmount),
+      paymentGatewayFeeAmount: asPositiveInt(registration.paymentGatewayFeeAmount),
+      status: paid ? "paid" : "processing",
+      source,
+      updatedAt: serverTimestamp(),
+    };
+
+    tx.set(
+      registrationRef,
+      {
+        paymentProvider: "xendit_qris",
+        xenditQrisId: qrId,
+        xenditQrisReferenceId: referenceId,
+        xenditQrisQrString: qrString,
+        xenditQrisStatus: status,
+        paymentUpdatedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        ...(paid ?
+          {
+            paymentStatus: "paid",
+            registrationStatus: "active",
+            paymentId: asString(paidPayment?.id) || qrId,
+            paidAt: registration.paidAt ?? serverTimestamp(),
+            activatedAt: registration.activatedAt ?? serverTimestamp(),
+          } :
+          {
+            paymentStatus: "processing",
+            registrationStatus: "pendingPayment",
+            paymentId: qrId,
+          }),
+      },
+      {merge: true},
+    );
+    tx.set(
+      paymentRef,
+      {
+        ...paymentDoc,
+        ...(paid ? {paidAt: serverTimestamp()} : {createdAt: serverTimestamp()}),
+      },
+      {merge: true},
+    );
+    if (paid && !wasReady) {
+      tx.set(
+        tournamentRef,
+        {
+          currentParticipantCount: admin.firestore.FieldValue.increment(1),
+          updatedAt: serverTimestamp(),
+        },
+        {merge: true},
+      );
+    }
+  });
+
+  return {
+    paymentSessionId: qrId,
+    paymentLinkUrl: null,
+    status,
+    paid,
+    expired: false,
+    paymentId: paid ? asString(paidPayment?.id) || qrId : qrId,
+    paymentRequestId: null,
+    paymentMode: "qris",
+    qrisReferenceId: referenceId,
+    qrisQrId: qrId,
+    qrisQrString: qrString,
+    qrisQrImageDataUrl: imageDataUrl,
+    message: paid ? "QRIS payment received." : "Scan this QRIS code to pay.",
+  };
+}
+
 async function activateFreeRegistration(target: PaymentTarget): Promise<PublicPaymentSession> {
   const registrationRef = db.doc(
     `tournaments/${target.tournamentId}/registrations/${target.registrationId}`,
@@ -548,6 +796,125 @@ export const createXenditPaymentSession = onCall(
   },
 );
 
+export const createXenditQrisPayment = onCall(
+  {secrets: [xenditSecretKey]},
+  async (request) => {
+    const uid = requireAuth(request.auth?.uid);
+    const tournamentId = requireString(request.data, "tournamentId");
+    const registrationId = requireString(request.data, "registrationId");
+    const target = {tournamentId, registrationId};
+    const registrationRef = db.doc(
+      `tournaments/${tournamentId}/registrations/${registrationId}`,
+    );
+    const tournamentRef = db.doc(`tournaments/${tournamentId}`);
+    const [registrationSnap, tournamentSnap] = await Promise.all([
+      registrationRef.get(),
+      tournamentRef.get(),
+    ]);
+    if (!registrationSnap.exists) {
+      throw new HttpsError("not-found", "Registration was not found.");
+    }
+    if (!tournamentSnap.exists) {
+      throw new HttpsError("not-found", "Tournament was not found.");
+    }
+    const registration = registrationSnap.data() ?? {};
+    if (registration.playerId !== uid) {
+      throw new HttpsError("permission-denied", "Only the registered player can pay.");
+    }
+    if (
+      registration.paymentProvider === "xendit_qris" &&
+      typeof registration.xenditQrisId === "string" &&
+      typeof registration.xenditQrisReferenceId === "string" &&
+      typeof registration.xenditQrisQrString === "string" &&
+      registration.paymentStatus !== "paid"
+    ) {
+      return {
+        paymentSessionId: registration.xenditQrisId,
+        paymentLinkUrl: null,
+        status: asString(registration.xenditQrisStatus, "ACTIVE"),
+        paid: false,
+        expired: false,
+        paymentId: asString(registration.paymentId) || registration.xenditQrisId,
+        paymentRequestId: null,
+        paymentMode: "qris",
+        qrisReferenceId: registration.xenditQrisReferenceId,
+        qrisQrId: registration.xenditQrisId,
+        qrisQrString: registration.xenditQrisQrString,
+        qrisQrImageDataUrl: await qrisDataUrl(registration.xenditQrisQrString),
+        message: "Existing QRIS code reused.",
+      };
+    }
+
+    const tournament = tournamentSnap.data() ?? {};
+    const amount =
+      asPositiveInt(registration.userPayableAmount) ||
+      asPositiveInt((registration.feePolicy as Record<string, unknown> | undefined)?.userPayable) ||
+      asPositiveInt(tournament.registrationFee);
+    if (amount <= 0) {
+      return activateFreeRegistration(target);
+    }
+
+    const referenceId = makeReferenceId(registrationId);
+    const qr = await xenditRequest<XenditQrCode>(
+      "POST",
+      "/qr_codes",
+      {
+        reference_id: referenceId,
+        type: "DYNAMIC",
+        currency: "IDR",
+        amount,
+        metadata: {
+          tournamentId: truncate(tournamentId, 80),
+          registrationId: truncate(registrationId, 80),
+          playerId: truncate(uid, 80),
+        },
+      },
+      {"api-version": "2022-07-31"},
+    );
+    return writeQrisState(target, qr, "created");
+  },
+);
+
+export const syncXenditQrisPayment = onCall(
+  {secrets: [xenditSecretKey]},
+  async (request) => {
+    const uid = requireAuth(request.auth?.uid);
+    const tournamentId = requireString(request.data, "tournamentId");
+    const registrationId = requireString(request.data, "registrationId");
+    const target = {tournamentId, registrationId};
+    await assertCanViewPayment(uid, target);
+    const registrationSnap = await db
+      .doc(`tournaments/${tournamentId}/registrations/${registrationId}`)
+      .get();
+    const registration = registrationSnap.data() ?? {};
+    const referenceId =
+      asString(request.data?.qrisReferenceId) ||
+      asString(registration.xenditQrisReferenceId);
+    const qrId = asString(registration.xenditQrisId);
+    const qrString = asString(registration.xenditQrisQrString);
+    if (!referenceId || !qrId || !qrString) {
+      throw new HttpsError("failed-precondition", "No Xendit QRIS code exists yet.");
+    }
+    const payments = await lookupQrisPayments(referenceId, qrId);
+    const paidPayment = payments.find((payment) =>
+      ["SUCCEEDED", "COMPLETED"].includes(asString(payment.status).toUpperCase()),
+    );
+    return writeQrisState(
+      target,
+      {
+        id: qrId,
+        reference_id: referenceId,
+        qr_string: qrString,
+        status: paidPayment ? "COMPLETED" : asString(registration.xenditQrisStatus, "ACTIVE"),
+        amount: asPositiveInt(registration.userPayableAmount),
+        currency: "IDR",
+      },
+      "manualSync",
+      paidPayment,
+    );
+  },
+);
+
 export const syncXenditPaymentSession = onCall(
   {secrets: [xenditSecretKey]},
   async (request) => {
@@ -614,6 +981,45 @@ export const xenditPaymentSessionWebhook = onRequest(async (request, response) =
     response.status(200).json({ok: true});
   } catch (error) {
     logger.error("Xendit webhook failed", {event, error});
+    response.status(500).json({ok: false});
+  }
+});
+
+export const xenditQrisWebhook = onRequest(async (request, response) => {
+  if (request.method !== "POST") {
+    response.status(405).send("Method not allowed");
+    return;
+  }
+  const expectedToken = process.env.XENDIT_WEBHOOK_TOKEN;
+  if (expectedToken && request.get("x-callback-token") !== expectedToken) {
+    response.status(401).send("Unauthorized");
+    return;
+  }
+  const payment = (request.body?.data ?? request.body ?? {}) as XenditQrPayment;
+  try {
+    const target = await resolveQrisTarget(payment);
+    if (!target) {
+      logger.warn("Xendit QRIS webhook target not found", {
+        paymentId: payment.id,
+        referenceId: payment.reference_id ?? payment.external_id,
+        qrId: payment.qr_id ?? payment.qr_code?.id,
+      });
+      response.status(202).json({accepted: true, targetFound: false});
+      return;
+    }
+    const registrationSnap = await db
+      .doc(`tournaments/${target.tournamentId}/registrations/${target.registrationId}`)
+      .get();
+    const registration = registrationSnap.data() ?? {};
+    await writeQrisState(
+      target,
+      qrisFromPayment(payment, registration),
+      "webhook:qris",
+      payment,
+    );
+    response.status(200).json({ok: true});
+  } catch (error) {
+    logger.error("Xendit QRIS webhook failed", {error});
     response.status(500).json({ok: false});
   }
 });

@@ -1863,6 +1863,36 @@ class TournamentRepository {
     );
   }
 
+  Future<XenditPaymentSessionResult> createXenditQrisPayment({
+    required String tournamentId,
+    required String registrationId,
+  }) async {
+    final callable = functions.httpsCallable('createXenditQrisPayment');
+    final response = await callable.call<Map<String, dynamic>>({
+      'tournamentId': tournamentId,
+      'registrationId': registrationId,
+    });
+    return XenditPaymentSessionResult.fromMap(
+      Map<String, dynamic>.from(response.data),
+    );
+  }
+
+  Future<XenditPaymentSessionResult> syncXenditQrisPayment({
+    required String tournamentId,
+    required String registrationId,
+    String? qrisReferenceId,
+  }) async {
+    final callable = functions.httpsCallable('syncXenditQrisPayment');
+    final response = await callable.call<Map<String, dynamic>>({
+      'tournamentId': tournamentId,
+      'registrationId': registrationId,
+      if (qrisReferenceId != null) 'qrisReferenceId': qrisReferenceId,
+    });
+    return XenditPaymentSessionResult.fromMap(
+      Map<String, dynamic>.from(response.data),
+    );
+  }
+
   Future<XenditPaymentSessionResult> syncXenditPaymentSession({
     required String tournamentId,
     required String registrationId,
@@ -2329,6 +2359,11 @@ class XenditPaymentSessionResult {
     this.paymentLinkUrl,
     this.paymentId,
     this.paymentRequestId,
+    this.paymentMode,
+    this.qrisReferenceId,
+    this.qrisQrId,
+    this.qrisQrString,
+    this.qrisQrImageDataUrl,
     this.message,
   });
 
@@ -2339,6 +2374,11 @@ class XenditPaymentSessionResult {
   final String? paymentLinkUrl;
   final String? paymentId;
   final String? paymentRequestId;
+  final String? paymentMode;
+  final String? qrisReferenceId;
+  final String? qrisQrId;
+  final String? qrisQrString;
+  final String? qrisQrImageDataUrl;
   final String? message;
 
   bool get canOpenCheckout =>
@@ -2353,6 +2393,11 @@ class XenditPaymentSessionResult {
       paymentLinkUrl: data['paymentLinkUrl']?.toString(),
       paymentId: data['paymentId']?.toString(),
       paymentRequestId: data['paymentRequestId']?.toString(),
+      paymentMode: data['paymentMode']?.toString(),
+      qrisReferenceId: data['qrisReferenceId']?.toString(),
+      qrisQrId: data['qrisQrId']?.toString(),
+      qrisQrString: data['qrisQrString']?.toString(),
+      qrisQrImageDataUrl: data['qrisQrImageDataUrl']?.toString(),
       message: data['message']?.toString(),
     );
   }
