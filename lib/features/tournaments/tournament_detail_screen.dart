@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../player/check_in_pass_card.dart';
 import '../../core/theme/hideout_tokens.dart';
 import 'tournaments_screen.dart';
 
@@ -178,8 +180,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final tournament =
-        _fromArguments(ModalRoute.of(context)?.settings.arguments);
+    final rawArgs = ModalRoute.of(context)?.settings.arguments;
+    final tournament = _fromArguments(rawArgs);
+    final registrationId = rawArgs is Map
+        ? (rawArgs['registrationId'] ?? '').toString()
+        : '';
     final isLive = tournament.status == 'LIVE';
     final canRegister = tournament.status == 'REGISTRATION OPEN';
 
@@ -195,6 +200,24 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 90),
               child: Column(
                 children: [
+                  if (registrationId.isNotEmpty) ...[
+                    CheckInPassCard(
+                      registrationId: registrationId,
+                      tournamentName: tournament.name,
+                      playerName: rawArgs is Map
+                          ? (rawArgs['player'] ?? '').toString()
+                          : '',
+                      playerCode: rawArgs is Map
+                          ? (rawArgs['bjxId'] ?? '').toString()
+                          : '',
+                      deck:
+                          rawArgs is Map ? (rawArgs['deck'] ?? '').toString() : '',
+                      venue: tournament.venue,
+                      city: tournament.city,
+                      date: _longDate(tournament.date),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                   _Tabs(
                     selected: _selectedTab,
                     onSelected: (tab) => setState(() => _selectedTab = tab),
@@ -417,7 +440,15 @@ class _TopBar extends StatelessWidget {
             ),
           ),
           OutlinedButton.icon(
-            onPressed: () {},
+            onPressed: () async {
+              await Clipboard.setData(
+                ClipboardData(text: 'Turney.id - ${tournament.name}'),
+              );
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Tournament name copied.')),
+              );
+            },
             icon: const Icon(Icons.ios_share_outlined, size: 14),
             label: const Text('SHARE'),
           ),
@@ -908,10 +939,10 @@ class _PublicDoubleElimPreview extends StatelessWidget {
             ],
           ),
           const SizedBox(height: HDTSpace.lg),
-          SingleChildScrollView(
+          const SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.only(bottom: HDTSpace.xs),
-            child: const _PublicEsportsDoubleElimMap(),
+            padding: EdgeInsets.only(bottom: HDTSpace.xs),
+            child: _PublicEsportsDoubleElimMap(),
           ),
         ],
       ),
@@ -947,7 +978,7 @@ class _PublicEsportsDoubleElimMap extends StatelessWidget {
           Positioned.fill(
             child: CustomPaint(painter: _PublicBracketBackdropPainter()),
           ),
-          Positioned.fill(
+          const Positioned.fill(
             child: CustomPaint(
               painter: _PublicBracketLinePainter(
                 upperA: upperA,
@@ -1024,7 +1055,7 @@ class _PublicEsportsDoubleElimMap extends StatelessWidget {
             height: cardH,
             child: _PublicElimMatchCard(match: grand.matches[0]),
           ),
-          Positioned(
+          const Positioned(
             right: 30,
             bottom: 28,
             child: _PublicChampionBadge(color: HDTColors.accentHover),
@@ -1933,7 +1964,21 @@ class _Panel extends StatelessWidget {
 }
 
 TournamentEntry _fromArguments(Object? args) {
-  final fallback = demoTournaments.first;
+  final fallback = TournamentEntry(
+    id: '',
+    name: 'Tournament not found',
+    community: '-',
+    status: 'UPCOMING',
+    format: '-',
+    tier: '-',
+    city: '-',
+    venue: '-',
+    entryFee: '-',
+    date: DateTime.now(),
+    registered: 0,
+    capacity: 0,
+    color: HDTColors.info,
+  );
   if (args is! Map) return fallback;
 
   DateTime parsedDate = fallback.date;

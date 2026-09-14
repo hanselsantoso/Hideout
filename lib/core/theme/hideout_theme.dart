@@ -42,11 +42,9 @@ class HDTTheme {
         onTertiary: Colors.white,
         error: HDTColors.danger,
         onError: Colors.white,
-        background: HDTColors.bg,
-        onBackground: HDTColors.text,
         surface: HDTColors.s1,
         onSurface: HDTColors.text,
-        surfaceVariant: HDTColors.s2,
+        surfaceContainerHighest: HDTColors.s2,
         onSurfaceVariant: HDTColors.text2,
         outline: HDTColors.s2,
         outlineVariant: HDTColors.s3,
@@ -216,14 +214,14 @@ class HDTTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: HDTColors.s1,
         indicatorColor: HDTColors.accentDim,
-        iconTheme: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return const IconThemeData(color: HDTColors.accentHover, size: 22);
           }
           return const IconThemeData(color: HDTColors.text3, size: 22);
         }),
-        labelTextStyle: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return GoogleFonts.oswald(
                 fontSize: 10, letterSpacing: 1.2, color: HDTColors.accentHover);
           }
@@ -280,8 +278,8 @@ class HDTTheme {
         headerForegroundColor: Colors.white,
         dayStyle: GoogleFonts.jetBrainsMono(fontSize: 12),
         todayBorder: const BorderSide(color: HDTColors.accent),
-        todayBackgroundColor: MaterialStateProperty.resolveWith((s) =>
-            s.contains(MaterialState.selected) ? HDTColors.accent : null),
+        todayBackgroundColor: WidgetStateProperty.resolveWith((s) =>
+            s.contains(WidgetState.selected) ? HDTColors.accent : null),
         shape: const RoundedRectangleBorder(borderRadius: HDTR.xl),
       ),
     );

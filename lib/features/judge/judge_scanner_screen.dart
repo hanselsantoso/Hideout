@@ -20,6 +20,7 @@ class _JudgeScannerScreenState extends ConsumerState<JudgeScannerScreen> {
   );
   var _routeArgsApplied = false;
   bool _matchVerify = false;
+  bool _judgeCheckedIn = false;
   bool _cameraOpen = false;
   bool _scanned = false;
   bool _loading = false;
@@ -40,6 +41,41 @@ class _JudgeScannerScreenState extends ConsumerState<JudgeScannerScreen> {
   @override
   Widget build(BuildContext context) {
     _applyRouteArgs();
+    if (!_judgeCheckedIn) {
+      return Scaffold(
+        backgroundColor: HDTColors.bg,
+        appBar: AppBar(title: const Text('SCANNER LOCKED')),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: Container(
+              padding: const EdgeInsets.all(HDTSpace.xl),
+              decoration: hdtCard(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('CHECK IN REQUIRED',
+                      style: HDTText.display(size: 26)),
+                  const SizedBox(height: HDTSpace.sm),
+                  Text(
+                    'Scanner only opens after you check in (absen) for the tournament on the event day. Open Judge Schedule and press CHECK IN first.',
+                    style: HDTText.body(
+                        color: HDTColors.text2, height: 1.5),
+                  ),
+                  const SizedBox(height: HDTSpace.lg),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pushReplacementNamed(
+                        context, '/juri/matches'),
+                    child: const Text('GO TO JUDGE SCHEDULE'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     final allOk = _deckMatches && _bladeOk && _ratchetOk && _bitOk;
     return Scaffold(
       backgroundColor: HDTColors.bg,
@@ -162,6 +198,8 @@ class _JudgeScannerScreenState extends ConsumerState<JudgeScannerScreen> {
     if (matchVerify is bool && matchVerify != _matchVerify) {
       _matchVerify = matchVerify;
     }
+    final checkedIn = args['judgeCheckedIn'];
+    if (checkedIn is bool) _judgeCheckedIn = checkedIn;
   }
 
   void _reset() {

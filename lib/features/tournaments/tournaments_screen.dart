@@ -62,144 +62,6 @@ class TournamentEntry {
       };
 }
 
-final List<TournamentEntry> demoTournaments = [
-  TournamentEntry(
-    id: 'bjx-cup-3',
-    name: 'HIDEOUT Cup #3. Spring Showdown',
-    community: 'JKT Wolves',
-    status: 'LIVE',
-    date: DateTime(2026, 5, 9),
-    venue: 'GBK Senayan',
-    city: 'Jakarta',
-    registered: 64,
-    capacity: 64,
-    entryFee: 'Rp 100.000',
-    format: 'Swiss to Double Elim',
-    tier: 'PREMIER',
-    color: HDTColors.accent,
-  ),
-  TournamentEntry(
-    id: 'bjx-cup-4',
-    name: 'HIDEOUT Cup #4. Summer Open',
-    community: 'JKT Wolves',
-    status: 'REGISTRATION OPEN',
-    date: DateTime(2026, 6, 14),
-    venue: 'GBK Senayan',
-    city: 'Jakarta',
-    registered: 42,
-    capacity: 64,
-    entryFee: 'Rp 100.000',
-    format: 'Single Elim',
-    tier: 'STANDARD',
-    color: HDTColors.info,
-  ),
-  TournamentEntry(
-    id: 'sby-ec-1',
-    name: 'East Coast Showdown',
-    community: 'SBY Spin',
-    status: 'LIVE',
-    date: DateTime(2026, 5, 9),
-    venue: 'Grand City Mall',
-    city: 'Surabaya',
-    registered: 48,
-    capacity: 48,
-    entryFee: 'Rp 75.000',
-    format: 'Swiss',
-    tier: 'STANDARD',
-    color: Color(0xFFE94560),
-  ),
-  TournamentEntry(
-    id: 'bdg-highland',
-    name: 'Highland Open',
-    community: 'BDG Grinders',
-    status: 'UPCOMING',
-    date: DateTime(2026, 5, 23),
-    venue: 'Trans Studio',
-    city: 'Bandung',
-    registered: 22,
-    capacity: 64,
-    entryFee: 'Rp 75.000',
-    format: 'Round Robin to Single Elim',
-    tier: 'STANDARD',
-    color: HDTColors.warning,
-  ),
-  TournamentEntry(
-    id: 'ygy-sultanate',
-    name: 'Sultanate Series Vol.2',
-    community: 'Yogya Meta',
-    status: 'REGISTRATION OPEN',
-    date: DateTime(2026, 5, 30),
-    venue: 'Jogja City Mall',
-    city: 'Yogyakarta',
-    registered: 18,
-    capacity: 32,
-    entryFee: 'Rp 60.000',
-    format: 'Double Elim',
-    tier: 'CASUAL',
-    color: Color(0xFF16A085),
-  ),
-  TournamentEntry(
-    id: 'jkt-wkly-19',
-    name: 'Weekly Ranked #19',
-    community: 'JKT Wolves',
-    status: 'UPCOMING',
-    date: DateTime(2026, 5, 16),
-    venue: 'Senayan Hub',
-    city: 'Jakarta',
-    registered: 12,
-    capacity: 32,
-    entryFee: 'Rp 50.000',
-    format: 'Swiss',
-    tier: 'CASUAL',
-    color: Color(0xFF5DADE2),
-  ),
-  TournamentEntry(
-    id: 'mdn-burst-1',
-    name: 'Medan Burst Open',
-    community: 'Medan Burst',
-    status: 'REGISTRATION OPEN',
-    date: DateTime(2026, 6, 7),
-    venue: 'Medan Fair',
-    city: 'Medan',
-    registered: 8,
-    capacity: 32,
-    entryFee: 'Rp 60.000',
-    format: 'Single Elim',
-    tier: 'CASUAL',
-    color: Color(0xFF1ABC9C),
-  ),
-  TournamentEntry(
-    id: 'snyo-apr',
-    name: 'Senayan Open. April',
-    community: 'JKT Wolves',
-    status: 'COMPLETED',
-    date: DateTime(2026, 4, 26),
-    venue: 'GBK Senayan',
-    city: 'Jakarta',
-    registered: 48,
-    capacity: 48,
-    entryFee: 'Rp 100.000',
-    format: 'Swiss to Double Elim',
-    tier: 'STANDARD',
-    color: HDTColors.success,
-  ),
-  TournamentEntry(
-    id: 'bjx-cup-5',
-    name: 'HIDEOUT Cup #5. Regional Qualifier',
-    community: 'JKT Wolves',
-    status: 'UPCOMING',
-    date: DateTime(2026, 7, 12),
-    venue: 'Trans Studio',
-    city: 'Jakarta',
-    registered: 6,
-    capacity: 128,
-    entryFee: 'Rp 150.000',
-    format: 'Swiss to Double Elim',
-    tier: 'PREMIER',
-    color: Color(0xFFE67E22),
-  ),
-];
-
 class TournamentState {
   final String query;
   final String tier;
@@ -310,7 +172,7 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
     final backend = ref.watch(liveTournamentsProvider);
     final backendEntries =
         backend.valueOrNull?.map(_fromBackend).toList() ?? const [];
-    final source = backendEntries.isEmpty ? demoTournaments : backendEntries;
+    final source = backendEntries;
     final filtered = state.filteredFrom(source);
     final paginated =
         filtered.skip(state.page * _perPage).take(_perPage).toList();
@@ -434,7 +296,7 @@ class _PageHeader extends StatelessWidget {
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: HDTColors.accent,
                       borderRadius: HDTR.sm,
                     ),
@@ -657,10 +519,10 @@ class _TournamentCard extends StatelessWidget {
                   width: 30,
                   height: 30,
                   decoration: BoxDecoration(
-                    color: tournament.color.withOpacity(.14),
+                    color: tournament.color.withValues(alpha: .14),
                     borderRadius: HDTR.sm,
                     border:
-                        Border.all(color: tournament.color.withOpacity(.35)),
+                        Border.all(color: tournament.color.withValues(alpha: .35)),
                   ),
                   child: Icon(Icons.emoji_events_outlined,
                       size: 15, color: tournament.color),
@@ -709,7 +571,7 @@ class _TournamentCard extends StatelessWidget {
             const SizedBox(height: 16),
             Row(
               children: [
-                Icon(Icons.people_alt_outlined,
+                const Icon(Icons.people_alt_outlined,
                     size: 13, color: HDTColors.text3),
                 const SizedBox(width: 6),
                 Expanded(
@@ -835,11 +697,13 @@ TournamentEntry _fromBackend(TournamentSummary tournament) {
     city: _cityFromLocation(tournament.location),
     registered: tournament.currentParticipantCount,
     capacity: tournament.maxParticipants,
-    entryFee: NumberFormat.currency(
-      locale: 'id_ID',
-      symbol: 'Rp ',
-      decimalDigits: 0,
-    ).format(tournament.registrationFee),
+    entryFee: tournament.registrationFee <= 0
+        ? 'FREE'
+        : NumberFormat.currency(
+            locale: 'id_ID',
+            symbol: 'Rp ',
+            decimalDigits: 0,
+          ).format(tournament.registrationFee),
     format: tournament.bracketType,
     tier: 'STANDARD',
     color: HDTColors.info,

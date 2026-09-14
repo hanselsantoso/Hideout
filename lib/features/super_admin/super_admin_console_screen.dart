@@ -8,6 +8,58 @@ import '../../core/constants/firestore_paths.dart';
 import '../../core/theme/hideout_tokens.dart';
 import '../../data/models/bey_part.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../../data/repositories/tournament_repository.dart';
+
+class PayoutRow {
+  const PayoutRow({
+    required this.id,
+    required this.tournamentId,
+    required this.requesterName,
+    required this.amount,
+    required this.bankName,
+    required this.accountName,
+    required this.status,
+    required this.hasDisbursement,
+  });
+
+  final String id;
+  final String tournamentId;
+  final String requesterName;
+  final int amount;
+  final String bankName;
+  final String accountName;
+  final String status;
+  final bool hasDisbursement;
+
+  factory PayoutRow.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data() ?? {};
+    final parent = doc.reference.parent.parent;
+    return PayoutRow(
+      id: doc.id,
+      tournamentId: parent?.id ?? '',
+      requesterName: (data['requesterName'] ?? '').toString(),
+      amount: (data['amount'] as num?)?.round() ?? 0,
+      bankName: (data['bankName'] ?? '').toString(),
+      accountName: (data['accountName'] ?? '').toString(),
+      status: (data['status'] ?? '').toString(),
+      hasDisbursement:
+          (data['xenditDisbursementId'] ?? '').toString().isNotEmpty,
+    );
+  }
+}
+
+final payoutQueueProvider = StreamProvider<List<PayoutRow>>((ref) {
+  return ref
+      .watch(firestoreProvider)
+      .collectionGroup(FirestorePaths.withdrawals)
+      .limit(200)
+      .snapshots()
+      .map((snap) {
+    final rows = snap.docs.map(PayoutRow.fromDoc).toList();
+    rows.sort((a, b) => a.status.compareTo(b.status));
+    return rows;
+  });
+});
 
 final superAdminMetricsProvider = StreamProvider<SuperAdminMetrics>((ref) {
   final firestore = ref.watch(firestoreProvider);
@@ -346,6 +398,158 @@ class _ReportGrid extends ConsumerWidget {
             applications: ref.watch(pendingApplicationsPreviewProvider)),
         const SizedBox(height: HDTSpace.xl),
         _FinanceStatsPanel(data: data),
+        const SizedBox(height: HDTSpace.xl),
+        const _PayoutQueuePanel(),
+      ],
+    );
+  }
+}
+
+class _PayoutQueuePanel extends ConsumerStatefulWidget {
+  const _PayoutQueuePanel();
+
+  @override
+  ConsumerState<_PayoutQueuePanel> createState() => _PayoutQueuePanelState();
+}
+
+class _PayoutQueuePanelState extends ConsumerState<_PayoutQueuePanel> {
+  final Set<String> _busy = {};
+
+  Future<void> _run(
+    PayoutRow row,
+    Future<Map<String, dynamic>> Function() action,
+    String successMessage,
+  ) async {
+    setState(() => _busy.add(row.id));
+    try {
+      await action();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(successMessage)),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Payout action failed: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy.remove(row.id));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final queue = ref.watch(payoutQueueProvider);
+    final rows = queue.valueOrNull ?? const <PayoutRow>[];
+    final pending = rows
+        .where((row) => row.status != 'completed')
+        .toList(growable: false);
+    return _DataPanel(
+      title: 'PAYOUT QUEUE',
+      icon: Icons.account_balance_outlined,
+      children: [
+        Text(
+          'Process community withdrawals through Xendit Disbursement. Funds are transferred to the leader bank account; status updates from the Xendit webhook or manual sync.',
+          style: HDTText.body(size: 12, color: HDTColors.text2),
+        ),
+        const SizedBox(height: HDTSpace.md),
+        if (queue.isLoading && rows.isEmpty)
+          const LinearProgressIndicator(minHeight: 3),
+        if (rows.isEmpty)
+          Text('No withdrawal requests yet.',
+              style: HDTText.body(size: 12, color: HDTColors.text3)),
+        for (final row in rows.take(12)) ...[
+          Container(
+            margin: const EdgeInsets.only(bottom: HDTSpace.sm),
+            padding: const EdgeInsets.all(HDTSpace.md),
+            decoration: BoxDecoration(
+              color: HDTColors.s1,
+              borderRadius: HDTR.md,
+              border: Border.all(
+                color: row.status == 'completed'
+                    ? HDTColors.success.withValues(alpha: .4)
+                    : row.status == 'failed'
+                        ? HDTColors.danger.withValues(alpha: .45)
+                        : HDTColors.s2,
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(row.requesterName.isEmpty ? row.id : row.requesterName,
+                          style: HDTText.display(size: 13)),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${row.bankName} . ${row.accountName}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: HDTText.mono(size: 10, color: HDTColors.text3),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(_formatRp(row.amount),
+                      style: HDTText.mono(size: 12, color: HDTColors.text2)),
+                ),
+                SizedBox(
+                  width: 110,
+                  child: _StatusPill(
+                    label: row.status.toUpperCase(),
+                    color: row.status == 'completed'
+                        ? HDTColors.success
+                        : row.status == 'failed'
+                            ? HDTColors.danger
+                            : HDTColors.warning,
+                  ),
+                ),
+                const SizedBox(width: HDTSpace.sm),
+                if (row.status != 'completed')
+                  ElevatedButton(
+                    onPressed: _busy.contains(row.id)
+                        ? null
+                        : () => _run(
+                              row,
+                              () => ref
+                                  .read(tournamentRepositoryProvider)
+                                  .payoutWithdrawal(
+                                    tournamentId: row.tournamentId,
+                                    withdrawalId: row.id,
+                                  ),
+                              'Payout submitted to Xendit for ${row.requesterName}.',
+                            ),
+                    child: const Text('PROCESS'),
+                  ),
+                if (row.hasDisbursement) ...[
+                  const SizedBox(width: HDTSpace.xs),
+                  OutlinedButton(
+                    onPressed: _busy.contains(row.id)
+                        ? null
+                        : () => _run(
+                              row,
+                              () => ref
+                                  .read(tournamentRepositoryProvider)
+                                  .syncWithdrawalPayout(
+                                    tournamentId: row.tournamentId,
+                                    withdrawalId: row.id,
+                                  ),
+                              'Payout status synced from Xendit.',
+                            ),
+                    child: const Text('SYNC'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+        if (pending.isEmpty && rows.isNotEmpty)
+          Text('All withdrawals are completed.',
+              style: HDTText.body(size: 12, color: HDTColors.text3)),
       ],
     );
   }
@@ -2184,6 +2388,15 @@ class _AdminUserRowState extends ConsumerState<_AdminUserRow> {
       if (value == 'judge' || value == 'mixed') roles.add('judge');
       if (value == 'community_admin' || value == 'mixed') {
         roles.add('community_admin');
+      }
+      try {
+        await ref.read(functionsProvider).httpsCallable('setPlatformRole').call({
+          'targetUid': widget.user.uid,
+          'roles': roles.toList(),
+        });
+        return;
+      } catch (_) {
+        // Fall back to a direct Firestore write when the callable is missing.
       }
       await ref
           .read(firestoreProvider)

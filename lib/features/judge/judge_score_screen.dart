@@ -59,6 +59,37 @@ class _JudgeScoreScreenState extends ConsumerState<JudgeScoreScreen> {
   @override
   Widget build(BuildContext context) {
     final match = _MatchContext.fromRoute(context);
+    if (match.gated) {
+      return Scaffold(
+        backgroundColor: HDTColors.bg,
+        appBar: AppBar(title: const Text('SCORE INPUT LOCKED')),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: Container(
+              padding: const EdgeInsets.all(HDTSpace.xl),
+              decoration: hdtCard(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('NOT READY YET', style: HDTText.display(size: 26)),
+                  const SizedBox(height: HDTSpace.sm),
+                  Text(match.gateReason,
+                      style: HDTText.body(color: HDTColors.text2, height: 1.5)),
+                  const SizedBox(height: HDTSpace.lg),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pushReplacementNamed(
+                        context, '/juri/matches'),
+                    child: const Text('GO TO JUDGE SCHEDULE'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: HDTColors.bg,
       appBar: AppBar(
@@ -359,6 +390,9 @@ class _MatchContext {
   final String playerBId;
   final String playerBName;
   final String playerBDeckName;
+  final bool judgeCheckedIn;
+  final bool playerAVerified;
+  final bool playerBVerified;
 
   const _MatchContext({
     required this.tournamentId,
@@ -372,7 +406,25 @@ class _MatchContext {
     required this.playerBId,
     required this.playerBName,
     required this.playerBDeckName,
+    this.judgeCheckedIn = false,
+    this.playerAVerified = false,
+    this.playerBVerified = false,
   });
+
+  bool get gated =>
+      !judgeCheckedIn || !playerAVerified || !playerBVerified;
+
+  String get gateReason {
+    if (!judgeCheckedIn) {
+      return 'Check in (absen) at Judge Schedule first to unlock score input.';
+    }
+    final missing = [
+      if (!playerAVerified) 'PLAYER A',
+      if (!playerBVerified) 'PLAYER B',
+    ];
+    return 'Deck verification incomplete: scan ${missing.join(' and ')} '
+        'with the QR scanner before scoring.';
+  }
 
   bool get canPersist =>
       tournamentId.isNotEmpty && roundId.isNotEmpty && matchId.isNotEmpty;
@@ -391,6 +443,15 @@ class _MatchContext {
       playerBId: (args['playerBId'] ?? 'player-b').toString(),
       playerBName: (args['playerBName'] ?? 'MARDIKA').toString(),
       playerBDeckName: (args['playerBDeckName'] ?? 'Void Bastion').toString(),
+      judgeCheckedIn: args['judgeCheckedIn'] is bool
+          ? args['judgeCheckedIn'] as bool
+          : true,
+      playerAVerified: args['playerAVerified'] is bool
+          ? args['playerAVerified'] as bool
+          : true,
+      playerBVerified: args['playerBVerified'] is bool
+          ? args['playerBVerified'] as bool
+          : true,
     );
   }
 }

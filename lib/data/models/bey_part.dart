@@ -479,11 +479,13 @@ List<String> validateDeck(
         combo.ratchetId == null ? null : catalog.find(combo.ratchetId!);
     final cx = blade?.isCx ?? false;
 
-    if (blade == null)
+    if (blade == null) {
       issues.add('Combo ${i + 1}: Blade has not been selected.');
+    }
     if (bit == null) issues.add('Combo ${i + 1}: Bit has not been selected.');
-    if (ratchet == null)
+    if (ratchet == null) {
       issues.add('Combo ${i + 1}: Ratchet has not been selected.');
+    }
     if (cx && combo.assistBladeId == null) {
       issues.add('Combo ${i + 1}: CX must choose an Assist Blade.');
     }

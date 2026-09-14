@@ -20,7 +20,7 @@ class _ComponentsScreenState extends ConsumerState<ComponentsScreen> {
   String _type = 'all';
   String _sort = 'played_desc';
   int _page = 0;
-  final int _pageSize = 24;
+  final int _pageSize = 12;
 
   @override
   void dispose() {
@@ -286,7 +286,7 @@ class _FilterMenu extends StatelessWidget {
     return SizedBox(
       width: width,
       child: DropdownButtonFormField<String>(
-        value: value,
+        initialValue: value,
         decoration: const InputDecoration(),
         items: [
           for (final entry in items.entries)

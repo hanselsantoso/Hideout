@@ -8,125 +8,6 @@ import '../../data/models/tournament_summary.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/tournament_repository.dart';
 
-const _demoBracketRounds = [
-  BracketRoundSummary(
-    id: 'round-1',
-    index: 1,
-    matches: [
-      BracketMatchNode(
-        id: 'm-001',
-        tournamentId: 'demo-tourney',
-        roundId: 'round-1',
-        roundIndex: 1,
-        bracketPosition: 1,
-        matchCode: 'M-001',
-        status: 'completed',
-        playerAName: 'Hansel',
-        playerBName: 'Mardika',
-        winnerName: 'Hansel',
-        finalScore: '4-2',
-        bye: false,
-      ),
-      BracketMatchNode(
-        id: 'm-002',
-        tournamentId: 'demo-tourney',
-        roundId: 'round-1',
-        roundIndex: 1,
-        bracketPosition: 2,
-        matchCode: 'M-002',
-        status: 'completed',
-        playerAName: 'Nadia',
-        playerBName: 'Bayu',
-        winnerName: 'Nadia',
-        finalScore: '4-1',
-        bye: false,
-      ),
-      BracketMatchNode(
-        id: 'm-003',
-        tournamentId: 'demo-tourney',
-        roundId: 'round-1',
-        roundIndex: 1,
-        bracketPosition: 3,
-        matchCode: 'M-003',
-        status: 'ready',
-        playerAName: 'Raka',
-        playerBName: 'Sinta',
-        winnerName: null,
-        finalScore: null,
-        bye: false,
-      ),
-      BracketMatchNode(
-        id: 'm-004',
-        tournamentId: 'demo-tourney',
-        roundId: 'round-1',
-        roundIndex: 1,
-        bracketPosition: 4,
-        matchCode: 'M-004',
-        status: 'completed',
-        playerAName: 'Dimas',
-        playerBName: 'Clara',
-        winnerName: 'Clara',
-        finalScore: 'BYE',
-        bye: true,
-      ),
-    ],
-  ),
-  BracketRoundSummary(
-    id: 'round-2',
-    index: 2,
-    matches: [
-      BracketMatchNode(
-        id: 'm-001',
-        tournamentId: 'demo-tourney',
-        roundId: 'round-2',
-        roundIndex: 2,
-        bracketPosition: 1,
-        matchCode: 'R2-M001',
-        status: 'ready',
-        playerAName: 'Hansel',
-        playerBName: 'Nadia',
-        winnerName: null,
-        finalScore: null,
-        bye: false,
-      ),
-      BracketMatchNode(
-        id: 'm-002',
-        tournamentId: 'demo-tourney',
-        roundId: 'round-2',
-        roundIndex: 2,
-        bracketPosition: 2,
-        matchCode: 'R2-M002',
-        status: 'waitingOpponent',
-        playerAName: 'TBD',
-        playerBName: 'Clara',
-        winnerName: null,
-        finalScore: null,
-        bye: false,
-      ),
-    ],
-  ),
-  BracketRoundSummary(
-    id: 'round-3',
-    index: 3,
-    matches: [
-      BracketMatchNode(
-        id: 'm-001',
-        tournamentId: 'demo-tourney',
-        roundId: 'round-3',
-        roundIndex: 3,
-        bracketPosition: 1,
-        matchCode: 'FINAL',
-        status: 'waitingOpponent',
-        playerAName: 'TBD',
-        playerBName: 'TBD',
-        winnerName: null,
-        finalScore: null,
-        bye: false,
-      ),
-    ],
-  ),
-];
-
 const _demoStageRules = _GroupStageRules(
   stageName: 'Stage 1',
   format: 'Group Round Robin',
@@ -192,65 +73,6 @@ const _demoRoundRobinCells = [
   ['TBD', 'TBD', 'TBD', '0-4', '12:45', '-'],
 ];
 
-const _demoDoubleElimSections = [
-  _DoubleElimSection(
-    title: 'Upper Bracket',
-    subtitle: 'Winner path',
-    rounds: [
-      _DoubleElimRound(
-        title: 'UB R1',
-        matches: [
-          _DoubleElimMatch(
-              'UB-01', 'Hansel', 'Nadia', 'Hansel', '4-2', 'completed'),
-          _DoubleElimMatch('UB-02', 'Raka', 'Clara', null, null, 'ready'),
-        ],
-      ),
-      _DoubleElimRound(
-        title: 'UB Final',
-        matches: [
-          _DoubleElimMatch(
-              'UBF', 'Hansel', 'Winner UB-02', null, null, 'waiting'),
-        ],
-      ),
-    ],
-  ),
-  _DoubleElimSection(
-    title: 'Lower Bracket',
-    subtitle: 'One loss path',
-    rounds: [
-      _DoubleElimRound(
-        title: 'LB R1',
-        matches: [
-          _DoubleElimMatch(
-              'LB-01', 'Nadia', 'Loser UB-02', null, null, 'waiting'),
-        ],
-      ),
-      _DoubleElimRound(
-        title: 'LB Final',
-        matches: [
-          _DoubleElimMatch(
-              'LBF', 'Winner LB-01', 'Loser UBF', null, null, 'waiting'),
-        ],
-      ),
-    ],
-  ),
-  _DoubleElimSection(
-    title: 'Grand Final',
-    subtitle: 'Bracket reset enabled',
-    rounds: [
-      _DoubleElimRound(
-        title: 'GF',
-        matches: [
-          _DoubleElimMatch(
-              'GF-01', 'Winner UBF', 'Winner LBF', null, null, 'waiting'),
-          _DoubleElimMatch(
-              'GF-RESET', 'If Needed', 'Bracket Reset', null, null, 'locked'),
-        ],
-      ),
-    ],
-  ),
-];
-
 class _DoubleElimSection {
   const _DoubleElimSection({
     required this.title,
@@ -292,7 +114,7 @@ List<BracketRoundSummary> _buildSingleEliminationPreview(
   List<TournamentRegistrationSummary> roster,
 ) {
   final players = _previewPlayerNames(roster);
-  if (players.length < 2) return _demoBracketRounds;
+  if (players.length < 2) return const [];
   final bracketSize = _previewPowerOfTwo(players.length);
   final rounds = _previewRoundCount(bracketSize);
   final padded = [
@@ -354,7 +176,7 @@ List<_DoubleElimSection> _buildDoubleEliminationPreview(
   List<TournamentRegistrationSummary> roster,
 ) {
   final players = _previewPlayerNames(roster);
-  if (players.length < 2) return _demoDoubleElimSections;
+  if (players.length < 2) return const [];
   final bracketSize = _previewPowerOfTwo(players.length);
   final upperRounds = _previewRoundCount(bracketSize);
   final padded = [
@@ -578,6 +400,17 @@ class _TournamentOpsScreenState extends ConsumerState<TournamentOpsScreen> {
   final _arena = TextEditingController(text: 'Arena 01');
   final Set<String> _selectedJudgeIds = {};
   String? _selectedTournamentId;
+  bool _routeArgsApplied = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_routeArgsApplied) return;
+    _routeArgsApplied = true;
+    final args = (ModalRoute.of(context)?.settings.arguments as Map?) ?? {};
+    final tournamentId = (args['tournamentId'] ?? '').toString();
+    if (tournamentId.isNotEmpty) _selectedTournamentId = tournamentId;
+  }
   String? _error;
   String? _registrationBusyId;
   bool _busy = false;

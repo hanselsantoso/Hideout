@@ -25,12 +25,12 @@ import 'features/leaderboard/leaderboard_screen.dart';
 import 'features/matches/match_history_screen.dart';
 import 'features/notifications/notifications_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
-import 'features/player/check_in_pass_screen.dart';
 import 'features/public/public_communities_screen.dart';
 import 'features/public/public_leaderboard_screen.dart';
 import 'features/public/public_tournaments_screen.dart';
 import 'features/player/my_tournaments_screen.dart';
 import 'features/registration/tournament_registration_screen.dart';
+import 'features/staff/staff_desk_screen.dart';
 import 'features/super_admin/community_approvals_screen.dart';
 import 'features/super_admin/super_admin_console_screen.dart';
 import 'features/tournament_admin/tournament_ops_screen.dart';
@@ -78,7 +78,6 @@ class BeyTourneyApp extends StatelessWidget {
             _roleRoute('/me/decks/new', const DeckBuilderScreen()),
         '/me/tournaments': (_) =>
             _roleRoute('/me/tournaments', const MyTournamentsScreen()),
-        '/me/qr': (_) => _roleRoute('/me/qr', const CheckInPassScreen()),
         '/communities/new': (_) =>
             _roleRoute('/communities/new', const CommunityApplyScreen()),
         '/community/admin': (_) => _roleRoute(
@@ -111,8 +110,8 @@ class BeyTourneyApp extends StatelessWidget {
         '/super-admin/users': (_) => _roleRoute('/super-admin/users',
             const SuperAdminConsoleScreen(section: SuperAdminSection.users),
             allowedRoles: superAdminAccess),
-        '/super-admin/parts/new': (_) => _roleRoute('/super-admin/users',
-            const SuperAdminConsoleScreen(section: SuperAdminSection.users),
+        '/super-admin/parts/new': (_) => _roleRoute('/super-admin/components',
+            const SuperAdminConsoleScreen(section: SuperAdminSection.components),
             allowedRoles: superAdminAccess),
         '/admin/tournaments/new': (_) => _roleRoute(
               '/admin/tournaments/new',
@@ -123,6 +122,11 @@ class BeyTourneyApp extends StatelessWidget {
               '/admin/tournaments/ops',
               const TournamentOpsScreen(),
               allowedRoles: communityManagerAccess,
+            ),
+        '/staff/desk': (_) => _roleRoute(
+              '/staff/desk',
+              const StaffDeskScreen(),
+              allowedRoles: anySignedInAccess,
             ),
         '/tournaments': (_) =>
             _roleRoute('/tournaments', const TournamentsScreen()),
@@ -422,13 +426,6 @@ const _roleNavItems = [
     roles: {'player', 'judge', 'community_admin'},
   ),
   _RoleNavItem(
-    label: 'QR Check-In',
-    route: '/me/qr',
-    icon: Icons.qr_code_2_outlined,
-    section: 'tournaments',
-    roles: {'player', 'judge', 'community_admin'},
-  ),
-  _RoleNavItem(
     label: 'Leaderboard',
     route: '/leaderboard',
     icon: Icons.bar_chart_outlined,
@@ -439,6 +436,13 @@ const _roleNavItems = [
     label: 'My Matches',
     route: '/matches',
     icon: Icons.sports_martial_arts_outlined,
+    section: 'tournaments',
+    roles: {'player', 'judge', 'community_admin'},
+  ),
+  _RoleNavItem(
+    label: 'Panitia (Staff)',
+    route: '/staff/desk',
+    icon: Icons.support_agent_outlined,
     section: 'tournaments',
     roles: {'player', 'judge', 'community_admin'},
   ),
@@ -464,37 +468,9 @@ const _roleNavItems = [
     roles: {'judge'},
   ),
   _RoleNavItem(
-    label: 'Scan QR Player',
-    route: '/juri/scan',
-    icon: Icons.qr_code_scanner,
-    section: 'judge_panel',
-    roles: {'judge'},
-  ),
-  _RoleNavItem(
-    label: 'Input Score',
-    route: '/juri/score',
-    icon: Icons.shield_outlined,
-    section: 'judge_panel',
-    roles: {'judge'},
-  ),
-  _RoleNavItem(
     label: 'Community Dashboard',
     route: '/community/admin',
     icon: Icons.admin_panel_settings_outlined,
-    section: 'lead_panel',
-    roles: {'community_admin'},
-  ),
-  _RoleNavItem(
-    label: 'Tournament Ops',
-    route: '/admin/tournaments/ops',
-    icon: Icons.account_tree_outlined,
-    section: 'lead_panel',
-    roles: {'community_admin'},
-  ),
-  _RoleNavItem(
-    label: 'Create New Event',
-    route: '/admin/tournaments/new',
-    icon: Icons.add_circle_outline,
     section: 'lead_panel',
     roles: {'community_admin'},
   ),
@@ -1099,8 +1075,8 @@ class HomeScreen extends StatelessWidget {
           Icons.account_tree_outlined),
       _QuickAction('Event Registration', '/tournaments/register',
           Icons.confirmation_number_outlined),
-      _QuickAction('QR Scanner', '/juri/scan', Icons.qr_code_scanner),
-      _QuickAction('Input Score', '/juri/score', Icons.shield_outlined),
+      _QuickAction('Judge Schedule', '/juri/matches',
+          Icons.assignment_ind_outlined),
     ];
 
     return Consumer(builder: (context, ref, _) {

@@ -155,9 +155,9 @@ class HDTResultBadge extends StatelessWidget {
       height: height,
       padding: const EdgeInsets.symmetric(horizontal: 7),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.13),
+        color: color.withValues(alpha: 0.13),
         borderRadius: HDTR.sm,
-        border: Border.all(color: color.withOpacity(0.35)),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Center(
         child: Text(
@@ -204,9 +204,9 @@ class HDTDeckClassBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: HDTR.sm,
-        border: Border.all(color: color.withOpacity(0.35)),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Text(
         deckClass.toUpperCase(),
@@ -230,9 +230,9 @@ class HDTGameBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: HDTR.sm,
-        border: Border.all(color: color.withOpacity(0.35)),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Text(type.toUpperCase(),
           style: HDTText.overline(size: 7, color: color)),
@@ -384,7 +384,7 @@ class HDTSearchField extends StatelessWidget {
       style: HDTText.body(size: 13),
       decoration: InputDecoration(
         hintText: placeholder,
-        prefixIcon: Icon(Icons.search, size: 16, color: HDTColors.text3),
+        prefixIcon: const Icon(Icons.search, size: 16, color: HDTColors.text3),
         prefixIconConstraints:
             const BoxConstraints(minWidth: 36, minHeight: 36),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -423,9 +423,9 @@ class HDTStatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.18),
+        color: color.withValues(alpha: 0.18),
         borderRadius: HDTR.sm,
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -473,9 +473,9 @@ class HDTTierBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: HDTR.sm,
-        border: Border.all(color: color.withOpacity(0.35)),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Text(tier.toUpperCase(),
           style: HDTText.overline(size: 8, color: color)),
@@ -697,7 +697,7 @@ class HDTDateRangeBar extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.calendar_today,
+                    const Icon(Icons.calendar_today,
                         size: 13, color: HDTColors.text3),
                     const SizedBox(width: 6),
                     Text('RENTANG:', style: HDTText.overline(size: 9)),
@@ -743,7 +743,7 @@ class HDTDateRangeBar extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.date_range, size: 14, color: HDTColors.text3),
+                  const Icon(Icons.date_range, size: 14, color: HDTColors.text3),
                   const SizedBox(width: 8),
                   Text(
                     customRange != null
@@ -761,7 +761,7 @@ class HDTDateRangeBar extends StatelessWidget {
                     GestureDetector(
                       onTap: () => onCustomRange(null),
                       child:
-                          Icon(Icons.close, size: 14, color: HDTColors.text3),
+                          const Icon(Icons.close, size: 14, color: HDTColors.text3),
                     ),
                 ],
               ),

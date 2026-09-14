@@ -4,8 +4,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/firestore_paths.dart';
 import '../../core/theme/hideout_tokens.dart';
+import '../../data/models/tournament_summary.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/tournament_repository.dart';
+
+final organizerTournamentsProvider =
+    StreamProvider.family<List<TournamentSummary>, String>((ref, organizerId) {
+  if (organizerId.isEmpty) {
+    return Stream.value(const <TournamentSummary>[]);
+  }
+  return ref.watch(tournamentRepositoryProvider).watchOrganizerTournaments(
+        organizerId,
+      );
+});
 
 final communityAdminTournamentsProvider =
     StreamProvider.family<List<CommunityFinanceTournament>, String>(
@@ -92,31 +103,7 @@ class CommunityAdminScreen extends ConsumerWidget {
                       : user.displayName.trim(),
                 ),
                 const SizedBox(height: HDTSpace.xl),
-                const _CommunityAdminGuidePanel(),
-                const SizedBox(height: HDTSpace.xl),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final cols = constraints.maxWidth >= 1040
-                        ? 3
-                        : constraints.maxWidth >= 680
-                            ? 2
-                            : 1;
-                    final width =
-                        (constraints.maxWidth - ((cols - 1) * HDTSpace.lg)) /
-                            cols;
-                    return Wrap(
-                      spacing: HDTSpace.lg,
-                      runSpacing: HDTSpace.lg,
-                      children: [
-                        for (final item in _adminMenu)
-                          SizedBox(
-                            width: width,
-                            child: _AdminMenuCard(item: item),
-                          ),
-                      ],
-                    );
-                  },
-                ),
+                _TournamentCardsPanel(userId: user.uid),
                 const SizedBox(height: HDTSpace.xl),
                 _FinancePolicyPanel(
                   userId: user.uid,
@@ -133,59 +120,6 @@ class CommunityAdminScreen extends ConsumerWidget {
       ),
     );
   }
-}
-
-const _adminMenu = [
-  _AdminMenuItem(
-    title: 'Tournament Ops',
-    subtitle:
-        'Control room for rosters, flexible group setup, player auto-fill, judge assignments, and match generation.',
-    route: '/admin/tournaments/ops',
-    icon: Icons.account_tree_outlined,
-    color: HDTColors.accent,
-    primary: true,
-  ),
-  _AdminMenuItem(
-    title: 'Create Tournament',
-    subtitle:
-        'Start a trial from scratch: event name, rules, pricing, arenas, schedule, and initial stage.',
-    route: '/admin/tournaments/new',
-    icon: Icons.add_circle_outline,
-    color: HDTColors.success,
-  ),
-  _AdminMenuItem(
-    title: 'Manage Judges',
-    subtitle: 'Assign or revoke judge roles from verified community players.',
-    route: '/community/judges',
-    icon: Icons.verified_user_outlined,
-    color: HDTColors.info,
-  ),
-  _AdminMenuItem(
-    title: 'Community Registration',
-    subtitle:
-        'Create or complete a community profile before submitting it to super admin.',
-    route: '/communities/new',
-    icon: Icons.groups_outlined,
-    color: HDTColors.warning,
-  ),
-];
-
-class _AdminMenuItem {
-  const _AdminMenuItem({
-    required this.title,
-    required this.subtitle,
-    required this.route,
-    required this.icon,
-    required this.color,
-    this.primary = false,
-  });
-
-  final String title;
-  final String subtitle;
-  final String route;
-  final IconData icon;
-  final Color color;
-  final bool primary;
 }
 
 class CommunityFinanceTournament {
@@ -412,121 +346,6 @@ class _HeaderMetric extends StatelessWidget {
           Text(label, style: HDTText.overline(size: 8)),
           const SizedBox(height: 2),
           Text(value, style: HDTText.display(size: 24)),
-        ],
-      ),
-    );
-  }
-}
-
-class _AdminMenuCard extends StatelessWidget {
-  const _AdminMenuCard({required this.item});
-
-  final _AdminMenuItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => Navigator.pushNamed(context, item.route),
-      borderRadius: HDTR.lg,
-      child: Container(
-        constraints: BoxConstraints(minHeight: item.primary ? 230 : 190),
-        padding: const EdgeInsets.all(HDTSpace.lg),
-        decoration: hdtAccentCard(
-          accentColor: item.color,
-          highlighted: item.primary,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: item.color.withValues(alpha: .18),
-                borderRadius: HDTR.md,
-                border: Border.all(color: item.color),
-              ),
-              child: Icon(item.icon, color: item.color),
-            ),
-            const Spacer(),
-            Text(item.title.toUpperCase(), style: HDTText.display(size: 24)),
-            const SizedBox(height: HDTSpace.sm),
-            Text(
-              item.subtitle,
-              style:
-                  HDTText.body(size: 12, color: HDTColors.text2, height: 1.45),
-            ),
-            const SizedBox(height: HDTSpace.lg),
-            Row(
-              children: [
-                Text('OPEN',
-                    style: HDTText.overline(size: 9, color: item.color)),
-                const SizedBox(width: HDTSpace.xs),
-                Icon(Icons.arrow_forward, size: 14, color: item.color),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CommunityAdminGuidePanel extends StatelessWidget {
-  const _CommunityAdminGuidePanel();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(HDTSpace.lg),
-      decoration: hdtAccentCard(accentColor: HDTColors.info),
-      child: Wrap(
-        alignment: WrapAlignment.spaceBetween,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: HDTSpace.lg,
-        runSpacing: HDTSpace.lg,
-        children: [
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 740),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('COMMUNITY LEAD START GUIDE',
-                    style: HDTText.overline(size: 10, color: HDTColors.info)),
-                const SizedBox(height: HDTSpace.sm),
-                Text('Trial starts by creating a new tournament',
-                    style: HDTText.display(size: 26)),
-                const SizedBox(height: HDTSpace.sm),
-                Text(
-                  'Recommended workflow: create a tournament, open registration, wait for players to register and pay, arrange groups with drag-and-drop, assign judges, then generate matches. The full bracket stays parked until live data is ready.',
-                  style: HDTText.body(
-                    size: 13,
-                    color: HDTColors.text2,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Wrap(
-            spacing: HDTSpace.sm,
-            runSpacing: HDTSpace.sm,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/admin/tournaments/new'),
-                icon: const Icon(Icons.add_circle_outline, size: 16),
-                label: const Text('CREATE TOURNAMENT'),
-              ),
-              ElevatedButton.icon(
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/admin/tournaments/ops'),
-                icon: const Icon(Icons.account_tree_outlined, size: 16),
-                label: const Text('OPEN OPS'),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -1043,6 +862,247 @@ class _AdminNotice extends StatelessWidget {
           textAlign: TextAlign.center,
           style: HDTText.body(color: HDTColors.text2, height: 1.5),
         ),
+      ),
+    );
+  }
+}
+
+String _organizerStatusLabel(String status) {
+  return switch (status) {
+    'draft' => 'DRAFT',
+    'registrationOpen' => 'REGISTRATION OPEN',
+    'ready' => 'READY',
+    'running' => 'LIVE',
+    'completed' => 'COMPLETED',
+    _ => status.toUpperCase(),
+  };
+}
+
+Color _organizerStatusColor(String status) {
+  return switch (status) {
+    'running' => HDTColors.danger,
+    'ready' => HDTColors.success,
+    'registrationOpen' => HDTColors.info,
+    'completed' => HDTColors.text3,
+    _ => HDTColors.warning,
+  };
+}
+
+class _TournamentCardsPanel extends ConsumerWidget {
+  const _TournamentCardsPanel({required this.userId});
+
+  final String userId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tournamentsAsync = ref.watch(organizerTournamentsProvider(userId));
+    final tournaments =
+        tournamentsAsync.valueOrNull ?? const <TournamentSummary>[];
+    final active = tournaments
+        .where((tournament) => tournament.status != 'completed')
+        .toList(growable: false);
+    final history = tournaments
+        .where((tournament) => tournament.status == 'completed')
+        .toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: HDTSpace.md,
+          runSpacing: HDTSpace.md,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text('MY TOURNAMENTS', style: HDTText.overline(size: 10)),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/community/judges'),
+                  icon: const Icon(Icons.verified_user_outlined, size: 15),
+                  label: const Text('MANAGE JUDGES'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/admin/tournaments/new'),
+                  icon: const Icon(Icons.add_circle_outline, size: 16),
+                  label: const Text('CREATE NEW TOURNAMENT'),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: HDTSpace.md),
+        if (tournamentsAsync.isLoading && tournaments.isEmpty)
+          const LinearProgressIndicator(minHeight: 3),
+        if (tournaments.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(HDTSpace.xl),
+            decoration: hdtCard(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('No tournament yet',
+                    style: HDTText.display(size: 26)),
+                const SizedBox(height: HDTSpace.sm),
+                Text(
+                  'Create your first tournament — name, rules, fee, arenas, judges and panitia are set step by step in the wizard.',
+                  style: HDTText.body(color: HDTColors.text2, height: 1.5),
+                ),
+                const SizedBox(height: HDTSpace.lg),
+                ElevatedButton.icon(
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/admin/tournaments/new'),
+                  icon: const Icon(Icons.add_circle_outline, size: 16),
+                  label: const Text('START THE WIZARD'),
+                ),
+              ],
+            ),
+          )
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cols = constraints.maxWidth >= 1000
+                  ? 3
+                  : constraints.maxWidth >= 680
+                      ? 2
+                      : 1;
+              final width =
+                  (constraints.maxWidth - ((cols - 1) * HDTSpace.md)) / cols;
+              return Wrap(
+                spacing: HDTSpace.md,
+                runSpacing: HDTSpace.md,
+                children: [
+                  for (final tournament in active)
+                    SizedBox(
+                      width: width,
+                      child: _OrganizerTournamentCard(
+                        tournament: tournament,
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        if (history.isNotEmpty) ...[
+          const SizedBox(height: HDTSpace.xl),
+          Text('TOURNAMENTS HISTORY',
+              style: HDTText.overline(size: 10)),
+          const SizedBox(height: HDTSpace.sm),
+          for (final tournament in history)
+            _HistoryRow(tournament: tournament),
+        ],
+      ],
+    );
+  }
+}
+
+class _OrganizerTournamentCard extends StatelessWidget {
+  const _OrganizerTournamentCard({required this.tournament});
+
+  final TournamentSummary tournament;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _organizerStatusLabel(tournament.status);
+    final statusColor = _organizerStatusColor(tournament.status);
+    final date = tournament.startDate == null
+        ? 'TBA'
+        : '${tournament.startDate!.day}/${tournament.startDate!.month}/${tournament.startDate!.year}';
+    return InkWell(
+      borderRadius: HDTR.lg,
+      onTap: () => Navigator.pushNamed(
+        context,
+        '/admin/tournaments/ops',
+        arguments: {'tournamentId': tournament.id},
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(HDTSpace.lg),
+        decoration: hdtCard(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(tournament.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: HDTText.display(size: 18)),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColorPillBackground(statusColor: statusColor),
+                    borderRadius: HDTR.sm,
+                  ),
+                  child: Text(status,
+                      style: HDTText.overline(
+                          size: 8, color: statusColorText(statusColor: statusColor))),
+                ),
+              ],
+            ),
+            const SizedBox(height: HDTSpace.md),
+            Text(
+              '${tournament.currentParticipantCount}/${tournament.maxParticipants} PLAYERS . '
+              '${tournament.registrationFee <= 0 ? 'FREE' : 'Rp ${tournament.registrationFee}'}',
+              style: HDTText.mono(size: 11, color: HDTColors.text3),
+            ),
+            const SizedBox(height: HDTSpace.sm),
+            Text('START $date',
+                style: HDTText.mono(size: 10, color: HDTColors.text3)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Color statusColorPillBackground({required Color statusColor}) =>
+    statusColor.withValues(alpha: .14);
+
+Color statusColorText({required Color statusColor}) => statusColor;
+
+class _HistoryRow extends StatelessWidget {
+  const _HistoryRow({required this.tournament});
+
+  final TournamentSummary tournament;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: HDTSpace.sm),
+      padding: const EdgeInsets.all(HDTSpace.md),
+      decoration: hdtCard(),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(tournament.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: HDTText.display(size: 14)),
+          ),
+          if (tournament.winnerName != null) ...[
+            const SizedBox(width: HDTSpace.md),
+            Text('CHAMPION: ${tournament.winnerName!.toUpperCase()}',
+                style: HDTText.mono(size: 10, color: HDTColors.success)),
+          ],
+          const SizedBox(width: HDTSpace.md),
+          IconButton(
+            tooltip: 'Open ops',
+            onPressed: () => Navigator.pushNamed(
+              context,
+              '/admin/tournaments/ops',
+              arguments: {'tournamentId': tournament.id},
+            ),
+            icon: const Icon(Icons.chevron_right, size: 18),
+          ),
+        ],
       ),
     );
   }

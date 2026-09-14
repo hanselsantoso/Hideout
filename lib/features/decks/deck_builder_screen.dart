@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/hideout_tokens.dart';
 import '../../data/models/bey_part.dart';
+import '../../data/models/player_deck.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/deck_repository.dart';
 
@@ -18,11 +19,24 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
   var _activeCombo = 0;
   var _activeSlot = DeckSlot.blade;
   var _saving = false;
+  String? _editingDeckId;
+  bool _routeArgsApplied = false;
+  bool _deckLoadedFromArgs = false;
   var _combos = const [
     DeckComboDraft(),
     DeckComboDraft(),
     DeckComboDraft(),
   ];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_routeArgsApplied) return;
+    _routeArgsApplied = true;
+    final args = (ModalRoute.of(context)?.settings.arguments as Map?) ?? {};
+    final deckId = (args['deckId'] ?? '').toString();
+    if (deckId.isNotEmpty) _editingDeckId = deckId;
+  }
 
   @override
   void dispose() {
@@ -33,6 +47,21 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
   @override
   Widget build(BuildContext context) {
     final catalog = ref.watch(beyPartsCatalogProvider);
+    if (_editingDeckId != null && !_deckLoadedFromArgs) {
+      final decks = ref.watch(userDecksProvider).valueOrNull;
+      PlayerDeck? deck;
+      for (final candidate in decks ?? const <PlayerDeck>[]) {
+        if (candidate.id == _editingDeckId) {
+          deck = candidate;
+          break;
+        }
+      }
+      if (deck != null) {
+        _deckLoadedFromArgs = true;
+        _combos = deck.toDrafts();
+        _nameController.text = deck.name;
+      }
+    }
 
     return Scaffold(
       backgroundColor: HDTColors.bg,
@@ -267,6 +296,7 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
             name: _nameController.text,
             catalog: catalog,
             combos: _combos,
+            deckId: _editingDeckId,
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -62,11 +62,11 @@ class DashboardScreen extends ConsumerWidget {
                 if (!wide) {
                   return Column(
                     children: [
-                      _NextUpCard(tournaments: registrations),
-                      const SizedBox(height: 16),
+                      if (_hasActiveEntry(registrations)) ...[
+                        _NextUpCard(tournaments: registrations),
+                        const SizedBox(height: 16),
+                      ],
                       _RankCard(user: user),
-                      const SizedBox(height: 16),
-                      _FormCard(user: user),
                       const SizedBox(height: 16),
                       _DecksCard(decks: decks),
                       const SizedBox(height: 16),
@@ -88,11 +88,11 @@ class DashboardScreen extends ConsumerWidget {
                       flex: 5,
                       child: Column(
                         children: [
-                          _NextUpCard(tournaments: registrations),
-                          const SizedBox(height: 16),
+                          if (_hasActiveEntry(registrations)) ...[
+                            _NextUpCard(tournaments: registrations),
+                            const SizedBox(height: 16),
+                          ],
                           _RankCard(user: user),
-                          const SizedBox(height: 16),
-                          _FormCard(user: user),
                         ],
                       ),
                     ),
@@ -164,7 +164,7 @@ class _Header extends StatelessWidget {
               [
                 user?.email.split('@').first.toUpperCase() ?? 'PLAYER',
                 user?.role.toUpperCase() ?? 'PLAYER',
-                'ELO ${user?.eloRating ?? 1000}',
+                'ELO ${user?.eloRating ?? 0}',
               ].join(' . '),
               style: HDTText.mono(size: 12, color: HDTColors.text3),
             ),
@@ -242,6 +242,13 @@ class _Header extends StatelessWidget {
   }
 }
 
+bool _hasActiveEntry(List<PlayerTournamentEntry> tournaments) {
+  return tournaments.any((item) =>
+      item.status == PlayerTournamentStatus.ongoing ||
+      item.status == PlayerTournamentStatus.checkedIn ||
+      item.status == PlayerTournamentStatus.registered);
+}
+
 class _NextUpCard extends StatelessWidget {
   const _NextUpCard({required this.tournaments});
 
@@ -317,10 +324,13 @@ class _NextUpCard extends StatelessWidget {
                       ? null
                       : () => Navigator.pushNamed(
                             context,
-                            '/me/qr',
-                            arguments: next.toTicketArgs(),
+                            '/tournaments/detail',
+                            arguments: {
+                              ...next.toTournamentArgs(),
+                              'registrationId': next.ticketId,
+                            },
                           ),
-                  child: const Text('QR PASS'),
+                  child: const Text('CHECK-IN'),
                 ),
               ),
             ],
@@ -400,7 +410,7 @@ class _RankCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final elo = user?.eloRating ?? 1000;
+    final elo = user?.eloRating ?? 0;
     final matches = user?.totalMatches ?? 0;
     return _Panel(
       title: 'MY RANK',
@@ -492,67 +502,6 @@ class _RankLine extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _FormCard extends StatelessWidget {
-  const _FormCard({required this.user});
-
-  final AppUser? user;
-
-  @override
-  Widget build(BuildContext context) {
-    final wins = user?.totalWins ?? 0;
-    final losses = user?.totalLosses ?? 0;
-    final formWins = wins.clamp(0, 10).toInt();
-    final formLosses = losses.clamp(0, 10 - formWins).toInt();
-    final form = <String>[
-      for (var i = 0; i < formWins; i++) 'W',
-      for (var i = 0; i < formLosses; i++) 'L',
-    ];
-    return _Panel(
-      title: 'RECENT FORM',
-      action: Text('${wins}W-${losses}L LIVE',
-          style: HDTText.mono(size: 11, color: HDTColors.text2)),
-      child: form.isEmpty
-          ? const _EmptyInline(
-              icon: Icons.query_stats_outlined,
-              title: 'No match form yet',
-              subtitle: 'Finished judged matches will fill this strip.',
-            )
-          : Row(
-              children: [
-                for (final item in form) ...[
-                  Expanded(child: _FormTile(result: item)),
-                  if (item != form.last) const SizedBox(width: 8),
-                ],
-              ],
-            ),
-    );
-  }
-}
-
-class _FormTile extends StatelessWidget {
-  final String result;
-
-  const _FormTile({required this.result});
-
-  @override
-  Widget build(BuildContext context) {
-    final win = result == 'W';
-    final color = win ? HDTColors.success : HDTColors.danger;
-    return AspectRatio(
-      aspectRatio: 1,
-      child: Container(
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: .15),
-          borderRadius: HDTR.md,
-          border: Border.all(color: color.withValues(alpha: .32)),
-        ),
-        child: Text(result, style: HDTText.display(size: 14, color: color)),
-      ),
     );
   }
 }

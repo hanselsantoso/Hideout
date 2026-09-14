@@ -27,7 +27,7 @@ class PublicCommunitiesScreen extends StatelessWidget {
           final rows = snapshot.data?.docs
                   .map((doc) => _CommunityPublicEntry.fromFirestore(doc))
                   .toList() ??
-              _demoCommunities;
+              const <_CommunityPublicEntry>[];
           return ListView(
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 90),
             children: [
@@ -171,27 +171,3 @@ class _CommunityPublicEntry {
     );
   }
 }
-
-const _demoCommunities = [
-  _CommunityPublicEntry(
-    name: 'JKT WOLVES',
-    region: 'Jakarta',
-    members: '1,248',
-    status: '2 LIVE',
-    color: HDTColors.accent,
-  ),
-  _CommunityPublicEntry(
-    name: 'SBY SPIN',
-    region: 'Surabaya',
-    members: '843',
-    status: '1 LIVE',
-    color: HDTColors.danger,
-  ),
-  _CommunityPublicEntry(
-    name: 'BDG GRINDERS',
-    region: 'Bandung',
-    members: '712',
-    status: 'OPEN',
-    color: HDTColors.info,
-  ),
-];

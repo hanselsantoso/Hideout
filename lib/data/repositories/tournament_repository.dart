@@ -67,6 +67,88 @@ class TournamentRepository {
   final FirebaseFirestore firestore;
   final FirebaseFunctions functions;
 
+  /// Completed matches involving the player, merged from both sides of the
+  /// bracket, sorted by most recent first. Tournament names are joined in.
+  Future<List<PlayerMatchSummary>> fetchPlayerMatches({
+    required String uid,
+    int limitPerSide = 120,
+  }) async {
+    final sides = await Future.wait([
+      firestore
+          .collectionGroup(FirestorePaths.matches)
+          .where('playerAId', isEqualTo: uid)
+          .limit(limitPerSide)
+          .get(),
+      firestore
+          .collectionGroup(FirestorePaths.matches)
+          .where('playerBId', isEqualTo: uid)
+          .limit(limitPerSide)
+          .get(),
+    ]);
+    final docs = <DocumentSnapshot<Map<String, dynamic>>>{...sides[0].docs, ...sides[1].docs};
+    final tournamentNames = <String, String>{};
+    for (final doc in docs) {
+      final tournamentRef = doc.reference.parent.parent?.parent;
+      final tid = tournamentRef?.id;
+      if (tid == null || tournamentNames.containsKey(tid)) continue;
+      final snap = await firestore.doc(FirestorePaths.tournamentDoc(tid)).get();
+      tournamentNames[tid] =
+          (snap.data()?['name'] ?? tid).toString();
+    }
+    final rows = <PlayerMatchSummary>[];
+    for (final doc in docs) {
+      final data = doc.data() ?? const <String, dynamic>{};
+      final status = (data['status'] ?? '').toString();
+      if (status != 'completed') continue;
+      final aId = (data['playerAId'] ?? '').toString();
+      final isPlayerA = aId == uid;
+      final winnerId = (data['winnerId'] ?? '').toString();
+      final myId = isPlayerA ? aId : (data['playerBId'] ?? '').toString();
+      final opponentId = isPlayerA
+          ? (data['playerBId'] ?? '').toString()
+          : aId;
+      final opponentName = isPlayerA
+          ? (data['playerBName'] ?? 'Player B').toString()
+          : (data['playerAName'] ?? 'Player A').toString();
+      String result;
+      if (winnerId.isEmpty) {
+        result = 'DRAW';
+      } else if (winnerId == myId) {
+        result = 'WIN';
+      } else {
+        result = 'LOSS';
+      }
+      final completedAt = (data['completedAt'] ?? data['updatedAt']);
+      DateTime? date;
+      if (completedAt is Timestamp) date = completedAt.toDate();
+      final roundIndex = (data['roundIndex'] as num?)?.round();
+      final matchCode = (data['matchCode'] ?? '').toString();
+      final segments = doc.reference.path.split('/');
+      final tid = segments.length >= 2 ? segments[1] : '';
+      rows.add(PlayerMatchSummary(
+        id: doc.id,
+        tournamentId: tid,
+        tournamentName: tournamentNames[tid] ?? tid,
+        roundLabel: matchCode.isNotEmpty
+            ? matchCode
+            : roundIndex == null
+                ? 'MATCH'
+                : 'ROUND $roundIndex',
+        opponentId: opponentId,
+        opponentName: opponentName,
+        score: (data['finalScore'] ?? '').toString(),
+        result: result,
+        date: date,
+      ));
+    }
+    rows.sort((a, b) {
+      final aDate = a.date ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bDate = b.date ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bDate.compareTo(aDate);
+    });
+    return rows;
+  }
+
   Stream<List<TournamentSummary>> watchTournaments() {
     return firestore
         .collection(FirestorePaths.tournaments)
@@ -126,6 +208,118 @@ class TournamentRepository {
     });
   }
 
+  /// Judge attendance on the day of the event, stored on the tournament doc.
+  Future<void> checkInJudge({
+    required String tournamentId,
+    required String judgeId,
+  }) {
+    return firestore
+        .doc(FirestorePaths.tournamentDoc(tournamentId))
+        .set({
+      'judgeCheckIns.$judgeId': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Stream<bool> watchJudgeCheckedIn({
+    required String tournamentId,
+    required String judgeId,
+  }) {
+    return firestore
+        .doc(FirestorePaths.tournamentDoc(tournamentId))
+        .snapshots()
+        .map((snap) {
+      final checkIns = snap.data()?['judgeCheckIns'];
+      if (checkIns is Map) return checkIns.containsKey(judgeId);
+      return false;
+    });
+  }
+
+  Stream<String> watchTournamentName(String tournamentId) {
+    return firestore
+        .doc(FirestorePaths.tournamentDoc(tournamentId))
+        .snapshots()
+        .map((snap) =>
+            (snap.data()?['name'] ?? tournamentId).toString());
+  }
+
+  /// Tournaments where the user is registered staff (panitia).
+  Stream<List<TournamentSummary>> watchStaffTournaments(String uid) {
+    return firestore
+        .collection(FirestorePaths.tournaments)
+        .where('staffIds', arrayContains: uid)
+        .limit(30)
+        .snapshots()
+        .map((snap) {
+      final rows = snap.docs.map(TournamentSummary.fromFirestore).toList();
+      rows.sort((a, b) => (b.startDate ?? DateTime(0))
+          .compareTo(a.startDate ?? DateTime.fromMillisecondsSinceEpoch(0)));
+      return rows;
+    });
+  }
+
+  /// Tournaments organized by the given community admin.
+  Stream<List<TournamentSummary>> watchOrganizerTournaments(String organizerId) {
+    return firestore
+        .collection(FirestorePaths.tournaments)
+        .where('organizerId', isEqualTo: organizerId)
+        .limit(60)
+        .snapshots()
+        .map((snap) {
+      final rows = snap.docs.map(TournamentSummary.fromFirestore).toList();
+      rows.sort((a, b) => (b.startDate ?? DateTime(0))
+          .compareTo(a.startDate ?? DateTime.fromMillisecondsSinceEpoch(0)));
+      return rows;
+    });
+  }
+
+  /// Registration-desk actions performed by the community admin or staff.
+  Future<void> runRegistrationOps({
+    required String tournamentId,
+    required String registrationId,
+    required String action,
+    required String actorId,
+    String actorName = '',
+  }) async {
+    final ref = firestore.doc(
+      FirestorePaths.tournamentRegistrationDoc(tournamentId, registrationId),
+    );
+    switch (action) {
+      case 'markPaid':
+        await ref.set({
+          'paymentStatus': 'paid',
+          'registrationStatus': 'active',
+          'paidAt': FieldValue.serverTimestamp(),
+          'activatedAt': FieldValue.serverTimestamp(),
+          'paidBy': actorId,
+          'paidByName': actorName,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+        return;
+      case 'checkIn':
+        await ref.set({
+          'checkInStatus': 'checkedIn',
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+        return;
+      case 'undoCheckIn':
+        await ref.set({
+          'checkInStatus': 'not_checked_in',
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+        return;
+      case 'walkOut':
+        await ref.set({
+          'registrationStatus': 'walkedOut',
+          'walkOutAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+        return;
+      default:
+        throw ArgumentError('Unknown registration ops action: $action');
+    }
+  }
+
   Stream<List<BracketRoundSummary>> watchTournamentBracket(
     String tournamentId,
   ) {
@@ -173,6 +367,7 @@ class TournamentRepository {
     required int maxDecksPerPlayer,
     required List<String> prizes,
     String? organizerId,
+    List<String> staffIds = const [],
     List<Map<String, dynamic>> stagePlan = const [],
   }) async {
     final payload = {
@@ -180,6 +375,8 @@ class TournamentRepository {
       'description': 'Created from BeyTourney HIDEOUT',
       if (organizerId != null && organizerId.trim().isNotEmpty)
         'organizerId': organizerId.trim(),
+      if (staffIds.isNotEmpty)
+        'staffIds': [for (final id in staffIds) id.trim()],
       'location': location.trim(),
       'registrationFee': registrationFee,
       'feePolicy':
@@ -236,6 +433,20 @@ class TournamentRepository {
       });
       return ref.id;
     }
+  }
+
+  Future<TournamentFeePolicy> fetchFeePolicy({
+    required String tournamentId,
+    required int fallbackNetFee,
+  }) async {
+    final snap =
+        await firestore.doc(FirestorePaths.tournamentDoc(tournamentId)).get();
+    final data = snap.data() ?? const <String, dynamic>{};
+    return TournamentFeePolicy.fromMap(
+      Map<String, dynamic>.from(data['feePolicy'] as Map? ?? const {}),
+      fallbackNetFee:
+          (data['registrationFee'] as num?)?.round() ?? fallbackNetFee,
+    );
   }
 
   Future<String> createRegistration({
@@ -1119,33 +1330,8 @@ class TournamentRepository {
       return;
     }
     final aWon = winnerId == playerAId;
-    final aElo = (playerAData['eloRating'] as num?)?.round() ?? 1000;
-    final bElo = (playerBData['eloRating'] as num?)?.round() ?? 1000;
-    final next = _eloResult(aElo, bElo, aWon);
-    tx.set(
-      playerARef,
-      {
-        'eloRating': next.a,
-        'totalMatches': FieldValue.increment(1),
-        'wins': FieldValue.increment(aWon ? 1 : 0),
-        'losses': FieldValue.increment(aWon ? 0 : 1),
-        'lastMatchAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
-    tx.set(
-      playerBRef,
-      {
-        'eloRating': next.b,
-        'totalMatches': FieldValue.increment(1),
-        'wins': FieldValue.increment(aWon ? 0 : 1),
-        'losses': FieldValue.increment(aWon ? 1 : 0),
-        'lastMatchAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
+    // Player ELO/totals are applied by the onMatchCompletedApplyStats Cloud
+    // Function (client cannot update another player's users doc).
     _writeDeckComponentStats(
       tx: tx,
       tournamentId: tournamentId,
@@ -1257,18 +1443,6 @@ class TournamentRepository {
         SetOptions(merge: true),
       );
     }
-  }
-
-  _EloPair _eloResult(int a, int b, bool aWon) {
-    const k = 32;
-    final expectedA = 1 / (1 + mathPow10((b - a) / 400));
-    final expectedB = 1 - expectedA;
-    final scoreA = aWon ? 1 : 0;
-    final scoreB = aWon ? 0 : 1;
-    return _EloPair(
-      (a + k * (scoreA - expectedA)).round(),
-      (b + k * (scoreB - expectedB)).round(),
-    );
   }
 
   void _advanceWinnerInTransaction({
@@ -1936,6 +2110,30 @@ class TournamentRepository {
     );
   }
 
+  Future<Map<String, dynamic>> payoutWithdrawal({
+    required String tournamentId,
+    required String withdrawalId,
+  }) async {
+    final callable = functions.httpsCallable('createXenditDisbursement');
+    final response = await callable.call<Map<String, dynamic>>({
+      'tournamentId': tournamentId,
+      'withdrawalId': withdrawalId,
+    });
+    return Map<String, dynamic>.from(response.data);
+  }
+
+  Future<Map<String, dynamic>> syncWithdrawalPayout({
+    required String tournamentId,
+    required String withdrawalId,
+  }) async {
+    final callable = functions.httpsCallable('syncXenditDisbursement');
+    final response = await callable.call<Map<String, dynamic>>({
+      'tournamentId': tournamentId,
+      'withdrawalId': withdrawalId,
+    });
+    return Map<String, dynamic>.from(response.data);
+  }
+
   Future<void> activateTournamentRegistration({
     required String tournamentId,
     required String registrationId,
@@ -2180,13 +2378,6 @@ class _ComponentStatPart {
   final String line;
 }
 
-class _EloPair {
-  const _EloPair(this.a, this.b);
-
-  final int a;
-  final int b;
-}
-
 class _TopCutPlayer {
   const _TopCutPlayer({
     required this.id,
@@ -2197,6 +2388,30 @@ class _TopCutPlayer {
   final String id;
   final String name;
   final int seedScore;
+}
+
+class PlayerMatchSummary {
+  const PlayerMatchSummary({
+    required this.id,
+    required this.tournamentId,
+    required this.tournamentName,
+    required this.roundLabel,
+    required this.opponentId,
+    required this.opponentName,
+    required this.score,
+    required this.result,
+    required this.date,
+  });
+
+  final String id;
+  final String tournamentId;
+  final String tournamentName;
+  final String roundLabel;
+  final String opponentId;
+  final String opponentName;
+  final String score;
+  final String result; // WIN | LOSS | DRAW
+  final DateTime? date;
 }
 
 class TournamentFeePolicy {
@@ -2342,6 +2557,8 @@ class TournamentRegistrationSummary {
   final String paymentStatus;
   final String registrationStatus;
   final DateTime? registeredAt;
+  final bool deckVerified;
+  final String checkInStatus;
 
   const TournamentRegistrationSummary({
     required this.id,
@@ -2353,6 +2570,8 @@ class TournamentRegistrationSummary {
     required this.paymentStatus,
     required this.registrationStatus,
     required this.registeredAt,
+    this.deckVerified = false,
+    this.checkInStatus = 'not_checked_in',
   });
 
   bool get readyForBracket =>
@@ -2373,6 +2592,9 @@ class TournamentRegistrationSummary {
       paymentStatus: (data['paymentStatus'] ?? 'pending').toString(),
       registrationStatus: (data['registrationStatus'] ?? 'pending').toString(),
       registeredAt: rawDate is Timestamp ? rawDate.toDate() : null,
+      deckVerified:
+          (data['deckVerificationStatus'] ?? '').toString() == 'verified',
+      checkInStatus: (data['checkInStatus'] ?? 'not_checked_in').toString(),
     );
   }
 }
@@ -2749,7 +2971,11 @@ class JudgeMatchSummary {
 
   bool get completed => status == 'completed';
 
-  Map<String, dynamic> get scoreArguments {
+  Map<String, dynamic> scoreArguments({
+    required bool judgeCheckedIn,
+    required bool playerAVerified,
+    required bool playerBVerified,
+  }) {
     return {
       'tournamentId': tournamentId,
       'roundId': roundId,
@@ -2762,13 +2988,21 @@ class JudgeMatchSummary {
       'playerBId': playerBId,
       'playerBName': playerBName,
       'playerBDeckName': playerBDeck,
+      'judgeCheckedIn': judgeCheckedIn,
+      'playerAVerified': playerAVerified,
+      'playerBVerified': playerBVerified,
     };
   }
 
-  Map<String, dynamic> scanArguments(String side) {
+  Map<String, dynamic> scanArguments(
+    String side, {
+    required bool judgeCheckedIn,
+  }) {
     return {
       'matchVerify': true,
       'matchId': id,
+      'tournamentId': tournamentId,
+      'judgeCheckedIn': judgeCheckedIn,
       'registrationId':
           side == 'A' ? playerARegistrationId : playerBRegistrationId,
     };

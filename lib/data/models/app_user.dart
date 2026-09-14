@@ -52,7 +52,7 @@ class AppUser {
       email: (data['email'] ?? '').toString(),
       role: (data['role'] ?? 'player').toString(),
       roles: _rolesFromData(data),
-      eloRating: (data['eloRating'] as num?)?.round() ?? 1000,
+      eloRating: (data['eloRating'] as num?)?.round() ?? 0,
       totalWins: (data['totalWins'] as num?)?.round() ?? 0,
       totalLosses: (data['totalLosses'] as num?)?.round() ?? 0,
       totalMatches: (data['totalMatches'] as num?)?.round() ??

@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/hideout_tokens.dart';
@@ -56,6 +58,26 @@ const _deckOptions = [
   ),
 ];
 
+String _orTba(Object? value) {
+  final text = (value ?? '').toString().trim();
+  return text.isEmpty ? 'TBA' : text;
+}
+
+String _orDash(Object? value) {
+  final text = (value ?? '').toString().trim();
+  return text.isEmpty ? '-' : text;
+}
+
+String _formatDateArg(Object? value) {
+  final text = (value ?? '').toString().trim();
+  if (text.isEmpty) return 'TBA';
+  final parsed = DateTime.tryParse(text);
+  if (parsed == null) return text;
+  return DateFormat('MMM d, yyyy - HH:mm')
+      .format(parsed.toLocal())
+      .toUpperCase();
+}
+
 List<_DeckDraft> _registrationDecks(List<PlayerDeck>? savedDecks) {
   if (savedDecks == null || savedDecks.isEmpty) return const [];
   return savedDecks.map(_deckFromPlayerDeck).toList();
@@ -101,6 +123,14 @@ class _TournamentRegistrationScreenState
   String? _qrisQrString;
   String? _error;
   bool _routeArgsApplied = false;
+  Timer? _syncTimer;
+  String _tournamentId = '';
+  TournamentFeePolicy? _feePolicy;
+  String _community = '';
+  String _dateLabel = 'TBA';
+  String _locationLabel = 'TBA';
+  String _formatLabel = 'TBA';
+  String _tierLabel = '-';
 
   @override
   void didChangeDependencies() {
@@ -108,6 +138,29 @@ class _TournamentRegistrationScreenState
     if (_routeArgsApplied) return;
     _routeArgsApplied = true;
     final args = (ModalRoute.of(context)?.settings.arguments as Map?) ?? {};
+    _tournamentId = (args['tournamentId'] ?? '').toString();
+    _community = (args['community'] ?? '').toString().trim();
+    _dateLabel = _formatDateArg(args['date']);
+    final venue = (args['venue'] ?? '').toString().trim();
+    final city = (args['city'] ?? '').toString().trim();
+    _locationLabel = [venue, city].where((part) => part.isNotEmpty).join(', ');
+    if (_locationLabel.isEmpty) _locationLabel = 'TBA';
+    _formatLabel = _orTba(args['format']);
+    _tierLabel = _orDash(args['tier']);
+    final policyTournamentId = (args['tournamentId'] ?? '').toString();
+    if (policyTournamentId.isNotEmpty &&
+        !policyTournamentId.startsWith('demo-')) {
+      final fallbackFee = _parseFee((args['fee'] ?? 'Rp 75.000').toString());
+      ref
+          .read(tournamentRepositoryProvider)
+          .fetchFeePolicy(
+            tournamentId: policyTournamentId,
+            fallbackNetFee: fallbackFee,
+          )
+          .then((policy) {
+        if (mounted) setState(() => _feePolicy = policy);
+      });
+    }
     final registrationId = (args['registrationId'] ?? '').toString();
     if (registrationId.isNotEmpty) {
       _registrationId = registrationId;
@@ -128,12 +181,19 @@ class _TournamentRegistrationScreenState
   }
 
   @override
+  void dispose() {
+    _syncTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final args = (ModalRoute.of(context)?.settings.arguments as Map?) ?? {};
     final tournamentId = (args['tournamentId'] ?? '').toString();
     final tournamentName = (args['name'] ?? 'Hideout Cup #04').toString();
     final feeLabel = (args['fee'] ?? 'Rp 75.000').toString();
     final fee = _parseFee(feeLabel);
+    final policy = _feePolicy ?? TournamentFeePolicy.defaultsForNetFee(fee);
     final firebaseDecks = ref.watch(userDecksProvider).valueOrNull;
     final deckOptions = _registrationDecks(firebaseDecks);
 
@@ -147,8 +207,12 @@ class _TournamentRegistrationScreenState
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('JKT WOLVES - REGISTRATION',
-                style: HDTText.overline(size: 10)),
+            Text(
+              _community.isEmpty
+                  ? 'REGISTRATION'
+                  : '${_community.toUpperCase()} - REGISTRATION',
+              style: HDTText.overline(size: 10),
+            ),
             Text(tournamentName, style: HDTText.display(size: 22)),
           ],
         ),
@@ -169,7 +233,7 @@ class _TournamentRegistrationScreenState
             children: [
               _Stepper(step: _step, labels: _registrationSteps),
               const SizedBox(height: HDTSpace.xxl),
-              _currentStep(tournamentName, fee, deckOptions),
+              _currentStep(tournamentName, policy, deckOptions),
               if (_error != null) ...[
                 const SizedBox(height: HDTSpace.lg),
                 _Notice(
@@ -187,7 +251,8 @@ class _TournamentRegistrationScreenState
               busy: _busy,
               canBack: _step > 0,
               nextEnabled: _canProceed(deckOptions),
-              nextLabel: _step == 3 ? _paymentActionLabel : 'CONTINUE',
+              nextLabel:
+                  _step == 3 ? _paymentActionLabel(policy) : 'CONTINUE',
               onBack: _back,
               onNext: () => _next(tournamentId),
             ),
@@ -196,14 +261,14 @@ class _TournamentRegistrationScreenState
 
   Widget _currentStep(
     String tournamentName,
-    int fee,
+    TournamentFeePolicy policy,
     List<_DeckDraft> deckOptions,
   ) {
     return switch (_step) {
       0 => _eligibilityStep(),
       1 => _deckStep(deckOptions),
-      2 => _reviewStep(tournamentName, fee, deckOptions),
-      3 => _paymentStep(fee),
+      2 => _reviewStep(tournamentName, policy, deckOptions),
+      3 => _paymentStep(policy),
       _ => _ticketStep(tournamentName, deckOptions),
     };
   }
@@ -330,13 +395,14 @@ class _TournamentRegistrationScreenState
 
   Widget _reviewStep(
     String tournamentName,
-    int fee,
+    TournamentFeePolicy policy,
     List<_DeckDraft> deckOptions,
   ) {
     final deck = _selectedDeckDraft(deckOptions);
-    final platform = (fee * 0.1).round();
-    final gateway = (fee * 0.03).round();
-    final total = fee + platform + gateway + 500;
+    final fee = policy.netFee;
+    final platform = policy.platformFee;
+    final gateway = policy.gatewayFee;
+    final total = policy.userPayable;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -362,15 +428,16 @@ class _TournamentRegistrationScreenState
                         Text('TOURNAMENT', style: HDTText.overline(size: 10)),
                         const SizedBox(height: HDTSpace.xs),
                         Text(tournamentName, style: HDTText.display(size: 24)),
-                        Text('JKT WOLVES', style: HDTText.mono(size: 11)),
+                        Text(_community.isEmpty ? '-' : _community.toUpperCase(),
+                            style: HDTText.mono(size: 11)),
                         const SizedBox(height: HDTSpace.lg),
                         hdtDivider(),
                         const SizedBox(height: HDTSpace.lg),
-                        const _ResponsiveGrid(children: [
-                          _Mini('DATE', 'MAY 22, 2026 - 14:00'),
-                          _Mini('LOCATION', 'Gear Sports Arena'),
-                          _Mini('FORMAT', 'BO5 - RR -> SE'),
-                          _Mini('ELO RANGE', '2200-3000'),
+                        _ResponsiveGrid(children: [
+                          _Mini('DATE', _dateLabel),
+                          _Mini('LOCATION', _locationLabel),
+                          _Mini('FORMAT', _formatLabel),
+                          _Mini('ELO RANGE', _tierLabel),
                         ]),
                         const SizedBox(height: HDTSpace.lg),
                         hdtDivider(),
@@ -413,6 +480,8 @@ class _TournamentRegistrationScreenState
                     fee: fee,
                     platform: platform,
                     gateway: gateway,
+                    withdraw: policy.withdrawFeeCoverage,
+                    community: _community,
                     open: _breakdownOpen,
                     onToggle: () =>
                         setState(() => _breakdownOpen = !_breakdownOpen),
@@ -426,15 +495,30 @@ class _TournamentRegistrationScreenState
     );
   }
 
-  Widget _paymentStep(int fee) {
-    final total = fee + (fee * 0.1).round() + (fee * 0.03).round() + 500;
+  Widget _paymentStep(TournamentFeePolicy policy) {
+    final total = policy.userPayable;
+    if (total <= 0) {
+      return const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionTitle('STEP 4', 'FREE ENTRY'),
+          SizedBox(height: HDTSpace.md),
+          _Notice(
+            color: HDTColors.success,
+            icon: Icons.verified_outlined,
+            text:
+                'This tournament is free to join — no payment required. Press CONFIRM FREE ENTRY to activate your registration immediately.',
+          ),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle('STEP 4', 'XENDIT QRIS'),
+        const _SectionTitle('STEP 4', 'QRIS PAYMENT'),
         const SizedBox(height: HDTSpace.sm),
         Text(
-          'Create a Xendit sandbox QRIS code, scan it in test mode, then check the payment status here.',
+          'Create a QRIS code, scan it with your bank or e-wallet app, then check the payment status here.',
           style: HDTText.body(color: HDTColors.text2),
         ),
         if (_paymentMessage != null) ...[
@@ -474,6 +558,11 @@ class _TournamentRegistrationScreenState
               ],
             );
           },
+        ),
+        const SizedBox(height: HDTSpace.md),
+        Text(
+          'Payment status is checked automatically every 10 seconds while the QRIS code is active.',
+          style: HDTText.body(size: 11, color: HDTColors.text3),
         ),
       ],
     );
@@ -516,25 +605,14 @@ class _TournamentRegistrationScreenState
                   'Ticket and registration details will be sent to email. This QR is used during check-in and when a judge calls the match.',
             ),
             const SizedBox(height: HDTSpace.lg),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.calendar_today_outlined),
-                    label: const Text('ADD TO CALENDAR'),
-                  ),
-                ),
-                const SizedBox(width: HDTSpace.md),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => Navigator.pushReplacementNamed(
-                        context, '/me/tournaments'),
-                    icon: const Icon(Icons.chevron_right),
-                    label: const Text('MY TOURNAMENTS'),
-                  ),
-                ),
-              ],
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () =>
+                    Navigator.pushReplacementNamed(context, '/me/tournaments'),
+                icon: const Icon(Icons.chevron_right),
+                label: const Text('MY TOURNAMENTS'),
+              ),
             ),
           ],
         ),
@@ -552,7 +630,10 @@ class _TournamentRegistrationScreenState
     };
   }
 
-  String get _paymentActionLabel {
+  String _paymentActionLabel(TournamentFeePolicy policy) {
+    if (policy.userPayable <= 0) {
+      return 'CONFIRM FREE ENTRY';
+    }
     if (_paymentSessionId == null) {
       return 'CREATE QRIS';
     }
@@ -649,7 +730,7 @@ class _TournamentRegistrationScreenState
       }
       setState(() {
         _paymentMessage =
-            'QRIS is ready. Scan it with a sandbox-supported wallet, then press Check Payment Status.';
+            'QRIS is ready. Scan it with your QRIS-enabled app, then press Check Payment Status.';
       });
     } catch (error) {
       if (!mounted) return;
@@ -673,6 +754,46 @@ class _TournamentRegistrationScreenState
       _paymentStatus = payment.status;
       _paymentMessage = payment.message;
     });
+    _scheduleAutoSync();
+  }
+
+  void _scheduleAutoSync() {
+    _syncTimer?.cancel();
+    final registrationId = _registrationId;
+    final referenceId = _qrisReferenceId;
+    if (registrationId == null || referenceId == null) return;
+    if (_tournamentId.isEmpty || _tournamentId.startsWith('demo-')) return;
+    if ((_paymentStatus ?? '').toUpperCase() == 'COMPLETED') return;
+    _syncTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _autoSync(),
+    );
+  }
+
+  Future<void> _autoSync() async {
+    if (_busy || !mounted) return;
+    final registrationId = _registrationId;
+    final referenceId = _qrisReferenceId;
+    if (registrationId == null || referenceId == null) return;
+    try {
+      final payment = await ref
+          .read(tournamentRepositoryProvider)
+          .syncXenditQrisPayment(
+            tournamentId: _tournamentId,
+            registrationId: registrationId,
+            qrisReferenceId: referenceId,
+          );
+      if (!mounted) return;
+      _applyPaymentResult(payment);
+      if (payment.paid) {
+        _syncTimer?.cancel();
+        setState(() => _step = _registrationSteps.length - 1);
+      } else if (payment.expired) {
+        _syncTimer?.cancel();
+      }
+    } catch (_) {
+      // Best-effort background sync; manual check stays available.
+    }
   }
 
   String _paymentErrorMessage(Object error) {
@@ -979,6 +1100,8 @@ class _FeeBreakdown extends StatelessWidget {
     required this.fee,
     required this.platform,
     required this.gateway,
+    required this.withdraw,
+    this.community = '',
     required this.open,
     required this.onToggle,
   });
@@ -987,6 +1110,8 @@ class _FeeBreakdown extends StatelessWidget {
   final int fee;
   final int platform;
   final int gateway;
+  final int withdraw;
+  final String community;
   final bool open;
   final VoidCallback onToggle;
 
@@ -1008,16 +1133,18 @@ class _FeeBreakdown extends StatelessWidget {
           hdtDivider(),
           const SizedBox(height: HDTSpace.md),
           _FeeLine('Entry fee', fee),
-          _FeeLine('Platform fee (10%)', platform, muted: true),
-          _FeeLine('Xendit gateway fee', gateway, muted: true),
-          const _FeeLine('Withdrawal coverage', 500, muted: true),
+          _FeeLine('Platform fee', platform, muted: true),
+          _FeeLine('Payment gateway fee', gateway, muted: true),
+          _FeeLine('Withdrawal coverage', withdraw, muted: true),
         ],
         const SizedBox(height: HDTSpace.md),
         Container(
           padding: const EdgeInsets.all(HDTSpace.md),
           decoration: hdtCard(bg: HDTColors.bg),
           child: Text(
-            'JKT WOLVES Community receives the full ${_formatRp(fee)}.',
+            community.isEmpty
+                ? 'The community receives the full ${_formatRp(fee)}.'
+                : '$community community receives the full ${_formatRp(fee)}.',
             style: HDTText.body(size: 11, color: HDTColors.text2),
           ),
         ),
@@ -1062,7 +1189,7 @@ class _XenditCheckoutPanel extends StatelessWidget {
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('MERCHANT', style: HDTText.overline(size: 8)),
-              Text('TURNEY QRIS SANDBOX', style: HDTText.display(size: 14)),
+              Text('TURNEY.ID', style: HDTText.display(size: 14)),
             ]),
           ),
           Container(
@@ -1100,7 +1227,7 @@ class _XenditCheckoutPanel extends StatelessWidget {
               : Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.qr_code_2,
+                    const Icon(Icons.qr_code_2,
                         size: 56, color: HDTColors.accentHover),
                     const SizedBox(height: HDTSpace.md),
                     Text('QRIS', style: HDTText.display(size: 28)),
@@ -1140,7 +1267,7 @@ class _XenditCheckoutPanel extends StatelessWidget {
         if (hasQris) ...[
           const SizedBox(height: HDTSpace.sm),
           Text(
-            'Scan with a QRIS-capable sandbox wallet, then press Check Payment Status.',
+            'Scan with any QRIS-enabled bank or e-wallet app, then press Check Payment Status.',
             textAlign: TextAlign.center,
             style: HDTText.body(size: 11, color: HDTColors.text2),
           ),
@@ -1169,7 +1296,7 @@ class _PaymentInstructions extends StatelessWidget {
       (
         '01',
         'Create QRIS',
-        'Turney creates a Xendit sandbox QRIS code from the server.'
+        'Turney creates a QRIS code from the server.'
       ),
       (
         '02',
@@ -1178,8 +1305,8 @@ class _PaymentInstructions extends StatelessWidget {
       ),
       (
         '03',
-        'Complete sandbox payment',
-        'Use the enabled Xendit QRIS sandbox flow or simulation from the dashboard.'
+        'Complete payment',
+        'Pay using any QRIS-enabled bank or e-wallet app.'
       ),
       (
         '04',
@@ -1535,6 +1662,9 @@ Color _deckColor(String type) {
 }
 
 int _parseFee(String value) {
+  if (value.trim().toUpperCase() == 'FREE') {
+    return 0;
+  }
   final clean = value.replaceAll(RegExp('[^0-9]'), '');
   return int.tryParse(clean) ?? 75000;
 }

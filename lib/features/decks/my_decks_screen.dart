@@ -137,11 +137,6 @@ class _Header extends StatelessWidget {
             ),
           ],
         );
-        final random = OutlinedButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.auto_awesome, size: 14),
-          label: const Text('RANDOM'),
-        );
         final newDeck = ElevatedButton.icon(
           onPressed: onNew,
           icon: const Icon(Icons.add, size: 15),
@@ -170,8 +165,6 @@ class _Header extends StatelessWidget {
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        Expanded(child: random),
-                        const SizedBox(width: 8),
                         Expanded(child: newDeck),
                       ],
                     ),
@@ -184,8 +177,6 @@ class _Header extends StatelessWidget {
                       icon: const Icon(Icons.chevron_left),
                     ),
                     Expanded(child: title),
-                    random,
-                    const SizedBox(width: 8),
                     newDeck,
                   ],
                 ),
@@ -207,7 +198,11 @@ class _DeckCard extends StatelessWidget {
 
     return InkWell(
       borderRadius: HDTR.lg,
-      onTap: () => Navigator.pushNamed(context, '/me/decks/new'),
+      onTap: () => Navigator.pushNamed(
+        context,
+        '/me/decks/new',
+        arguments: {'deckId': deck.id},
+      ),
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: hdtCard(),

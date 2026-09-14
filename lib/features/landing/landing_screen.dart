@@ -477,7 +477,7 @@ class _TournamentPreview extends StatelessWidget {
             .take(3)
             .map(_TournamentSpotlight.fromSummary)
             .toList();
-        final tournaments = rows.isEmpty ? _demoTournaments : rows;
+        final tournaments = rows;
         return LayoutBuilder(builder: (context, constraints) {
           final cols = constraints.maxWidth >= 980
               ? 3
@@ -1539,33 +1539,6 @@ String? _imageUrlFromImage(String? image) {
   if (trimmed == null || trimmed.isEmpty) return null;
   return _isNetworkImage(trimmed) ? trimmed : null;
 }
-
-const _demoTournaments = [
-  _TournamentSpotlight(
-    name: 'HIDEOUT CUP #04',
-    status: 'REGISTRATION OPEN',
-    location: 'Jakarta',
-    dateLabel: '24 MEI',
-    capacityLabel: '28/32',
-    color: HDTColors.accent,
-  ),
-  _TournamentSpotlight(
-    name: 'EAST COAST SHOWDOWN',
-    status: 'LIVE',
-    location: 'Surabaya',
-    dateLabel: '26 MEI',
-    capacityLabel: '16/16',
-    color: HDTColors.danger,
-  ),
-  _TournamentSpotlight(
-    name: 'HIGHLAND OPEN',
-    status: 'UPCOMING',
-    location: 'Bandung',
-    dateLabel: '31 MEI',
-    capacityLabel: '12/24',
-    color: HDTColors.info,
-  ),
-];
 
 String _tickerLabel(TournamentSummary tournament) {
   final status = _statusLabel(tournament.status);

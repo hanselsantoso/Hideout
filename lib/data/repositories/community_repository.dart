@@ -472,7 +472,7 @@ class CommunityJudgeCandidate {
       region: (data['region'] ?? '-').toString(),
       role: (data['role'] ?? 'player').toString(),
       roles: roles,
-      eloRating: (data['eloRating'] as num?)?.round() ?? 1000,
+      eloRating: (data['eloRating'] as num?)?.round() ?? 0,
       totalMatches: (data['totalMatches'] as num?)?.round() ?? 0,
     );
   }

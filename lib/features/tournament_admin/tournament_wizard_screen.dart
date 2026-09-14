@@ -107,6 +107,7 @@ class _TournamentWizardScreenState
     _Stage(format: 'Double Elimination', bestOf: 'BO5', advance: '0'),
   ];
   final Set<String> _bannedParts = {'Cobalt Dragoon'};
+  final Set<String> _staffIds = {};
   final List<_ArenaDraft> _arenas = [
     _ArenaDraft(name: 'ARENA 01'),
     _ArenaDraft(name: 'ARENA 02'),
@@ -650,6 +651,33 @@ class _TournamentWizardScreenState
           },
         ),
         const SizedBox(height: HDTSpace.lg),
+        _StaffPicker(
+          candidates: candidates,
+          selected: _staffIds,
+          onToggle: (uid) => setState(() {
+            _staffIds.contains(uid)
+                ? _staffIds.remove(uid)
+                : _staffIds.add(uid);
+          }),
+        ),
+        const SizedBox(height: HDTSpace.lg),
+        if (totalJuri == 0)
+          const _Notice(
+            color: HDTColors.warning,
+            icon: Icons.warning_amber_outlined,
+            text:
+                'Belum ada juri di arena. Match tidak bisa dijalankan tanpa juri — pilih juri pada setiap arena.',
+          ),
+        if (_staffIds.isEmpty) ...[
+          const SizedBox(height: HDTSpace.md),
+          const _Notice(
+            color: HDTColors.warning,
+            icon: Icons.support_agent_outlined,
+            text:
+                'Belum ada panitia (staff). Tanpa panitia, cek pembayaran offline dan check-in pemain harus kamu lakukan sendiri di Registration Desk.',
+          ),
+        ],
+        const SizedBox(height: HDTSpace.lg),
         Container(
           padding: const EdgeInsets.all(HDTSpace.lg),
           decoration: hdtAccentCard(accentColor: HDTColors.accent),
@@ -712,6 +740,7 @@ class _TournamentWizardScreenState
             maxDecksPerPlayer: int.tryParse(_deckSize) ?? 3,
             prizes: [_firstPrize.text, _secondPrize.text, _thirdPrize.text],
             organizerId: user.uid,
+            staffIds: _staffIds.toList(),
             stagePlan: [
               for (var i = 0; i < _stages.length; i++) _stages[i].toPayload(i),
             ],
@@ -1128,11 +1157,6 @@ class _ColorPicker extends StatelessWidget {
                   ),
                 ),
               ),
-            OutlinedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.upload, size: 13),
-              label: const Text('UPLOAD IMAGE'),
-            ),
           ],
         ),
       ],
@@ -1319,6 +1343,67 @@ class _StageCard extends StatelessWidget {
               ],
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StaffPicker extends StatelessWidget {
+  const _StaffPicker({
+    required this.candidates,
+    required this.selected,
+    required this.onToggle,
+  });
+
+  final List<AssignableJudge> candidates;
+  final Set<String> selected;
+  final ValueChanged<String> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(HDTSpace.lg),
+      decoration: hdtAccentCard(accentColor: HDTColors.info),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('PANITIA (STAFF)', style: HDTText.overline(size: 10, color: HDTColors.info)),
+          const SizedBox(height: HDTSpace.sm),
+          Text(
+            'Registration desk helpers. They can check players in, mark offline payments as paid, and help with match ops on THIS tournament only — across every tournament you assign them to.',
+            style: HDTText.body(size: 12, color: HDTColors.text2),
+          ),
+          const SizedBox(height: HDTSpace.md),
+          if (candidates.isEmpty)
+            Text(
+              'No candidates yet. Players and judges from the community pool can be assigned as staff.',
+              style: HDTText.body(size: 12, color: HDTColors.text3),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final candidate in candidates.take(24))
+                  FilterChip(
+                    label: Text(
+                      candidate.displayName.toUpperCase(),
+                      style: HDTText.overline(size: 9),
+                    ),
+                    selected: selected.contains(candidate.uid),
+                    onSelected: (_) => onToggle(candidate.uid),
+                    backgroundColor: HDTColors.s1,
+                    selectedColor: HDTColors.info.withValues(alpha: .25),
+                    checkmarkColor: HDTColors.info,
+                    side: BorderSide(
+                      color: selected.contains(candidate.uid)
+                          ? HDTColors.info
+                          : HDTColors.s2,
+                    ),
+                  ),
+              ],
+            ),
         ],
       ),
     );
@@ -1934,12 +2019,6 @@ class _BottomBar extends StatelessWidget {
                 label: Text(backLabel),
               ),
               const Spacer(),
-              OutlinedButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.save_outlined),
-                label: const Text('SAVE DRAFT'),
-              ),
-              const SizedBox(width: HDTSpace.md),
               ElevatedButton.icon(
                 onPressed: onNext,
                 icon: busy

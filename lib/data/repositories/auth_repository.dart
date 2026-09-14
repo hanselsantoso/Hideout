@@ -67,7 +67,7 @@ class AuthRepository {
         'email': email.trim(),
         'region': region,
         'role': 'player',
-        'eloRating': 1000,
+        'eloRating': 0,
         'totalWins': 0,
         'totalLosses': 0,
         'totalMatches': 0,

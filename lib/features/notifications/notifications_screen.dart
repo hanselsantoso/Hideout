@@ -308,7 +308,7 @@ class NotificationsScreen extends ConsumerWidget {
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                   color: HDTColors.accent, borderRadius: HDTR.full),
               child: Text('$unreadCount',
                   style: HDTText.mono(size: 11, color: Colors.white)),
@@ -360,7 +360,7 @@ class NotificationsScreen extends ConsumerWidget {
 
         Expanded(
           child: list.isEmpty
-              ? HDTEmptyState(
+              ? const HDTEmptyState(
                   icon: Icons.notifications_none,
                   title: 'ALL CAUGHT UP',
                   subtitle: 'No notifications in this filter.')
@@ -383,10 +383,10 @@ class NotificationsScreen extends ConsumerWidget {
 
                     // Pinned
                     if (pinned.isNotEmpty) ...[
-                      Row(children: [
-                        const Icon(Icons.push_pin,
+                      const Row(children: [
+                        Icon(Icons.push_pin,
                             size: 12, color: HDTColors.accent),
-                        const SizedBox(width: 4),
+                        SizedBox(width: 4),
                         HDTOverlineLabel('PINNED',
                             color: HDTColors.accentHover),
                       ]),
@@ -446,12 +446,12 @@ class _NotifCard extends StatelessWidget {
         gradient: n.read
             ? null
             : LinearGradient(
-                colors: [meta.color.withOpacity(0.1), HDTColors.s1],
+                colors: [meta.color.withValues(alpha: 0.1), HDTColors.s1],
                 stops: const [0, 0.5]),
         color: n.read ? HDTColors.s1 : null,
         borderRadius: HDTR.lg,
         border: Border.all(
-            color: n.read ? HDTColors.s2 : meta.color.withOpacity(0.4)),
+            color: n.read ? HDTColors.s2 : meta.color.withValues(alpha: 0.4)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -463,9 +463,9 @@ class _NotifCard extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: meta.color.withOpacity(0.15),
+                color: meta.color.withValues(alpha: 0.15),
                 borderRadius: HDTR.md,
-                border: Border.all(color: meta.color.withOpacity(0.3)),
+                border: Border.all(color: meta.color.withValues(alpha: 0.3)),
               ),
               child: Icon(meta.icon, size: 18, color: meta.color),
             ),
@@ -552,7 +552,7 @@ class _NotifCard extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                          color: meta.color.withOpacity(0.5), blurRadius: 6)
+                          color: meta.color.withValues(alpha: 0.5), blurRadius: 6)
                     ],
                   ),
                 ),

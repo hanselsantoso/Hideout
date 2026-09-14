@@ -2,7 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/hideout_tokens.dart';
+import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/tournament_repository.dart';
+
+final judgeCheckedInProvider =
+    StreamProvider.family<bool, (String, String)>((ref, params) {
+  return ref
+      .watch(tournamentRepositoryProvider)
+      .watchJudgeCheckedIn(tournamentId: params.$1, judgeId: params.$2);
+});
+
+final judgeTournamentNameProvider =
+    StreamProvider.family<String, String>((ref, tournamentId) {
+  return ref.watch(tournamentRepositoryProvider).watchTournamentName(
+        tournamentId,
+      );
+});
 
 class JudgeMatchesScreen extends ConsumerWidget {
   const JudgeMatchesScreen({super.key});
@@ -24,18 +39,14 @@ class JudgeMatchesScreen extends ConsumerWidget {
             Text('MATCH ASSIGNMENTS', style: HDTText.display(size: 20)),
           ],
         ),
-        actions: [
-          TextButton.icon(
-            onPressed: () => Navigator.pushNamed(context, '/juri/scan'),
-            icon: const Icon(Icons.qr_code_scanner, size: 16),
-            label: const Text('SCAN'),
-          ),
-          const SizedBox(width: HDTSpace.sm),
-        ],
       ),
       body: SafeArea(
         child: matches.when(
           data: (items) {
+            final groups = <String, List<JudgeMatchSummary>>{};
+            for (final match in items) {
+              groups.putIfAbsent(match.tournamentId, () => []).add(match);
+            }
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 90),
               children: [
@@ -46,30 +57,16 @@ class JudgeMatchesScreen extends ConsumerWidget {
                 const SizedBox(height: HDTSpace.lg),
                 const _JudgeGuidePanel(),
                 const SizedBox(height: HDTSpace.lg),
-                _JudgeSchedulePanel(matches: items),
-                const SizedBox(height: HDTSpace.lg),
-                if (items.isEmpty)
+                if (groups.isEmpty)
                   const _NoJudgeAssignmentsPanel()
                 else
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final cols = constraints.maxWidth >= 980 ? 2 : 1;
-                      final width =
-                          (constraints.maxWidth - ((cols - 1) * HDTSpace.md)) /
-                              cols;
-                      return Wrap(
-                        spacing: HDTSpace.md,
-                        runSpacing: HDTSpace.md,
-                        children: [
-                          for (final match in items)
-                            SizedBox(
-                              width: width,
-                              child: _MatchCard(match: match),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
+                  for (final entry in groups.entries) ...[
+                    _JudgeTournamentSection(
+                      tournamentId: entry.key,
+                      matches: entry.value,
+                    ),
+                    const SizedBox(height: HDTSpace.lg),
+                  ],
               ],
             );
           },
@@ -96,24 +93,28 @@ class JudgeMatchesScreen extends ConsumerWidget {
   }
 }
 
-class _JudgeSchedulePanel extends StatelessWidget {
-  const _JudgeSchedulePanel({
+class _JudgeTournamentSection extends ConsumerWidget {
+  const _JudgeTournamentSection({
+    required this.tournamentId,
     required this.matches,
   });
 
+  final String tournamentId;
   final List<JudgeMatchSummary> matches;
 
   @override
-  Widget build(BuildContext context) {
-    final rows = [
-      for (final match in matches.take(4))
-        _JudgeScheduleRow(
-          title: match.matchCode,
-          time: match.completed ? 'Completed' : 'Event day . Live queue',
-          arena: match.arena,
-          status: match.status.toUpperCase(),
-        ),
-    ];
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authStateProvider).valueOrNull;
+    final judgeId = user?.uid ?? '';
+    final nameAsync = ref.watch(judgeTournamentNameProvider(tournamentId));
+    final checkedInAsync =
+        ref.watch(judgeCheckedInProvider((tournamentId, judgeId)));
+    final regsAsync = ref.watch(tournamentRegistrationsProvider(tournamentId));
+    final checkedIn = checkedInAsync.valueOrNull ?? false;
+    final registrations =
+        regsAsyncValue(regsAsync).where((r) => r.deckVerified).map((r) => r.id).toSet();
+    final busy = ref.watch(_checkInBusyProvider);
+
     return Container(
       padding: const EdgeInsets.all(HDTSpace.lg),
       decoration: hdtCard(),
@@ -122,94 +123,116 @@ class _JudgeSchedulePanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: HDTColors.success.withValues(alpha: .12),
-                  borderRadius: HDTR.md,
-                  border: Border.all(
-                    color: HDTColors.success.withValues(alpha: .55),
-                  ),
-                ),
-                child: const Icon(
-                  Icons.event_available_outlined,
-                  color: HDTColors.success,
-                ),
-              ),
-              const SizedBox(width: HDTSpace.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('JUDGE SCHEDULE', style: HDTText.display(size: 22)),
+                    Text('TOURNAMENT', style: HDTText.overline(size: 9)),
                     Text(
-                      'Tournaments and arenas assigned to this judge account.',
-                      style: HDTText.body(size: 12, color: HDTColors.text2),
+                      nameAsync.valueOrNull ?? tournamentId,
+                      style: HDTText.display(size: 20),
                     ),
                   ],
                 ),
               ),
+              checkedIn
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: HDTSpace.sm, vertical: HDTSpace.xs),
+                      decoration: BoxDecoration(
+                        color: HDTColors.success.withValues(alpha: .15),
+                        borderRadius: HDTR.sm,
+                        border: Border.all(
+                            color: HDTColors.success.withValues(alpha: .4)),
+                      ),
+                      child: Text('ATTENDED',
+                          style: HDTText.overline(
+                              size: 8, color: HDTColors.success)),
+                    )
+                  : ElevatedButton.icon(
+                      onPressed: busy.contains(tournamentId) || judgeId.isEmpty
+                          ? null
+                          : () => _checkIn(context, ref, judgeId),
+                      icon: const Icon(Icons.how_to_reg_outlined, size: 15),
+                      label: const Text('CHECK IN (ABSEN)'),
+                    ),
             ],
           ),
           const SizedBox(height: HDTSpace.md),
-          if (rows.isEmpty)
-            Text(
-              'No live matches for this account yet.',
-              style: HDTText.body(size: 12, color: HDTColors.text3),
-            )
-          else
-            for (final row in rows) row,
+          Text(
+            checkedIn
+                ? 'Scan and scoring unlocked for this tournament.'
+                : 'Check in (absen) on the event day to unlock SCAN and SCORE for this tournament.',
+            style: HDTText.body(size: 11, color: HDTColors.text3),
+          ),
+          const SizedBox(height: HDTSpace.md),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cols = constraints.maxWidth >= 980 ? 2 : 1;
+              final width =
+                  (constraints.maxWidth - ((cols - 1) * HDTSpace.md)) / cols;
+              return Wrap(
+                spacing: HDTSpace.md,
+                runSpacing: HDTSpace.md,
+                children: [
+                  for (final match in matches)
+                    SizedBox(
+                      width: width,
+                      child: _MatchCard(
+                        match: match,
+                        judgeCheckedIn: checkedIn,
+                        playerAVerified:
+                            registrations.contains(match.playerARegistrationId),
+                        playerBVerified:
+                            registrations.contains(match.playerBRegistrationId),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
         ],
       ),
     );
+  }
+
+  Iterable<TournamentRegistrationSummary> regsAsyncValue(
+          AsyncValue<List<TournamentRegistrationSummary>> regsAsync) =>
+      regsAsync.valueOrNull ?? const [];
+
+  Future<void> _checkIn(
+      BuildContext context, WidgetRef ref, String judgeId) async {
+    ref.read(_checkInBusyProvider.notifier).add(tournamentId);
+    try {
+      await ref.read(tournamentRepositoryProvider).checkInJudge(
+            tournamentId: tournamentId,
+            judgeId: judgeId,
+          );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Judge check-in recorded.')),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Check-in failed. Try again in a moment.')),
+      );
+    } finally {
+      ref.read(_checkInBusyProvider.notifier).remove(tournamentId);
+    }
   }
 }
 
-class _JudgeScheduleRow extends StatelessWidget {
-  const _JudgeScheduleRow({
-    required this.title,
-    required this.time,
-    required this.arena,
-    required this.status,
-  });
+final _checkInBusyProvider =
+    NotifierProvider<_CheckInBusyNotifier, Set<String>>(
+        _CheckInBusyNotifier.new);
 
-  final String title;
-  final String time;
-  final String arena;
-  final String status;
-
+class _CheckInBusyNotifier extends Notifier<Set<String>> {
   @override
-  Widget build(BuildContext context) {
-    final live = status == 'READY' || status == 'INPROGRESS';
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: HDTSpace.sm),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: HDTColors.s2)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title.toUpperCase(), style: HDTText.body(size: 13)),
-                Text('$time . ${arena.toUpperCase()}',
-                    style: HDTText.mono(size: 10, color: HDTColors.text3)),
-              ],
-            ),
-          ),
-          Text(
-            status,
-            style: HDTText.overline(
-              size: 8,
-              color: live ? HDTColors.success : HDTColors.warning,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Set<String> build() => {};
+  void add(String value) => state = {...state, value};
+  void remove(String value) => state = state.where((e) => e != value).toSet();
 }
 
 class _HeroSummary extends StatelessWidget {
@@ -304,7 +327,7 @@ class _JudgeGuidePanel extends StatelessWidget {
                     style: HDTText.display(size: 24)),
                 const SizedBox(height: HDTSpace.sm),
                 Text(
-                  'Call participants by arena, scan side A and B deck QR, compare decks with registration data, reject mismatches, then input scores after the match finishes.',
+                  'Check in (absen) on the event day, then call participants by arena, scan side A and B deck QR to verify decks, and input scores after each match finishes. Scan and scoring stay locked until you check in.',
                   style: HDTText.body(
                     size: 13,
                     color: HDTColors.text2,
@@ -313,11 +336,6 @@ class _JudgeGuidePanel extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-          OutlinedButton.icon(
-            onPressed: () => Navigator.pushNamed(context, '/juri/scan'),
-            icon: const Icon(Icons.qr_code_scanner, size: 16),
-            label: const Text('OPEN SCANNER'),
           ),
         ],
       ),
@@ -354,16 +372,33 @@ class _NoJudgeAssignmentsPanel extends StatelessWidget {
 
 class _MatchCard extends StatelessWidget {
   final JudgeMatchSummary match;
+  final bool judgeCheckedIn;
+  final bool playerAVerified;
+  final bool playerBVerified;
 
-  const _MatchCard({required this.match});
+  const _MatchCard({
+    required this.match,
+    required this.judgeCheckedIn,
+    required this.playerAVerified,
+    required this.playerBVerified,
+  });
 
   @override
   Widget build(BuildContext context) {
     final done = match.completed;
+    final bothVerified = playerAVerified && playerBVerified;
     final canScore = !done &&
+        judgeCheckedIn &&
+        bothVerified &&
         match.status != 'waitingOpponent' &&
         match.playerARegistrationId != null &&
         match.playerBRegistrationId != null;
+    String? scoreHint;
+    if (!done && judgeCheckedIn && !bothVerified) {
+      scoreHint = 'Verify both players with SCAN A and SCAN B first.';
+    } else if (!done && !judgeCheckedIn) {
+      scoreHint = 'Check in (absen) first to unlock actions.';
+    }
     return Container(
       padding: const EdgeInsets.all(HDTSpace.lg),
       decoration: hdtAccentCard(
@@ -415,26 +450,28 @@ class _MatchCard extends StatelessWidget {
             runSpacing: HDTSpace.sm,
             children: [
               OutlinedButton.icon(
-                onPressed: match.playerARegistrationId == null
+                onPressed: !judgeCheckedIn || match.playerARegistrationId == null
                     ? null
                     : () => Navigator.pushNamed(
                           context,
                           '/juri/scan',
-                          arguments: match.scanArguments('A'),
+                          arguments:
+                              match.scanArguments('A', judgeCheckedIn: true),
                         ),
                 icon: const Icon(Icons.qr_code_scanner, size: 15),
-                label: const Text('SCAN A'),
+                label: Text(playerAVerified ? 'RESCAN A' : 'SCAN A'),
               ),
               OutlinedButton.icon(
-                onPressed: match.playerBRegistrationId == null
+                onPressed: !judgeCheckedIn || match.playerBRegistrationId == null
                     ? null
                     : () => Navigator.pushNamed(
                           context,
                           '/juri/scan',
-                          arguments: match.scanArguments('B'),
+                          arguments:
+                              match.scanArguments('B', judgeCheckedIn: true),
                         ),
                 icon: const Icon(Icons.qr_code_scanner, size: 15),
-                label: const Text('SCAN B'),
+                label: Text(playerBVerified ? 'RESCAN B' : 'SCAN B'),
               ),
               ElevatedButton.icon(
                 onPressed: !canScore
@@ -442,13 +479,22 @@ class _MatchCard extends StatelessWidget {
                     : () => Navigator.pushNamed(
                           context,
                           '/juri/score',
-                          arguments: match.scoreArguments,
+                          arguments: match.scoreArguments(
+                            judgeCheckedIn: judgeCheckedIn,
+                            playerAVerified: playerAVerified,
+                            playerBVerified: playerBVerified,
+                          ),
                         ),
                 icon: const Icon(Icons.edit_note, size: 16),
                 label: const Text('SCORE'),
               ),
             ],
           ),
+          if (scoreHint != null) ...[
+            const SizedBox(height: HDTSpace.sm),
+            Text(scoreHint,
+                style: HDTText.body(size: 11, color: HDTColors.warning)),
+          ],
         ],
       ),
     );

@@ -195,16 +195,16 @@ BoxDecoration hdtAccentCard({
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          accentColor.withOpacity(0.14),
+          accentColor.withValues(alpha: 0.14),
           HDTColors.s1,
         ],
       ),
       borderRadius: radius ?? HDTR.lg,
       border: Border.all(
-        color: highlighted ? accentColor.withOpacity(0.5) : HDTColors.s2,
+        color: highlighted ? accentColor.withValues(alpha: 0.5) : HDTColors.s2,
       ),
       boxShadow: highlighted
-          ? [BoxShadow(color: accentColor.withOpacity(0.2), blurRadius: 16)]
+          ? [BoxShadow(color: accentColor.withValues(alpha: 0.2), blurRadius: 16)]
           : null,
     );
 

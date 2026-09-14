@@ -381,12 +381,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _interestsStep() {
     final interests = [
-      _Interest('tournaments', 'Tournaments', Icons.emoji_events_outlined),
-      _Interest('casual', 'Casual play', Icons.auto_awesome_outlined),
-      _Interest('community', 'Local communities', Icons.groups_outlined),
-      _Interest('meta', 'Meta & strategy', Icons.track_changes_outlined),
-      _Interest('collection', 'Parts collecting', Icons.card_giftcard_outlined),
-      _Interest('streaming', 'Watch streams', Icons.photo_camera_outlined),
+      const _Interest('tournaments', 'Tournaments', Icons.emoji_events_outlined),
+      const _Interest('casual', 'Casual play', Icons.auto_awesome_outlined),
+      const _Interest('community', 'Local communities', Icons.groups_outlined),
+      const _Interest('meta', 'Meta & strategy', Icons.track_changes_outlined),
+      const _Interest('collection', 'Parts collecting', Icons.card_giftcard_outlined),
+      const _Interest('streaming', 'Watch streams', Icons.photo_camera_outlined),
     ];
     return _StepShell(
       title: 'WHAT BRINGS YOU HERE?',
@@ -536,11 +536,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               const SizedBox(height: HDTSpace.md),
               Row(
                 children: [
-                  Expanded(child: _Mini(label: 'ELO', value: '100')),
+                  const Expanded(child: _Mini(label: 'ELO', value: '100')),
                   Expanded(
                       child: _Mini(
                           label: 'GEAR', value: _gear.isEmpty ? '-' : _gear)),
-                  Expanded(child: _Mini(label: 'ELO STARTER', value: '+0')),
+                  const Expanded(child: _Mini(label: 'ELO STARTER', value: '+0')),
                 ],
               ),
             ],

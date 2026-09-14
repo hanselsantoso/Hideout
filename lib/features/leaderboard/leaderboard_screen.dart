@@ -4,8 +4,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/constants/firestore_paths.dart';
 import '../../core/theme/hideout_tokens.dart';
 import '../../core/widgets/hdt_widgets.dart';
+import '../../data/repositories/auth_repository.dart';
 
 // ─── Model ──────────────────────────────────────────────────
 class PlayerEntry {
@@ -30,372 +32,55 @@ class PlayerEntry {
   double get winRate => win / (win + loss);
 }
 
-// ─── Mock Data ───────────────────────────────────────────────
-Color _c(int value) => Color(value);
-final List<PlayerEntry> _players = [
-  PlayerEntry(
-      id: '1',
-      name: 'KAEDE',
-      bjxId: 'HDT-001',
-      region: 'JKT',
-      community: 'Senayan Spinners',
-      topClass: 'RUSHER',
-      elo: 3120,
-      delta: 24,
-      win: 142,
-      loss: 38,
-      color: _c(0xFF9B4FA3)),
-  PlayerEntry(
-      id: '2',
-      name: 'RAYHAN',
-      bjxId: 'HDT-008',
-      region: 'BDG',
-      community: 'Bandung Beydads',
-      topClass: 'BALANCE',
-      elo: 3084,
-      delta: 18,
-      win: 138,
-      loss: 42,
-      color: _c(0xFFE67E22)),
-  PlayerEntry(
-      id: '3',
-      name: 'MIKA',
-      bjxId: 'HDT-014',
-      region: 'JKT',
-      community: 'Senayan Spinners',
-      topClass: 'STAMINA',
-      elo: 3041,
-      delta: -12,
-      win: 130,
-      loss: 44,
-      color: _c(0xFF27AE60)),
-  PlayerEntry(
-      id: '4',
-      name: 'BAYU',
-      bjxId: 'HDT-022',
-      region: 'SBY',
-      community: 'Surabaya X-Force',
-      topClass: 'DEFENDER',
-      elo: 2998,
-      delta: 31,
-      win: 124,
-      loss: 46,
-      color: _c(0xFF3498DB)),
-  PlayerEntry(
-      id: '5',
-      name: 'NADIA',
-      bjxId: 'HDT-031',
-      region: 'YGY',
-      community: 'Jogja Jagged',
-      topClass: 'RUSHER',
-      elo: 2965,
-      delta: 6,
-      win: 121,
-      loss: 49,
-      color: _c(0xFFF4D03F)),
-  PlayerEntry(
-      id: '6',
-      name: 'HARIMAU',
-      bjxId: 'HDT-202',
-      region: 'JKT',
-      community: 'Senayan Spinners',
-      topClass: 'BALANCE',
-      elo: 2921,
-      delta: 14,
-      win: 118,
-      loss: 52,
-      color: _c(0xFF9B4FA3)),
-  PlayerEntry(
-      id: '7',
-      name: 'GERHANA',
-      bjxId: 'HDT-045',
-      region: 'BDG',
-      community: 'Bandung Beydads',
-      topClass: 'STAMINA',
-      elo: 2890,
-      delta: -3,
-      win: 110,
-      loss: 54,
-      color: _c(0xFF5DADE2)),
-  PlayerEntry(
-      id: '8',
-      name: 'SAKURA',
-      bjxId: 'HDT-051',
-      region: 'JKT',
-      community: 'Kemang Knights',
-      topClass: 'RUSHER',
-      elo: 2872,
-      delta: 22,
-      win: 108,
-      loss: 55,
-      color: _c(0xFFEC7063)),
-  PlayerEntry(
-      id: '9',
-      name: 'ZAIDAN',
-      bjxId: 'HDT-066',
-      region: 'MDN',
-      community: 'Medan Maelstrom',
-      topClass: 'DEFENDER',
-      elo: 2841,
-      delta: 11,
-      win: 102,
-      loss: 58,
-      color: _c(0xFF1ABC9C)),
-  PlayerEntry(
-      id: '10',
-      name: 'INDRA',
-      bjxId: 'HDT-078',
-      region: 'SBY',
-      community: 'Surabaya X-Force',
-      topClass: 'BALANCE',
-      elo: 2820,
-      delta: -8,
-      win: 98,
-      loss: 60,
-      color: _c(0xFF7D3C98)),
-  PlayerEntry(
-      id: '11',
-      name: 'LUNA',
-      bjxId: 'HDT-082',
-      region: 'JKT',
-      community: 'Senayan Spinners',
-      topClass: 'STAMINA',
-      elo: 2802,
-      delta: 17,
-      win: 96,
-      loss: 61,
-      color: _c(0xFF48C9B0)),
-  PlayerEntry(
-      id: '12',
-      name: 'TARO',
-      bjxId: 'HDT-090',
-      region: 'YGY',
-      community: 'Jogja Jagged',
-      topClass: 'RUSHER',
-      elo: 2780,
-      delta: 4,
-      win: 94,
-      loss: 64,
-      color: _c(0xFFF39C12)),
-  PlayerEntry(
-      id: '13',
-      name: 'ARYA',
-      bjxId: 'HDT-105',
-      region: 'BDG',
-      community: 'Bandung Beydads',
-      topClass: 'DEFENDER',
-      elo: 2756,
-      delta: -19,
-      win: 90,
-      loss: 66,
-      color: _c(0xFF566573)),
-  PlayerEntry(
-      id: '14',
-      name: 'NAYA',
-      bjxId: 'HDT-118',
-      region: 'JKT',
-      community: 'Kemang Knights',
-      topClass: 'BALANCE',
-      elo: 2734,
-      delta: 9,
-      win: 88,
-      loss: 68,
-      color: _c(0xFFBB8FCE)),
-  PlayerEntry(
-      id: '15',
-      name: 'KRISNA',
-      bjxId: 'HDT-129',
-      region: 'SBY',
-      community: 'Surabaya X-Force',
-      topClass: 'RUSHER',
-      elo: 2710,
-      delta: 13,
-      win: 84,
-      loss: 70,
-      color: _c(0xFFE74C3C)),
-  PlayerEntry(
-      id: '16',
-      name: 'DERRA',
-      bjxId: 'HDT-156',
-      region: 'JKT',
-      community: 'Kemang Knights',
-      topClass: 'STAMINA',
-      elo: 2689,
-      delta: -5,
-      win: 80,
-      loss: 72,
-      color: _c(0xFF5499C7)),
-  PlayerEntry(
-      id: '17',
-      name: 'MARDIKA',
-      bjxId: 'HDT-007',
-      region: 'JKT',
-      community: 'Senayan Spinners',
-      topClass: 'DEFENDER',
-      elo: 2672,
-      delta: 8,
-      win: 78,
-      loss: 74,
-      color: _c(0xFFA569BD)),
-  PlayerEntry(
-      id: '18',
-      name: 'BILLY',
-      bjxId: 'HDT-030',
-      region: 'JKT',
-      community: 'Kemang Knights',
-      topClass: 'RUSHER',
-      elo: 2651,
-      delta: 16,
-      win: 75,
-      loss: 76,
-      color: _c(0xFFF0B27A)),
-  PlayerEntry(
-      id: '19',
-      name: 'KAGE',
-      bjxId: 'HDT-044',
-      region: 'BDG',
-      community: 'Bandung Beydads',
-      topClass: 'BALANCE',
-      elo: 2635,
-      delta: -7,
-      win: 72,
-      loss: 78,
-      color: _c(0xFF717D7E)),
-  PlayerEntry(
-      id: '20',
-      name: 'AVI',
-      bjxId: 'HDT-091',
-      region: 'JKT',
-      community: 'Senayan Spinners',
-      topClass: 'STAMINA',
-      elo: 2618,
-      delta: 12,
-      win: 70,
-      loss: 80,
-      color: _c(0xFF58D68D)),
-  PlayerEntry(
-      id: '21',
-      name: 'FATIMA',
-      bjxId: 'HDT-217',
-      region: 'JKT',
-      community: 'Kemang Knights',
-      topClass: 'RUSHER',
-      elo: 2601,
-      delta: 20,
-      win: 67,
-      loss: 81,
-      color: _c(0xFFF1948A)),
-  PlayerEntry(
-      id: '22',
-      name: 'NIRO',
-      bjxId: 'HDT-077',
-      region: 'JKT',
-      community: 'Senayan Spinners',
-      topClass: 'DEFENDER',
-      elo: 2580,
-      delta: 3,
-      win: 65,
-      loss: 83,
-      color: _c(0xFF85C1E9)),
-  PlayerEntry(
-      id: '23',
-      name: 'GHOZALI',
-      bjxId: 'HDT-201',
-      region: 'BDG',
-      community: 'Bandung Beydads',
-      topClass: 'BALANCE',
-      elo: 2562,
-      delta: -11,
-      win: 62,
-      loss: 85,
-      color: _c(0xFFA9CCE3)),
-  PlayerEntry(
-      id: '24',
-      name: 'ZINBLACK',
-      bjxId: 'HDT-014',
-      region: 'JKT',
-      community: 'Cikini Cyclones',
-      topClass: 'RUSHER',
-      elo: 2545,
-      delta: 25,
-      win: 60,
-      loss: 87,
-      color: _c(0xFFF9E79F)),
-  PlayerEntry(
-      id: '25',
-      name: 'ARUNA',
-      bjxId: 'HDT-188',
-      region: 'JKT',
-      community: 'Cikini Cyclones',
-      topClass: 'STAMINA',
-      elo: 2528,
-      delta: 10,
-      win: 58,
-      loss: 89,
-      color: _c(0xFFA3E4D7)),
-  PlayerEntry(
-      id: '26',
-      name: 'DEWI',
-      bjxId: 'HDT-141',
-      region: 'BALI',
-      community: 'Bali Beachblades',
-      topClass: 'DEFENDER',
-      elo: 2510,
-      delta: 4,
-      win: 55,
-      loss: 90,
-      color: _c(0xFF48C9B0)),
-  PlayerEntry(
-      id: '27',
-      name: 'RAKA',
-      bjxId: 'HDT-155',
-      region: 'SBY',
-      community: 'Surabaya X-Force',
-      topClass: 'BALANCE',
-      elo: 2492,
-      delta: -6,
-      win: 53,
-      loss: 92,
-      color: _c(0xFF7FB3D3)),
-  PlayerEntry(
-      id: '28',
-      name: 'ZULFAN',
-      bjxId: 'HDT-169',
-      region: 'MDN',
-      community: 'Medan Maelstrom',
-      topClass: 'RUSHER',
-      elo: 2475,
-      delta: 14,
-      win: 51,
-      loss: 93,
-      color: _c(0xFF82E0AA)),
-  PlayerEntry(
-      id: '29',
-      name: 'BUNGA',
-      bjxId: 'HDT-174',
-      region: 'YGY',
-      community: 'Jogja Jagged',
-      topClass: 'STAMINA',
-      elo: 2458,
-      delta: -2,
-      win: 49,
-      loss: 95,
-      color: _c(0xFFF0A500)),
-  PlayerEntry(
-      id: '30',
-      name: 'RAFA',
-      bjxId: 'HDT-118',
-      region: 'JKT',
-      community: 'Kemang Knights',
-      topClass: 'DEFENDER',
-      elo: 2440,
-      delta: 7,
-      win: 47,
-      loss: 97,
-      color: _c(0xFFC0392B)),
-];
+// ─── Real data ──────────────────────────────────────────────
+final leaderboardPlayersProvider =
+    StreamProvider<List<PlayerEntry>>((ref) {
+  final firestore = ref.watch(firestoreProvider);
+  return firestore
+      .collection(FirestorePaths.users)
+      .orderBy('eloRating', descending: true)
+      .limit(200)
+      .snapshots()
+      .map((snap) {
+    return snap.docs
+        .map((doc) {
+          final data = doc.data();
+          final roles = <String>{
+            (data['role'] ?? 'player').toString(),
+            ...((data['roles'] as Iterable?) ?? const [])
+                .map((role) => role.toString()),
+          };
+          if (roles.contains('super_admin')) return null;
+          if (data['isActive'] == false) return null;
+          final win = (data['totalWins'] as num?)?.round() ?? 0;
+          final loss = (data['totalLosses'] as num?)?.round() ?? 0;
+          if (win + loss == 0) return null; // Belum pernah bertanding
+          final uid = doc.id;
+          final code = (data['playerCode'] ?? '').toString();
+          final colorSeed = (uid.hashCode & 0xFFFFFF) | 0x404040;
+          return PlayerEntry(
+            id: uid,
+            name: ((data['displayName'] ?? data['name'] ?? 'PLAYER')
+                    .toString())
+                .toUpperCase(),
+            bjxId: code.isEmpty
+                ? 'HDT-${uid.substring(0, uid.length >= 4 ? 4 : uid.length).toUpperCase()}'
+                : code.toUpperCase(),
+            region: (data['region'] ?? '').toString().toUpperCase(),
+            community: '',
+            topClass: '',
+            elo: (data['eloRating'] as num?)?.round() ?? 0,
+            delta: 0,
+            win: win,
+            loss: loss,
+            color: Color(colorSeed),
+          );
+        })
+        .whereType<PlayerEntry>()
+        .toList();
+  });
+});
 
-// ─── State & Notifier ────────────────────────────────────────
 class LeaderboardState {
   final String region;
   final String window;
@@ -417,17 +102,6 @@ class LeaderboardState {
         query: query ?? this.query,
         page: page ?? this.page,
       );
-
-  List<PlayerEntry> get list {
-    return [..._players]
-        .where((p) => region == 'ALL' || p.region == region)
-        .where((p) =>
-            query.isEmpty ||
-            p.name.toLowerCase().contains(query.toLowerCase()) ||
-            p.bjxId.toLowerCase().contains(query.toLowerCase()))
-        .toList()
-      ..sort((a, b) => b.elo.compareTo(a.elo));
-  }
 }
 
 class LeaderboardNotifier extends Notifier<LeaderboardState> {
@@ -457,7 +131,16 @@ class LeaderboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(leaderboardProvider);
     final notifier = ref.read(leaderboardProvider.notifier);
-    final list = state.list;
+    final playersAsync = ref.watch(leaderboardPlayersProvider);
+    final allPlayers = playersAsync.valueOrNull ?? const <PlayerEntry>[];
+    final list = allPlayers
+        .where((p) => state.region == 'ALL' || p.region == state.region)
+        .where((p) =>
+            state.query.isEmpty ||
+            p.name.toLowerCase().contains(state.query.toLowerCase()) ||
+            p.bjxId.toLowerCase().contains(state.query.toLowerCase()))
+        .toList()
+      ..sort((a, b) => b.elo.compareTo(a.elo));
     final podium = list.take(3).toList();
     final rest = list.skip(3).toList();
     final paginatedRest =
@@ -545,7 +228,7 @@ class LeaderboardScreen extends ConsumerWidget {
                             rank: state.page * _perPage + e.key + 4,
                           )),
                       if (paginatedRest.isEmpty)
-                        HDTEmptyState(
+                        const HDTEmptyState(
                             icon: Icons.people_outline, title: 'NO PLAYERS'),
                     ],
                   ),
@@ -679,7 +362,7 @@ class _PlayerRow extends StatelessWidget {
           horizontal: HDTSpace.lg, vertical: HDTSpace.md),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-            colors: [p.color.withOpacity(0.06), Colors.transparent],
+            colors: [p.color.withValues(alpha: 0.06), Colors.transparent],
             stops: const [0, 0.4]),
         border: const Border(bottom: BorderSide(color: HDTColors.s2)),
       ),

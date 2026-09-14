@@ -80,6 +80,9 @@ class PlayerTournamentEntry {
         'date': date.toIso8601String(),
         'registered': registered,
         'capacity': capacity,
+        'player': playerName,
+        'bjxId': playerCode.isEmpty ? ticketId : playerCode,
+        'deck': deck,
       };
 
   Map<String, Object> toPaymentArgs() => {
@@ -331,17 +334,6 @@ class _MyTournamentsView extends StatelessWidget {
     final top4 = tournaments
         .where((item) => item.position != null && item.position! <= 4)
         .length;
-    PlayerTournamentEntry? activeTicket;
-    for (final item in tournaments) {
-      final active = item.status == PlayerTournamentStatus.ongoing ||
-          item.status == PlayerTournamentStatus.registered ||
-          item.status == PlayerTournamentStatus.checkedIn;
-      if (active) {
-        activeTicket = item;
-        break;
-      }
-    }
-    final ticket = activeTicket;
 
     return Scaffold(
       backgroundColor: HDTColors.bg,
@@ -351,13 +343,6 @@ class _MyTournamentsView extends StatelessWidget {
             _Header(
               onBack: () =>
                   Navigator.pushReplacementNamed(context, '/dashboard'),
-              onQr: ticket == null
-                  ? null
-                  : () => Navigator.pushNamed(
-                        context,
-                        '/me/qr',
-                        arguments: ticket.toTicketArgs(),
-                      ),
             ),
             Expanded(
               child: Center(
@@ -451,9 +436,8 @@ class _MyTournamentsView extends StatelessWidget {
 
 class _Header extends StatelessWidget {
   final VoidCallback onBack;
-  final VoidCallback? onQr;
 
-  const _Header({required this.onBack, required this.onQr});
+  const _Header({required this.onBack});
 
   @override
   Widget build(BuildContext context) {
@@ -487,15 +471,6 @@ class _Header extends StatelessWidget {
           Expanded(
             child: Text('MY TOURNAMENTS',
                 style: HDTText.overline(size: 10, color: HDTColors.text)),
-          ),
-          ElevatedButton.icon(
-            onPressed: onQr,
-            icon: const Icon(Icons.qr_code_2, size: 14),
-            label: const Text('QR CHECK-IN'),
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size(128, 34),
-              textStyle: HDTText.overline(size: 10, color: Colors.white),
-            ),
           ),
         ],
       ),
@@ -601,7 +576,17 @@ class _TournamentRow extends StatelessWidget {
     final status = _statusStyle(tournament.status);
     final tier = _tierStyle(tournament.tier);
 
-    return Container(
+    return InkWell(
+      borderRadius: HDTR.lg,
+      onTap: () => Navigator.pushNamed(
+        context,
+        '/tournaments/detail',
+        arguments: {
+          ...tournament.toTournamentArgs(),
+          'registrationId': tournament.ticketId,
+        },
+      ),
+      child: Container(
       padding: const EdgeInsets.all(18),
       decoration: hdtCard(),
       child: LayoutBuilder(
@@ -703,6 +688,7 @@ class _TournamentRow extends StatelessWidget {
           );
         },
       ),
+    ),
     );
   }
 }
@@ -739,12 +725,15 @@ class _Actions extends StatelessWidget {
           ElevatedButton.icon(
             onPressed: () => Navigator.pushNamed(
               context,
-              '/me/qr',
-              arguments: tournament.toTicketArgs(),
+              '/tournaments/detail',
+              arguments: {
+                ...tournament.toTournamentArgs(),
+                'registrationId': tournament.ticketId,
+              },
             ),
             icon: const Icon(Icons.qr_code_2, size: 13),
-            label: const Text('QR'),
-            style: ElevatedButton.styleFrom(minimumSize: const Size(76, 34)),
+            label: const Text('CHECK-IN'),
+            style: ElevatedButton.styleFrom(minimumSize: const Size(96, 34)),
           ),
         OutlinedButton(
           onPressed: () => Navigator.pushNamed(
