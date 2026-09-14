@@ -65,10 +65,16 @@ describe('firestore security rules', () => {
         roles: ['super_admin'],
         isActive: true,
       });
+      await setDoc(doc(db, 'users/staff-a'), {
+        role: 'player',
+        roles: ['player'],
+        isActive: true,
+      });
       await setDoc(doc(db, 'tournaments/owned-event'), {
         name: 'Owned Event',
         organizerId: 'community-a',
         status: 'draft',
+        staffIds: ['staff-a'],
       });
       await setDoc(doc(db, 'tournaments/other-event'), {
         name: 'Other Event',
@@ -197,6 +203,82 @@ describe('firestore security rules', () => {
     );
   });
 
+  it('allows a judge to record their own check-in on the tournament', async () => {
+    await assertSucceeds(
+      updateDoc(doc(authedDb('judge-a'), 'tournaments/owned-event'), {
+        'judgeCheckIns.judge-a': 'now',
+        updatedAt: 'now',
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(authedDb('judge-a'), 'tournaments/owned-event'), {
+        'judgeCheckIns.judge-a': 'now',
+        organizerId: 'judge-a',
+      }),
+    );
+  });
+
+  it('allows tournament staff to run registration and payment ops', async () => {
+    const db = authedDb('staff-a');
+    await assertSucceeds(
+      updateDoc(doc(db, 'tournaments/owned-event/registrations/reg-a'), {
+        paymentStatus: 'paid',
+        registrationStatus: 'active',
+        paidBy: 'staff-a',
+        paidByName: 'Staff A',
+        paidAt: 'now',
+        updatedAt: 'now',
+      }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(db, 'tournaments/owned-event'), {
+        status: 'running',
+        updatedAt: 'now',
+      }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(db, 'tournaments/owned-event/rounds/round-a/matches/match-a'), {
+        winnerId: 'player-a',
+        winnerName: 'Player A',
+        updatedAt: 'now',
+      }),
+    );
+  });
+
+  it('blocks staff from managing staffIds, tournaments, and withdrawals', async () => {
+    const db = authedDb('staff-a');
+    await assertFails(
+      updateDoc(doc(db, 'tournaments/owned-event'), {
+        staffIds: ['player-a'],
+        updatedAt: 'now',
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, 'tournaments/staff-created-event'), {
+        name: 'Staff Created Event',
+        organizerId: 'staff-a',
+        status: 'draft',
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, 'tournaments/owned-event/withdrawals/wd-staff'), {
+        requesterId: 'staff-a',
+        amount: 100000,
+        status: 'processing',
+      }),
+    );
+  });
+
+  it('blocks random players from staff registration ops', async () => {
+    const db = authedDb('player-a');
+    await assertFails(
+      updateDoc(doc(db, 'tournaments/owned-event/registrations/reg-a'), {
+        paymentStatus: 'paid',
+        updatedAt: 'now',
+      }),
+    );
+  });
+
   it('allows a community owner to create their own withdraw only', async () => {
     const db = authedDb('community-a');
     await assertSucceeds(
@@ -232,6 +314,124 @@ describe('firestore security rules', () => {
     await assertFails(
       updateDoc(doc(db, 'users/player-a'), {
         role: 'super_admin',
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(db, 'users/player-a'), {
+        roles: ['player', 'judge'],
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(db, 'users/player-a'), {
+        eloRating: 99999,
+        totalWins: 999,
+      }),
+    );
+  });
+
+  it('allows an assigned judge to maintain round robin standings', async () => {
+    await assertSucceeds(
+      setDoc(doc(authedDb('judge-a'), 'tournaments/owned-event/rounds/round-a/standings/player-a'), {
+        playerId: 'player-a',
+        playerName: 'Player A',
+        groupName: 'Group 1',
+        matches: 1,
+        wins: 1,
+        losses: 0,
+        points: 3,
+        scoreFor: 4,
+        scoreAgainst: 2,
+        pointDiff: 2,
+        updatedAt: 'now',
+      }),
+    );
+    await assertFails(
+      setDoc(doc(authedDb('player-a'), 'tournaments/owned-event/rounds/round-a/standings/player-a'), {
+        playerId: 'player-a',
+        groupName: 'Group 1',
+        wins: 99,
+        updatedAt: 'now',
+      }),
+    );
+  });
+
+  it('allows community admins to grant judge role with the full roles array', async () => {
+    const db = authedDb('community-b');
+    await assertSucceeds(
+      updateDoc(doc(db, 'users/player-a'), {
+        role: 'judge',
+        roles: ['judge', 'player'],
+        judgeAssignedBy: 'community-b',
+        judgeAssignedAt: 'now',
+        updatedAt: 'now',
+      }),
+    );
+  });
+
+  it('allows community admins to revoke judge role back to player', async () => {
+    const db = authedDb('community-b');
+    await assertSucceeds(
+      updateDoc(doc(db, 'users/judge-a'), {
+        role: 'player',
+        roles: ['player'],
+        judgeRevokedBy: 'community-b',
+        judgeRevokedAt: 'now',
+        updatedAt: 'now',
+      }),
+    );
+  });
+
+  it('blocks community admins from granting community_admin role', async () => {
+    const db = authedDb('community-b');
+    await assertFails(
+      updateDoc(doc(db, 'users/player-a'), {
+        role: 'community_admin',
+        roles: ['player', 'community_admin'],
+        updatedAt: 'now',
+      }),
+    );
+  });
+
+  it('blocks self-created accounts from smuggling elevated roles', async () => {
+    const db = authedDb('new-user');
+    await assertFails(
+      setDoc(doc(db, 'users/new-user'), {
+        role: 'player',
+        roles: ['super_admin'],
+        isActive: true,
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, 'users/new-user'), {
+        role: 'player',
+        capabilities: ['super_admin'],
+        isActive: true,
+      }),
+    );
+    await assertSucceeds(
+      setDoc(doc(db, 'users/new-user'), {
+        uid: 'new-user',
+        displayName: 'New User',
+        email: 'new@example.com',
+        role: 'player',
+        roles: ['player'],
+        eloRating: 1000,
+        isActive: true,
+      }),
+    );
+  });
+
+  it('allows organizers to record payout requests on their own tournament', async () => {
+    await assertSucceeds(
+      updateDoc(doc(authedDb('community-a'), 'tournaments/owned-event'), {
+        organizerPayout: { status: 'processing', requestedAmount: 100000 },
+        updatedAt: 'now',
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(authedDb('community-a'), 'tournaments/owned-event'), {
+        organizerPayout: { status: 'processing' },
+        organizerId: 'community-b',
       }),
     );
   });

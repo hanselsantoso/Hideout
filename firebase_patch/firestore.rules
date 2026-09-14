@@ -74,6 +74,7 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly([
             'role',
+            'roles',
             'judgeAssignedBy',
             'judgeAssignedAt',
             'judgeRevokedBy',
@@ -92,6 +93,7 @@ service cloud.firestore {
             'winnerName',
             'finalScore',
             'completedAt',
+            'judgeCheckIns',
             'updatedAt'
           ]);
     }
@@ -105,6 +107,8 @@ service cloud.firestore {
             'registrationStatus',
             'paymentId',
             'paidAt',
+            'paidBy',
+            'paidByName',
             'activatedAt',
             'walkOutAt',
             'updatedAt'
@@ -128,6 +132,8 @@ service cloud.firestore {
             'seededMatchCount',
             'activeMatchCount',
             'byeCount',
+            'organizerPayout',
+            'staffIds',
             'startedAt',
             'updatedAt'
           ])
@@ -138,6 +144,50 @@ service cloud.firestore {
     function isTournamentOrganizer(tournamentId) {
       return isAuthenticated()
         && get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.organizerId == request.auth.uid;
+    }
+
+    function isTournamentStaff(tournamentId) {
+      return isAuthenticated()
+        && request.auth.uid in get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.get('staffIds', []);
+    }
+
+    function canStaffRunRegistrationOps(tournamentId) {
+      return isTournamentStaff(tournamentId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            'paymentStatus',
+            'registrationStatus',
+            'paymentId',
+            'paidAt',
+            'paidBy',
+            'paidByName',
+            'activatedAt',
+            'walkOutAt',
+            'checkInStatus',
+            'updatedAt'
+          ]);
+    }
+
+    function canStaffRunTournamentOps(tournamentId) {
+      return isTournamentStaff(tournamentId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            'status',
+            'currentParticipantCount',
+            'currentStage',
+            'currentRoundId',
+            'stageStatus',
+            'roundRobin',
+            'topCut',
+            'bracketSize',
+            'seededMatchCount',
+            'activeMatchCount',
+            'byeCount',
+            'startedAt',
+            'updatedAt'
+          ])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status'])
+          || request.resource.data.status in ['draft', 'registrationOpen', 'ready', 'running']);
     }
 
     function isTournamentOwner(tournamentId) {
@@ -157,13 +207,30 @@ service cloud.firestore {
         || (isCommunityAdmin() && resource.data.role in ['player', 'judge']);
       allow create: if isAdmin()
         || (isSelf(uid)
-          && request.resource.data.role == 'player');
+          && request.resource.data.role == 'player'
+          && request.resource.data.keys().hasOnly([
+            'uid', 'displayName', 'name', 'email', 'region', 'role', 'roles',
+            'eloRating', 'totalWins', 'totalLosses', 'totalMatches',
+            'isQrActivated', 'isActive', 'createdAt', 'updatedAt'
+          ])
+          && (!('roles' in request.resource.data)
+            || request.resource.data.roles == ['player']));
       allow update: if isAdmin()
         || canCommunityManageJudgeRole(uid)
         || (isSelf(uid)
           && !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny(['role', 'communityIds', 'isQrActivated']));
-      // role, communityIds, and isQrActivated should be changed by Cloud Functions/admin only.
+            .hasAny([
+              'role',
+              'roles',
+              'communityIds',
+              'isQrActivated',
+              'eloRating',
+              'totalWins',
+              'totalLosses',
+              'totalMatches'
+            ]));
+      // role, roles, communityIds, isQrActivated, and player stats are changed
+      // by Cloud Functions/admin only.
 
       // Personal deck builder data owned by the user.
       match /decks/{deckId} {
@@ -204,7 +271,8 @@ service cloud.firestore {
       allow create: if isAdmin() || isNewTournamentOwner();
       allow update: if isAdmin()
         || canUpdateTournamentOps()
-        || canJudgeAdvanceTournament();
+        || canJudgeAdvanceTournament()
+        || canStaffRunTournamentOps(tournamentId);
       allow delete: if isAdmin();
 
       // Registrations — player creates own, admin can read/update all
@@ -213,6 +281,7 @@ service cloud.firestore {
         allow create: if isPlayer() && request.resource.data.playerId == request.auth.uid;
         allow update: if isAdmin()
           || canUpdateRegistrationOps(tournamentId)
+          || canStaffRunRegistrationOps(tournamentId)
           || (isJudge()
             && request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly([
@@ -246,17 +315,20 @@ service cloud.firestore {
         allow read: if isAuthenticated();
         allow create, update: if isAdmin()
           || isTournamentOwner(tournamentId)
-          || isTournamentOrganizer(tournamentId);
+          || isTournamentOrganizer(tournamentId)
+          || isTournamentStaff(tournamentId);
 
         // Matches — admin creates, judge updates (their assigned match), all read
         match /matches/{matchId} {
           allow read: if isAuthenticated();
           allow create: if isAdmin()
             || isTournamentOwner(tournamentId)
-            || isTournamentOrganizer(tournamentId);
+            || isTournamentOrganizer(tournamentId)
+            || isTournamentStaff(tournamentId);
           allow update: if isAdmin()
             || isTournamentOwner(tournamentId)
             || isTournamentOrganizer(tournamentId)
+            || isTournamentStaff(tournamentId)
             || (isJudge() && resource.data.judgeId == request.auth.uid);
 
           // Battles — only the assigned judge can create; all can read
@@ -265,6 +337,49 @@ service cloud.firestore {
             allow create: if isJudge() && get(/databases/$(database)/documents/tournaments/$(tournamentId)/rounds/$(roundId)/matches/$(matchId)).data.judgeId == request.auth.uid;
             allow update, delete: if false;
           }
+        }
+
+        // Standings (round robin) — organizer/staff/judge maintain rows
+        match /standings/{playerId} {
+          allow read: if isAuthenticated();
+          allow create: if isAdmin()
+            || isTournamentOwner(tournamentId)
+            || isTournamentOrganizer(tournamentId)
+            || isTournamentStaff(tournamentId)
+            || (isJudge()
+              && request.resource.data.keys().hasOnly([
+                'playerId',
+                'playerName',
+                'groupName',
+                'matches',
+                'wins',
+                'losses',
+                'points',
+                'scoreFor',
+                'scoreAgainst',
+                'pointDiff',
+                'updatedAt'
+              ]));
+          allow update: if isAdmin()
+            || isTournamentOwner(tournamentId)
+            || isTournamentOrganizer(tournamentId)
+            || isTournamentStaff(tournamentId)
+            || (isJudge()
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly([
+                  'playerId',
+                  'playerName',
+                  'groupName',
+                  'matches',
+                  'wins',
+                  'losses',
+                  'points',
+                  'scoreFor',
+                  'scoreAgainst',
+                  'pointDiff',
+                  'updatedAt'
+                ]));
+          allow delete: if isAdmin();
         }
       }
 

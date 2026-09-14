@@ -1,0 +1,6 @@
+{
+  "DATASET_ID": "hideout_analytics",
+  "COLLECTION_IDS": "users,tournaments,registrations,matches,battles,communities,communityApplications,components,componentStats,payments,withdrawals,notifications",
+  "TABLE_PREFIX": "bq",
+  "BACKFILL": "true"
+}

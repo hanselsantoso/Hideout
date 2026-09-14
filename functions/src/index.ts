@@ -11,6 +11,7 @@ setGlobalOptions({region: "asia-southeast1", maxInstances: 20, invoker: "public"
 const db = admin.firestore();
 const serverTimestamp = admin.firestore.FieldValue.serverTimestamp;
 const xenditSecretKey = defineSecret("XENDIT_SECRET_KEY");
+const xenditWebhookToken = defineSecret("XENDIT_WEBHOOK_TOKEN");
 const xenditApiBase = "https://api.xendit.co";
 const defaultAppBaseUrl = "https://turney.id";
 
@@ -971,7 +972,9 @@ export const syncXenditPaymentSession = onCall(
   },
 );
 
-export const xenditPaymentSessionWebhook = onRequest(async (request, response) => {
+export const xenditPaymentSessionWebhook = onRequest(
+  {secrets: [xenditWebhookToken]},
+  async (request, response) => {
   if (request.method !== "POST") {
     response.status(405).send("Method not allowed");
     return;
@@ -1006,7 +1009,9 @@ export const xenditPaymentSessionWebhook = onRequest(async (request, response) =
   }
 });
 
-export const xenditQrisWebhook = onRequest(async (request, response) => {
+export const xenditQrisWebhook = onRequest(
+  {secrets: [xenditWebhookToken]},
+  async (request, response) => {
   if (request.method !== "POST") {
     response.status(405).send("Method not allowed");
     return;
@@ -1044,3 +1049,588 @@ export const xenditQrisWebhook = onRequest(async (request, response) => {
     response.status(500).json({ok: false});
   }
 });
+
+type XenditDisbursement = {
+  id?: string;
+  external_id?: string;
+  bank_code?: string;
+  account_holder_name?: string;
+  account_number?: string;
+  amount?: number;
+  status?: string;
+  fee?: number;
+};
+
+type PayoutTarget = {
+  tournamentId: string;
+  withdrawalId: string;
+};
+
+const supportedBankHint =
+  "BCA, BNI, BRI, Mandiri, Permata, CIMB, Danamon, Maybank, Panin, OCBC/NISP, BSI";
+
+function bankCodeFor(bankName: string): string {
+  const v = bankName.toLowerCase();
+  if (v.includes("bca") || v.includes("central asia")) return "BCA";
+  if (v.includes("bni")) return "BNI";
+  if (v.includes("bri") || v.includes("rakyat indonesia")) return "BRI";
+  if (v.includes("mandiri")) return "MANDIRI";
+  if (v.includes("permata")) return "PERMATA";
+  if (v.includes("cimb")) return "CIMB";
+  if (v.includes("danamon")) return "DANAMON";
+  if (v.includes("maybank")) return "MAYBANK_INDONESIA";
+  if (v.includes("panin")) return "PANIN";
+  if (v.includes("ocbc") || v.includes("nisp")) return "OCBC_NISP";
+  if (v.includes("bsi") || v.includes("syariah")) return "BSI";
+  throw new HttpsError(
+    "invalid-argument",
+    `Unsupported bank "${bankName}". Supported: ${supportedBankHint}.`,
+  );
+}
+
+async function assertSuperAdmin(uid: string): Promise<void> {
+  const snap = await db.doc(`users/${uid}`).get();
+  const data = snap.data() ?? {};
+  const roles = Array.isArray(data.roles) ? (data.roles as string[]) : [];
+  const role = asString(data.role);
+  const allowed =
+    roles.includes("super_admin") ||
+    roles.includes("admin") ||
+    role === "super_admin" ||
+    role === "admin";
+  if (!allowed) {
+    throw new HttpsError(
+      "permission-denied",
+      "Only platform admins can process payouts.",
+    );
+  }
+}
+
+function disbursementStatus(value: unknown): string {
+  const status = asString(value).toUpperCase();
+  if (status === "COMPLETED") return "completed";
+  if (status === "FAILED") return "failed";
+  return "processing";
+}
+
+async function writeDisbursementState(
+  target: PayoutTarget,
+  disb: XenditDisbursement,
+  source: string,
+): Promise<Record<string, unknown>> {
+  const withdrawalRef = db.doc(
+    `tournaments/${target.tournamentId}/withdrawals/${target.withdrawalId}`,
+  );
+  const tournamentRef = db.doc(`tournaments/${target.tournamentId}`);
+  const status = disbursementStatus(disb.status);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(withdrawalRef);
+    if (!snap.exists) {
+      throw new HttpsError("not-found", "Withdrawal was not found.");
+    }
+    tx.set(
+      withdrawalRef,
+      {
+        status,
+        xenditDisbursementId: asString(disb.id) || null,
+        xenditDisbursementStatus: asString(disb.status).toUpperCase() || null,
+        xenditBankCode: asString(disb.bank_code) || null,
+        payoutFeeAmount: asPositiveInt(disb.fee),
+        payoutSource: source,
+        payoutUpdatedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      {merge: true},
+    );
+    tx.set(
+      tournamentRef,
+      {
+        organizerPayout: {
+          status,
+          lastWithdrawalId: target.withdrawalId,
+          xenditDisbursementId: asString(disb.id) || null,
+          updatedAt: serverTimestamp(),
+        },
+        updatedAt: serverTimestamp(),
+      },
+      {merge: true},
+    );
+  });
+  return {
+    withdrawalId: target.withdrawalId,
+    tournamentId: target.tournamentId,
+    status,
+    xenditDisbursementId: asString(disb.id) || null,
+    xenditStatus: asString(disb.status).toUpperCase() || null,
+  };
+}
+
+async function resolvePayoutTarget(
+  externalId: string,
+): Promise<PayoutTarget | null> {
+  if (!externalId.startsWith("wd-")) return null;
+  const withdrawalId = externalId.slice(3);
+  const snap = await db
+    .collectionGroup("withdrawals")
+    .where("id", "==", withdrawalId)
+    .limit(1)
+    .get();
+  if (snap.empty) return null;
+  const ref = snap.docs[0].ref;
+  return {tournamentId: ref.parent.parent?.id ?? "", withdrawalId};
+}
+
+export const createXenditDisbursement = onCall(
+  {secrets: [xenditSecretKey]},
+  async (request) => {
+    const uid = requireAuth(request.auth?.uid);
+    await assertSuperAdmin(uid);
+    const tournamentId = requireString(request.data, "tournamentId");
+    const withdrawalId = requireString(request.data, "withdrawalId");
+    const target = {tournamentId, withdrawalId};
+    const withdrawalRef = db.doc(
+      `tournaments/${tournamentId}/withdrawals/${withdrawalId}`,
+    );
+    const snap = await withdrawalRef.get();
+    if (!snap.exists) {
+      throw new HttpsError("not-found", "Withdrawal was not found.");
+    }
+    const withdrawal = snap.data() ?? {};
+    if (asString(withdrawal.status) === "completed") {
+      return {
+        withdrawalId,
+        tournamentId,
+        status: "completed",
+        xenditDisbursementId: asString(withdrawal.xenditDisbursementId) || null,
+        message: "Withdrawal has already been paid out.",
+      };
+    }
+    const existingId = asString(withdrawal.xenditDisbursementId);
+    if (existingId) {
+      const disb = await xenditRequest<XenditDisbursement>(
+        "GET",
+        `/disbursements/${existingId}`,
+      );
+      return writeDisbursementState(target, disb, "syncBeforeCreate");
+    }
+    const amount = asPositiveInt(withdrawal.amount);
+    if (amount <= 0) {
+      throw new HttpsError("invalid-argument", "Withdrawal amount is invalid.");
+    }
+    const disb = await xenditRequest<XenditDisbursement>(
+      "POST",
+      "/disbursements",
+      {
+        external_id: `wd-${withdrawalId}`,
+        amount,
+        bank_code: bankCodeFor(asString(withdrawal.bankName)),
+        account_holder_name: truncate(
+          asString(withdrawal.accountName, "Account Holder"),
+          100,
+        ),
+        account_number: alphanumeric(asString(withdrawal.accountNumber)),
+        description: truncate(
+          `Turney community payout for tournament ${tournamentId}`,
+          255,
+        ),
+      },
+    );
+    return writeDisbursementState(target, disb, "created");
+  },
+);
+
+export const syncXenditDisbursement = onCall(
+  {secrets: [xenditSecretKey]},
+  async (request) => {
+    const uid = requireAuth(request.auth?.uid);
+    await assertSuperAdmin(uid);
+    const tournamentId = requireString(request.data, "tournamentId");
+    const withdrawalId = requireString(request.data, "withdrawalId");
+    const target = {tournamentId, withdrawalId};
+    const snap = await db
+      .doc(`tournaments/${tournamentId}/withdrawals/${withdrawalId}`)
+      .get();
+    const withdrawal = snap.data() ?? {};
+    const disbId = asString(withdrawal.xenditDisbursementId);
+    if (!disbId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "No Xendit disbursement exists for this withdrawal yet.",
+      );
+    }
+    const disb = await xenditRequest<XenditDisbursement>(
+      "GET",
+      `/disbursements/${disbId}`,
+    );
+    return writeDisbursementState(target, disb, "manualSync");
+  },
+);
+
+export const xenditDisbursementWebhook = onRequest(
+  {secrets: [xenditWebhookToken]},
+  async (request, response) => {
+  if (request.method !== "POST") {
+    response.status(405).send("Method not allowed");
+    return;
+  }
+  const expectedToken = process.env.XENDIT_WEBHOOK_TOKEN;
+  if (expectedToken && request.get("x-callback-token") !== expectedToken) {
+    response.status(401).send("Unauthorized");
+    return;
+  }
+  const event = asString(request.body?.event);
+  if (
+    event &&
+    !["disbursement.completed", "disbursement.failed"].includes(event)
+  ) {
+    response.status(200).json({ignored: true});
+    return;
+  }
+  const disb = (request.body?.data ?? request.body ?? {}) as XenditDisbursement;
+  try {
+    const target = await resolvePayoutTarget(asString(disb.external_id));
+    if (!target) {
+      logger.warn("Xendit disbursement webhook target not found", {
+        event,
+        externalId: disb.external_id,
+      });
+      response.status(202).json({accepted: true, targetFound: false});
+      return;
+    }
+    await writeDisbursementState(target, disb, `webhook:${event || "status"}`);
+    response.status(200).json({ok: true});
+  } catch (error) {
+    logger.error("Xendit disbursement webhook failed", {event, error});
+    response.status(500).json({ok: false});
+  }
+});
+
+const allowedPlatformRoles = new Set([
+  "super_admin",
+  "admin",
+  "community_admin",
+  "judge",
+  "player",
+]);
+
+function normalizeRole(value: string): string {
+  const v = value.trim().toLowerCase();
+  if (v === "superadmin") return "super_admin";
+  if (v === "communityadmin") return "community_admin";
+  if (v === "juri") return "judge";
+  if (v === "admin") return "super_admin";
+  return v;
+}
+
+function primaryRoleFor(roles: string[]): string {
+  if (roles.includes("super_admin")) return "super_admin";
+  if (roles.includes("community_admin")) return "community_admin";
+  if (roles.includes("judge")) return "judge";
+  return "player";
+}
+
+export const assignJudge = onCall(async (request) => {
+  const uid = requireAuth(request.auth?.uid);
+  const actorSnap = await db.doc(`users/${uid}`).get();
+  const actorRoles = Array.isArray(actorSnap.data()?.roles)
+    ? (actorSnap.data()?.roles as string[])
+    : [];
+  const actorRole = asString(actorSnap.data()?.role);
+  const canManage =
+    actorRoles.includes("community_admin") ||
+    actorRoles.includes("super_admin") ||
+    actorRole === "community_admin" ||
+    actorRole === "super_admin" ||
+    actorRole === "admin";
+  if (!canManage) {
+    throw new HttpsError(
+      "permission-denied",
+      "Only community admins or platform admins can assign judges.",
+    );
+  }
+  const targetUid = requireString(request.data, "targetUid");
+  if (targetUid === uid) {
+    throw new HttpsError("invalid-argument", "Cannot change your own role.");
+  }
+  const targetRef = db.doc(`users/${targetUid}`);
+  const snap = await targetRef.get();
+  if (!snap.exists) {
+    throw new HttpsError("not-found", "Target user was not found.");
+  }
+  const currentRole = asString(snap.data()?.role);
+  if (!["player", "judge"].includes(currentRole)) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Only players or judges can be assigned the judge role.",
+    );
+  }
+  const roles = new Set<string>(["player", "judge"]);
+  await targetRef.set(
+    {
+      role: "judge",
+      roles: [...roles].sort(),
+      judgeAssignedBy: uid,
+      judgeAssignedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    },
+    {merge: true},
+  );
+  return {success: true, uid: targetUid, role: "judge"};
+});
+
+export const submitCommunityApplication = onCall(async (request) => {
+  const uid = requireAuth(request.auth?.uid);
+  const data = (request.data ?? {}) as Record<string, unknown>;
+  const communityName = requireString(data, "communityName");
+  const leaderUserId = requireString(data, "leaderUserId");
+  const ref = db.collection("communityApplications").doc();
+  await ref.set({
+    requesterId: uid,
+    communityName: communityName,
+    city: asString(data.city),
+    leaderUserId,
+    description: asString(data.description),
+    tag: asString(data.tag),
+    type: asString(data.type),
+    region: asString(data.region),
+    website: asString(data.website),
+    leader: (data.leader as Record<string, unknown>) ?? {},
+    financeAccount: (data.financeAccount as Record<string, unknown>) ?? {},
+    documents: (data.documents as Record<string, unknown>) ?? {},
+    status: "pending",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return {applicationId: ref.id};
+});
+
+export const reviewCommunityApplication = onCall(async (request) => {
+  const uid = requireAuth(request.auth?.uid);
+  await assertSuperAdmin(uid);
+  const applicationId = requireString(request.data, "applicationId");
+  const decision = requireString(request.data, "decision");
+  const reason = asString(request.data?.reason);
+  const applicationRef = db.doc(`communityApplications/${applicationId}`);
+  const snap = await applicationRef.get();
+  if (!snap.exists) {
+    throw new HttpsError("not-found", "Application was not found.");
+  }
+  const application = snap.data() ?? {};
+  if (asString(application.status) !== "pending") {
+    throw new HttpsError(
+      "failed-precondition",
+      "Application has already been reviewed.",
+    );
+  }
+  const leaderUserId = asString(application.leaderUserId);
+  if (decision === "approved") {
+    const communityRef = db.collection("communities").doc();
+    await db.runTransaction(async (tx) => {
+      tx.set(communityRef, {
+        name: asString(application.communityName),
+        tag: asString(application.tag),
+        type: asString(application.type),
+        city: asString(application.city),
+        region: asString(application.region),
+        website: asString(application.website),
+        description: asString(application.description),
+        leaderUserId,
+        leader: (application.leader as Record<string, unknown>) ?? {},
+        financeAccount:
+          (application.financeAccount as Record<string, unknown>) ?? {},
+        documents: (application.documents as Record<string, unknown>) ?? {},
+        adminIds: [leaderUserId],
+        memberCount: 1,
+        status: "active",
+        sourceApplicationId: applicationId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      tx.set(
+        applicationRef,
+        {
+          status: "approved",
+          reviewerId: uid,
+          communityId: communityRef.id,
+          reviewedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        {merge: true},
+      );
+      if (leaderUserId) {
+        const leaderRef = db.doc(`users/${leaderUserId}`);
+        const leaderSnap = await tx.get(leaderRef);
+        const existing = Array.isArray(leaderSnap.data()?.roles)
+          ? (leaderSnap.data()?.roles as string[])
+          : [];
+        const roles = new Set<string>([...existing, "player", "community_admin"]);
+        tx.set(
+          leaderRef,
+          {
+            role: primaryRoleFor([...roles]),
+            roles: [...roles].sort(),
+            communityIds: admin.firestore.FieldValue.arrayUnion(communityRef.id),
+            updatedAt: serverTimestamp(),
+          },
+          {merge: true},
+        );
+      }
+    });
+    if (leaderUserId) {
+      await db.collection("notifications").add({
+        recipientId: leaderUserId,
+        type: "communityApplication",
+        title: "Community approved",
+        body: "The community application review is complete.",
+        isRead: false,
+        createdAt: serverTimestamp(),
+      });
+    }
+    return {communityId: communityRef.id};
+  }
+  if (decision === "rejected") {
+    await applicationRef.set(
+      {
+        status: "rejected",
+        reviewerId: uid,
+        rejectionReason: reason,
+        reviewedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      {merge: true},
+    );
+    const recipient = asString(application.requesterId) || leaderUserId;
+    if (recipient) {
+      await db.collection("notifications").add({
+        recipientId: recipient,
+        type: "communityApplication",
+        title: "Community application rejected",
+        body: reason || "The community application was rejected.",
+        isRead: false,
+        createdAt: serverTimestamp(),
+      });
+    }
+    return {communityId: ""};
+  }
+  throw new HttpsError("invalid-argument", "Decision must be approved/rejected.");
+});
+
+export const setPlatformRole = onCall(async (request) => {
+  const uid = requireAuth(request.auth?.uid);
+  await assertSuperAdmin(uid);
+  const targetUid = requireString(request.data, "targetUid");
+  const requested = Array.isArray(request.data?.roles)
+    ? (request.data.roles as unknown[]).map((r) => normalizeRole(asString(r)))
+    : [normalizeRole(asString(request.data?.role))];
+  for (const role of requested) {
+    if (!allowedPlatformRoles.has(role)) {
+      throw new HttpsError("invalid-argument", `Unsupported role: ${role}`);
+    }
+  }
+  const roles = new Set<string>(requested);
+  if (!roles.has("super_admin")) roles.add("player");
+  const primary = primaryRoleFor([...roles]);
+  const existingUser = await admin.auth().getUser(targetUid);
+  await admin.auth().setCustomUserClaims(targetUid, {
+    ...(existingUser.customClaims ?? {}),
+    role: primary,
+  });
+  await db.doc(`users/${targetUid}`).set(
+    {
+      role: primary,
+      roles: [...roles].sort(),
+      roleUpdatedAt: serverTimestamp(),
+      roleUpdatedBy: uid,
+      updatedAt: serverTimestamp(),
+    },
+    {merge: true},
+  );
+  return {success: true, uid: targetUid, role: primary};
+});
+
+import {onDocumentWritten} from "firebase-functions/v2/firestore";
+
+// ── Player performance: ELO + totals, applied exactly once per match ──────
+// The judge client cannot update another player's users document, so stats
+// are applied server-side when a match transitions to 'completed'.
+export const onMatchCompletedApplyStats = onDocumentWritten(
+  "tournaments/{tournamentId}/rounds/{roundId}/matches/{matchId}",
+  async (event) => {
+    const after = event.data?.after.data() ?? {};
+    const before = event.data?.before.data() ?? {};
+    const status = asString(after.status).toLowerCase();
+    const winnerId = asString(after.winnerId);
+    if (status !== "completed" || !winnerId) return;
+    if (after.statsAppliedAt || before.statsAppliedAt) return;
+    if (before.status === "completed") return;
+
+    const playerAId = asString(after.playerAId);
+    const playerBId = asString(after.playerBId);
+    if (!playerAId || !playerBId || playerBId === "player-b") return;
+    if (playerAId === playerBId) return;
+
+    const [aSnap, bSnap] = await Promise.all([
+      db.doc(`users/${playerAId}`).get(),
+      db.doc(`users/${playerBId}`).get(),
+    ]);
+    const aElo = asPositiveInt(aSnap.data()?.eloRating);
+    const bElo = asPositiveInt(bSnap.data()?.eloRating);
+    const aWon = winnerId === playerAId;
+    const expectedA = 1 / (1 + Math.pow(10, (bElo - aElo) / 400));
+    const K = 32;
+    const scoreA = aWon ? 1 : 0;
+    const nextAElo = Math.max(0, Math.round(aElo + K * (scoreA - expectedA)));
+    const nextBElo = Math.max(0, Math.round(bElo + K * (1 - scoreA - (1 - expectedA))));
+    const aTotals = {
+      totalMatches: asPositiveInt(aSnap.data()?.totalMatches) + 1,
+      totalWins: asPositiveInt(aSnap.data()?.totalWins) + (aWon ? 1 : 0),
+      totalLosses: asPositiveInt(aSnap.data()?.totalLosses) + (aWon ? 0 : 1),
+    };
+    const bTotals = {
+      totalMatches: asPositiveInt(bSnap.data()?.totalMatches) + 1,
+      totalWins: asPositiveInt(bSnap.data()?.totalWins) + (aWon ? 0 : 1),
+      totalLosses: asPositiveInt(bSnap.data()?.totalLosses) + (aWon ? 1 : 0),
+    };
+    await db.runTransaction(async (tx) => {
+      tx.set(
+        db.doc(`users/${playerAId}`),
+        {
+          ...aTotals,
+          eloRating: nextAElo,
+          lastMatchAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        {merge: true},
+      );
+      tx.set(
+        db.doc(`users/${playerBId}`),
+        {
+          ...bTotals,
+          eloRating: nextBElo,
+          lastMatchAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        {merge: true},
+      );
+      if (event.data?.after.ref) {
+        tx.set(
+          event.data.after.ref,
+          {statsAppliedAt: serverTimestamp()},
+          {merge: true},
+        );
+      }
+      await db.collection("elo_history").add({
+        matchId: event.params?.matchId ?? "",
+        tournamentId: event.params?.tournamentId ?? "",
+        playerAId,
+        playerBId,
+        winnerId,
+        aBefore: aElo,
+        bBefore: bElo,
+        aAfter: nextAElo,
+        bAfter: nextBElo,
+        createdAt: serverTimestamp(),
+      });
+    });
+  },
+);
