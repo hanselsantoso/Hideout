@@ -158,6 +158,7 @@ async function resetFirestore(token) {
     preservedUsers: [],
     preservedCollections: preserveCollections,
     warnings: [],
+    demoStatsReset: [],
   };
 
   const users = await listDocuments(token, 'users').catch((error) => {
@@ -168,6 +169,7 @@ async function resetFirestore(token) {
     const docPath = docPathFromName(user.name);
     if (shouldPreserveUser(user)) {
       stats.preservedUsers.push(docPath);
+      await resetDemoUserStats(token, docPath, stats);
       continue;
     }
     stats.userDocsToDelete.push(docPath);
@@ -185,6 +187,35 @@ async function resetFirestore(token) {
   }
 
   return stats;
+}
+
+// Reset preserved demo accounts so every profile starts from zero:
+// ELO 1000, 0 wins / 0 losses / 0 matches.
+async function resetDemoUserStats(token, docPath, stats) {
+  const fields = {
+    eloRating: {integerValue: '0'},
+    totalWins: {integerValue: '0'},
+    totalLosses: {integerValue: '0'},
+    totalMatches: {integerValue: '0'},
+  };
+  const url =
+    `https://firestore.googleapis.com/v1/projects/${projectId}` +
+    `/databases/(default)/documents/${encodePath(docPath)}?updateMask.fieldPaths=eloRating` +
+    '&updateMask.fieldPaths=totalWins&updateMask.fieldPaths=totalLosses' +
+    '&updateMask.fieldPaths=totalMatches';
+  try {
+    await requestJson(url, {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({fields}),
+    });
+    stats.demoStatsReset.push(docPath);
+  } catch (error) {
+    stats.warnings.push(`demo stats reset skipped: ${error.message}`);
+  }
 }
 
 async function resetAuthUsers(stats) {
