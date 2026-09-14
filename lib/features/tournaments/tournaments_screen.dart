@@ -209,15 +209,16 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
             ),
             const SizedBox(height: 20),
             backend.when(
-              data: (_) => _SourceHint(
-                text: backendEntries.isEmpty
-                    ? 'Demo tournaments are active because Firebase has no live events yet.'
-                    : '${backendEntries.length} Firebase tournaments loaded.',
-              ),
+              data: (_) => backendEntries.isEmpty
+                  ? const SizedBox.shrink()
+                  : _SourceHint(
+                      text: '${backendEntries.length} turnamen live dimuat.',
+                    ),
               loading: () => const _SourceHint(
-                  text: 'Fetching the latest tournaments from Firebase...'),
+                  text: 'Memuat turnamen terbaru dari Firebase...'),
               error: (_, __) => const _SourceHint(
-                  text: 'Firebase is not available. Showing demo data.'),
+                  text:
+                      'Firebase tidak tersedia. Coba lagi beberapa saat lagi.'),
             ),
             const SizedBox(height: 14),
             if (paginated.isEmpty)

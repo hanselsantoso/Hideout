@@ -256,58 +256,82 @@ class _RosterRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final paid = row.paymentStatus == 'paid';
     final checkedIn = row.checkInStatus == 'checkedIn';
+    final narrow = MediaQuery.sizeOf(context).width < 640;
+    final identity = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(row.playerName.isEmpty ? row.id : row.playerName,
+            style: HDTText.display(size: 14)),
+        const SizedBox(height: 3),
+        Text('DECK: ${row.deckName}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: HDTText.mono(size: 10, color: HDTColors.text3)),
+      ],
+    );
+    final pills = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _StatusPill(
+          label: paid ? 'PAID' : 'UNPAID',
+          color: paid ? HDTColors.success : HDTColors.warning,
+        ),
+        const SizedBox(width: 6),
+        _StatusPill(
+          label: checkedIn ? 'CHECKED IN' : 'NOT IN',
+          color: checkedIn ? HDTColors.success : HDTColors.text3,
+        ),
+      ],
+    );
+    final actions = Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        OutlinedButton(
+          onPressed: paid || busy ? null : onPaid,
+          child: const Text('MARK PAID', style: TextStyle(fontSize: 11)),
+        ),
+        OutlinedButton(
+          onPressed: busy ? null : onCheckIn,
+          child: Text(checkedIn ? 'UNDO CHECK-IN' : 'CHECK-IN',
+              style: const TextStyle(fontSize: 11)),
+        ),
+        IconButton(
+          tooltip: 'Walk out',
+          onPressed: busy ? null : onWalkOut,
+          icon:
+              Icon(Icons.directions_walk, size: 16, color: HDTColors.danger),
+        ),
+      ],
+    );
+    if (narrow) {
+      return Container(
+        padding: const EdgeInsets.all(HDTSpace.md),
+        decoration: hdtCard(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(child: identity),
+                pills,
+              ],
+            ),
+            const SizedBox(height: HDTSpace.sm),
+            actions,
+          ],
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.all(HDTSpace.md),
       decoration: hdtCard(),
       child: Row(
         children: [
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(row.playerName.isEmpty ? row.id : row.playerName,
-                    style: HDTText.display(size: 14)),
-                const SizedBox(height: 3),
-                Text('DECK: ${row.deckName}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: HDTText.mono(size: 10, color: HDTColors.text3)),
-              ],
-            ),
-          ),
-          SizedBox(
-            width: 96,
-            child: _StatusPill(
-              label: paid ? 'PAID' : 'UNPAID',
-              color: paid ? HDTColors.success : HDTColors.warning,
-            ),
-          ),
-          const SizedBox(width: HDTSpace.xs),
-          SizedBox(
-            width: 110,
-            child: OutlinedButton(
-              onPressed: paid || busy ? null : onPaid,
-              child: const Text('MARK PAID',
-                  style: TextStyle(fontSize: 11)),
-            ),
-          ),
-          const SizedBox(width: HDTSpace.xs),
-          SizedBox(
-            width: 104,
-            child: OutlinedButton(
-              onPressed: busy ? null : onCheckIn,
-              child: Text(checkedIn ? 'UNDO' : 'CHECK-IN',
-                  style: const TextStyle(fontSize: 11)),
-            ),
-          ),
-          const SizedBox(width: HDTSpace.xs),
-          IconButton(
-            tooltip: 'Walk out',
-            onPressed: busy ? null : onWalkOut,
-            icon: Icon(Icons.directions_walk,
-                size: 16, color: HDTColors.danger),
-          ),
+          Expanded(flex: 3, child: identity),
+          pills,
+          const SizedBox(width: HDTSpace.sm),
+          actions,
         ],
       ),
     );

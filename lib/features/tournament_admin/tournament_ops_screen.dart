@@ -898,6 +898,7 @@ class _TournamentPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (tournaments.isEmpty) return const SizedBox.shrink();
     return SizedBox(
       height: 116,
       child: ListView.separated(

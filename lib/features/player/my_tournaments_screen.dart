@@ -497,7 +497,7 @@ class _TitleBar extends StatelessWidget {
             Text('MY TOURNAMENTS', style: HDTText.display(size: 34)),
             const SizedBox(height: 4),
             Text(
-              'History, tickets, QR check-in, and locked decks.',
+              'Riwayat, tiket aktif, dan check-in pass kamu.',
               style: HDTText.body(size: 13, color: HDTColors.text3),
             ),
           ],

@@ -6,7 +6,8 @@
     ]
   },
   "firestore": {
-    "rules": "firebase_patch/firestore.rules"
+    "rules": "firebase_patch/firestore.rules",
+    "indexes": "firestore.indexes.json"
   },
   "storage": {
     "rules": "firebase_patch/storage.rules"

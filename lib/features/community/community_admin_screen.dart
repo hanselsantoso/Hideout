@@ -908,14 +908,10 @@ class _TournamentCardsPanel extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: HDTSpace.md,
-          runSpacing: HDTSpace.md,
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text('MY TOURNAMENTS', style: HDTText.overline(size: 10)),
-            Wrap(
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final narrow = constraints.maxWidth < 640;
+            final actions = Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
@@ -932,8 +928,27 @@ class _TournamentCardsPanel extends ConsumerWidget {
                   label: const Text('CREATE NEW TOURNAMENT'),
                 ),
               ],
-            ),
-          ],
+            );
+            final title = Text('MY TOURNAMENTS',
+                style: HDTText.overline(size: 10));
+            if (narrow) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  title,
+                  const SizedBox(height: HDTSpace.sm),
+                  actions,
+                ],
+              );
+            }
+            return Wrap(
+              spacing: HDTSpace.md,
+              runSpacing: HDTSpace.md,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [title, actions],
+            );
+          },
         ),
         const SizedBox(height: HDTSpace.md),
         if (tournamentsAsync.isLoading && tournaments.isEmpty)
