@@ -1,8 +1,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const projectId = process.env.FIREBASE_PROJECT_ID || 'tournamentmanagement-942ef';
-const apiKey = process.env.FIREBASE_WEB_API_KEY || 'AIzaSyDsYg8Cc1WK3b5JY4wWGYEwDqe4EJXwz7Q';
+const projectId = process.env.FIREBASE_PROJECT_ID;
+const apiKey = process.env.FIREBASE_WEB_API_KEY;
 const email = process.env.HIDEOUT_SUPER_EMAIL || 'hideout.super@example.com';
 const password = process.env.HIDEOUT_DEMO_PASSWORD;
 

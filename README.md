@@ -1,129 +1,143 @@
-# BeyTourney HIDEOUT
+# Turney — HIDEOUT
 
-Flutter Web app for Turney/BeyTourney: public landing, player dashboard,
-community tournament ops, judge console, and super admin platform ops.
+Aplikasi turnamen **Beyblade X multiplatform (Flutter Web)** untuk komunitas Indonesia:
+landing publik, dashboard pemain, panel juri, **meja panitia (staff)**, operasi turnamen
+ketua komunitas, dan platform ops super admin. Porting dari prototype web BJX/HIDEOUT.
 
-## Live
+**Backend:** Firebase (Auth, Firestore, Functions, Hosting, Storage) — 100% serverless.
+**Pembayaran:** Xendit (QRIS + payment session + disbursement/payout).
 
-- Production domain: https://turney.id
-- Firebase project: `tournamentmanagement-942ef`
-- Hosting target: Firebase Hosting `build/web`
+---
 
-## Demo Accounts
+## Fitur
 
-The reset script preserves four main demo accounts:
+| Area | Fitur |
+|---|---|
+| Publik | Landing, turnamen browser (filter/sort), leaderboard, komunitas, katalog part Beyblade |
+| Pemain | Deck builder (legal check + banned part), registrasi turnamen, **entry GRATIS**, QRIS Xendit, My Tournaments + **Check-in Pass (QR asli)** di detail turnamen, **My Matches** (statistik + grafik + pagination + sort) |
+| Juri | Jadwal match per turnamen, **absen (check-in) hari-H** → membuka scan QR → verifikasi deck A/B → input skor; ELO otomatis server-side |
+| **Panitia (Staff)** | Di-assign per turnamen oleh ketua; **Registration Desk**: MARK PAID (offline, ter-audit), CHECK-IN, WALK OUT; multi-turnamen |
+| Ketua Komunitas | Dashboard kartu MY TOURNAMENTS + HISTORY, wizard bertahap (dengan notice juri/panitia), Tournament Ops (bracket, roster, grup), kelola juri, withdrawal + payout Xendit |
+| Super Admin | Approve komunitas, kelola role (custom claims), komponen + stats, metrik, **Payout Queue** |
 
-- `hideout.player@example.com`
-- `hideout.judge@example.com`
-- `hideout.community@example.com`
-- `hideout.super@example.com`
+**Role:** `player` · `judge` · `community_admin` (multi-role: pemain+juri+ketua sekaligus didukung) ·
+`super_admin` · panitia = assignment per-turnamen (`staffIds`), bukan role global.
 
-The demo password is not stored in the repository. Set the following env var
-before running live scripts:
+---
 
-```powershell
-$env:HIDEOUT_DEMO_PASSWORD="..."
-```
+## Quickstart
 
-## Local Verification
-
-```powershell
+```bash
+git clone <repo> && cd <repo>
 flutter pub get
-flutter analyze --no-fatal-infos
-flutter test --reporter expanded
-flutter build web
-npm run test:rules
+flutter run -d chrome            # dev server lokal
 ```
 
-The live smoke test uses local Chrome/Edge:
+### 1. Hubungkan Firebase project kamu
 
-```powershell
-node tooling/verify_demo_accounts.cjs
-npm run smoke:live
+Cara cepat (generate config otomatis):
+
+```bash
+npm i -g firebase-tools
+firebase login
+dart pub global activate flutterfire_cli
+flutterfire configure   # pilih project + web
 ```
 
-`smoke:live` opens production routes, captures screenshots to
-`C:\tmp\turney-live-smoke`, and fails if the login/register/dashboard guards
-still render identically to the landing page.
+Atau manual dengan `--dart-define`:
 
-## Firebase Workflows
-
-Seed supporting data:
-
-```powershell
-node tooling/seed_firestore_client.cjs
+```bash
+flutter run -d chrome \
+  --dart-define=FIREBASE_API_KEY=xxx \
+  --dart-define=FIREBASE_APP_ID=1:xxx:web:xxx \
+  --dart-define=FIREBASE_SENDER_ID=xxx \
+  --dart-define=FIREBASE_PROJECT_ID=xxx \
+  --dart-define=FIREBASE_AUTH_DOMAIN=xxx.firebaseapp.com \
+  --dart-define=FIREBASE_STORAGE_BUCKET=xxx.appspot.com
 ```
 
-Trial end-to-end live:
+Untuk build/hosting produksi, pasang nilai yang sama pada `--dart-define=...`
+(`flutter build web`).
 
-```powershell
-node tooling/trial_end_to_end.cjs
+> **Mode demo:** tambahkan `--dart-define=SHOW_DEMO_LOGIN=true` untuk menampilkan
+> 4 tombol login demo (player/judge/lead/super admin) di halaman sign-in.
+> Default: **tersembunyi** (jangan aktifkan di produksi publik).
+
+### 2. Aktifkan di Firebase Console
+
+- Authentication → Email/Password **enable**
+- Firestore → create database (production mode)
+- Storage (untuk upload gambar komponen super admin)
+- Hosting (opsional)
+
+### 3. Deploy backend (rules, index, functions)
+
+```bash
+firebase login
+firebase deploy --only firestore:rules,firestore:indexes,functions
 ```
 
-Reset trial/prototype data while preserving the 4 demo accounts and parts:
+- Rules: `firebase_patch/firestore.rules` — role-based, multi-role, panitia per-turnamen
+- Index: `firestore.indexes.json` (query collectionGroup)
+- Functions: `functions/` — pembayaran Xendit, role management, **ELO trigger**, webhook
 
-```powershell
-node tooling/reset_firebase_trial_data.cjs
-node tooling/reset_firebase_trial_data.cjs --execute-cli
-node tooling/reset_firebase_trial_data.cjs --execute-cli --delete-auth-users
+### 4. Secrets Functions
+
+```bash
+firebase functions:secrets:set XENDIT_SECRET_KEY      # xnd_development_... (sandbox) / xnd_production_...
+firebase functions:secrets:set XENDIT_WEBHOOK_TOKEN   # string acak, dipakai juga di dashboard Xendit
 ```
 
-Use `--execute-cli` for production cleanup because Firebase CLI performs
-recursive deletes through subcollections. Use `--execute` only when rules still
-allow the REST client to read the entire tree.
+### 5. Seed data komponen (katalog part)
 
-Add `--delete-auth-users` if non-demo Firebase Auth users also need to be
-cleaned. This mode preserves the four main demo emails and requires a Firebase
-CLI account with `firebaseauth.users.delete` permission.
-
-Deploy:
-
-```powershell
-npx firebase deploy --only firestore:rules --project tournamentmanagement-942ef
-npx firebase deploy --only functions --project tournamentmanagement-942ef
-npx firebase deploy --only hosting --project tournamentmanagement-942ef
+```bash
+FIREBASE_PROJECT_ID=xxx FIREBASE_WEB_API_KEY=xxx node tooling/seed_firebase.cjs
 ```
 
-## Xendit Sandbox
+Detail selangkah demi selangkah: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** ·
+Pembayaran: **[docs/PAYMENT.md](docs/PAYMENT.md)** ·
+Model keamanan: **[docs/SECURITY.md](docs/SECURITY.md)**
 
-Payments use Xendit Payment Session in `PAYMENT_LINK` mode. The secret key must
-stay server-side in Firebase Functions; do not commit it to the repository.
+---
 
-Set the Firebase secret before deploying functions:
+## Pengembangan Lokal
 
-```powershell
-# If this project has never used Firebase secrets, enable Secret Manager API
-# first from Google Cloud Console:
-# https://console.developers.google.com/apis/api/secretmanager.googleapis.com/overview?project=tournamentmanagement-942ef
-
-firebase functions:secrets:set XENDIT_SECRET_KEY --project tournamentmanagement-942ef
+```bash
+flutter analyze --no-fatal-infos   # harus 0 issue
+flutter test                       # unit test (route access, paths)
+npm run test:rules                 # 21 rules test (butuh Java untuk emulator Firestore)
+npm run build --prefix functions   # build TypeScript functions
+flutter build web                  # production bundle → build/web
 ```
 
-Optional webhook verification can be enabled by setting `XENDIT_WEBHOOK_TOKEN`
-in the functions runtime environment, then configuring the same token in the
-Xendit dashboard.
+Server statis lokal: `node tooling/local_server.mjs build/web` (port 5455).
 
-Register this webhook URL in the Xendit dashboard for Payment Session events:
+### Data demo / reset
 
-```text
-https://asia-southeast1-tournamentmanagement-942ef.cloudfunctions.net/xenditPaymentSessionWebhook
+```bash
+export FIREBASE_PROJECT_ID=xxx FIREBASE_WEB_API_KEY=xxx
+export HIDEOUT_SUPER_EMAIL=... HIDEOUT_DEMO_PASSWORD=...
+node tooling/reset_firebase_trial_data.cjs --execute   # reset data, nolkan ELO, pertahankan 4 akun demo
 ```
 
-Local sandbox smoke test:
+Checklist uji manual semua halaman & alur: **[docs/testing_checklist.md](docs/testing_checklist.md)**
 
-```powershell
-$env:XENDIT_SECRET_KEY="..."
-npm run smoke:xendit
+---
+
+## Struktur Proyek
+
+```
+lib/
+  core/            theme, tokens, widgets, route access (RBAC)
+  data/            models + repositories (Firestore/Functions)
+  features/        layar per fitur (auth, dashboard, decks, tournaments,
+                   judge, staff, community, super_admin, public, ...)
+functions/         Cloud Functions (TypeScript) — pembayaran, role, ELO
+firebase_patch/    firestore.rules + storage.rules (sumber deploy)
+tooling/           seed, reset, smoke test (Node)
+docs/              panduan setup, pembayaran, keamanan, checklist
 ```
 
-The smoke test creates a hosted checkout without `allowed_payment_channels`, so
-Xendit shows every sandbox channel enabled for the account. Use
-`XENDIT_PAYMENT_SESSION_ID` to re-check an existing session instead of creating
-a new one.
+## Kontribusi & Lisensi
 
-Seed the beta registration tournament:
-
-```powershell
-$env:HIDEOUT_DEMO_PASSWORD="..."
-npm run seed:beta-tournament
-```
+PR welcome. Untuk pertanyaan setup, baca `docs/` atau buka issue.

@@ -2,6 +2,12 @@ import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
+/// Firebase configuration is injected at build time via `--dart-define`
+/// (see README "Connect your own Firebase project").
+///
+/// Example:
+///   flutter run --dart-define=FIREBASE_API_KEY=... --dart-define=FIREBASE_PROJECT_ID=...
+/// or use `flutterfire configure` to generate this file yourself.
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
@@ -15,7 +21,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.linux:
         throw UnsupportedError(
           'FirebaseOptions for this platform are not configured yet. '
-          'Run FlutterFire configure before building native apps.',
+          'Run `flutterfire configure` before building native apps.',
         );
       default:
         throw UnsupportedError('Unsupported platform.');
@@ -23,12 +29,18 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDsYg8Cc1WK3b5JY4wWGYEwDqe4EJXwz7Q',
-    appId: '1:182996477617:web:cec45729a0b49a57de6490',
-    messagingSenderId: '182996477617',
-    projectId: 'tournamentmanagement-942ef',
-    authDomain: 'tournamentmanagement-942ef.firebaseapp.com',
-    storageBucket: 'tournamentmanagement-942ef.firebasestorage.app',
-    measurementId: 'G-S5PJLNBNMK',
+    apiKey: String.fromEnvironment('FIREBASE_API_KEY'),
+    appId: String.fromEnvironment('FIREBASE_APP_ID'),
+    messagingSenderId: String.fromEnvironment('FIREBASE_SENDER_ID'),
+    projectId: String.fromEnvironment('FIREBASE_PROJECT_ID'),
+    authDomain: String.fromEnvironment(
+      'FIREBASE_AUTH_DOMAIN',
+      defaultValue: '',
+    ),
+    storageBucket: String.fromEnvironment('FIREBASE_STORAGE_BUCKET'),
   );
+
+  /// True when the build was produced with Firebase config values.
+  static bool get isConfigured =>
+      const String.fromEnvironment('FIREBASE_PROJECT_ID').isNotEmpty;
 }

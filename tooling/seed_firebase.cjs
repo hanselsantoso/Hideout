@@ -9,7 +9,7 @@ const {
   getFirestore,
 } = require('firebase-admin/firestore');
 
-const projectId = process.env.FIREBASE_PROJECT_ID || 'tournamentmanagement-942ef';
+const projectId = process.env.FIREBASE_PROJECT_ID;
 const demoPassword = process.env.HIDEOUT_DEMO_PASSWORD;
 
 if (!demoPassword || demoPassword.length < 12) {

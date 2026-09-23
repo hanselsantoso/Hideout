@@ -6,6 +6,10 @@ import '../../data/models/app_user.dart';
 import '../../data/repositories/auth_repository.dart';
 import 'signup_screen.dart';
 
+// Demo accounts make local evaluation fast. They only appear when the build
+// enables them: --dart-define=SHOW_DEMO_LOGIN=true (see README).
+const showDemoLogin =
+    bool.fromEnvironment('SHOW_DEMO_LOGIN', defaultValue: false);
 const _demoPassword = 'HideoutDemo123!';
 const _demoAccounts = <_DemoAccount>[
   _DemoAccount(
@@ -112,10 +116,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   ),
                 ),
                 const SizedBox(height: HDTSpace.lg),
-                _DemoLoginPanel(
-                  busy: _busy,
-                  onSelect: _loginDemo,
-                ),
+                if (showDemoLogin)
+                  _DemoLoginPanel(
+                    busy: _busy,
+                    onSelect: _loginDemo,
+                  ),
               ],
             ),
           ),
